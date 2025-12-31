@@ -190,13 +190,6 @@ class SystemMenu:
             else:
                 stdscr.addstr(y, 2, f"  {tool.name}")
 
-        # Description of selected item at bottom
-        if self.tools:
-            selected = self.tools[self.selected_index]
-            desc_y = height - 2
-            desc = selected.description[:width-4]
-            stdscr.addstr(desc_y, 2, f"Desc: {desc}", curses.A_DIM)
-
         # Instructions
         instructions = "↑↓ navigate, Enter select, 'b' back, 'q' quit"
         stdscr.addstr(height - 1, (width - len(instructions)) // 2, instructions, curses.A_DIM)

@@ -108,17 +108,6 @@ class RadioToolsLoader:
             else:
                 stdscr.addstr(y, 2, f"  {module.name}")
 
-            # Description inline
-            desc = module.description[:width-6-len(module.name)]
-            stdscr.addstr(y, 4 + len(module.name), f" - {desc}", curses.A_DIM)
-
-        # Description of selected item at bottom
-        if self.modules:
-            selected = self.modules[self.selected_index]
-            desc_y = height - 2
-            desc = selected.description[:width-4]
-            stdscr.addstr(desc_y, 2, f"Desc: {desc}", curses.A_DIM)
-
         # Instructions
         instructions = "↑↓ navigate, Enter select, 'q' quit"
         stdscr.addstr(height - 1, (width - len(instructions)) // 2, instructions, curses.A_DIM)
