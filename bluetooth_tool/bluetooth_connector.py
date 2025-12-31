@@ -27,17 +27,84 @@ class BluetoothConnector:
         self.status_message = ""
 
     def scan_devices(self) -> List[BluetoothDevice]:
-        """Scan for available Bluetooth devices using hcitool."""
+        """Scan for available Bluetooth devices using bluetoothctl."""
         try:
-            # First check if Bluetooth is available using hciconfig
-            hciconfig_result = subprocess.run(
-                ["hciconfig"],
+            # First check if Bluetooth is powered and available
+            show_result = subprocess.run(
+                ["bluetoothctl", "show"],
                 capture_output=True, text=True, timeout=5
             )
 
-            if hciconfig_result.returncode != 0:
-                self.status_message = "Bluetooth adapter not found"
+            if show_result.returncode != 0:
+                self.status_message = "Bluetooth controller not available"
                 return []
+
+            if "Powered: no" in show_result.stdout:
+                self.status_message = "Bluetooth is powered off. Enable with: bluetoothctl power on"
+                return []
+            elif "Powered: yes" not in show_result.stdout:
+                self.status_message = "Bluetooth status unknown. Try: sudo systemctl start bluetooth"
+                return []
+
+            # Start scan
+            scan_on = subprocess.run(["bluetoothctl", "scan", "on"], timeout=2, capture_output=True)
+            if scan_on.returncode != 0:
+                self.status_message = "Failed to start scan"
+                return []
+
+            self.status_message = "Scanning... Put devices in pairing mode"
+            time.sleep(12)  # Scan for 12 seconds
+
+            # Stop scan
+            subprocess.run(["bluetoothctl", "scan", "off"], timeout=2, capture_output=True)
+
+            # Get devices
+            result = subprocess.run(
+                ["bluetoothctl", "devices"],
+                capture_output=True, text=True, timeout=5
+            )
+
+            if result.returncode != 0:
+                self.status_message = f"Failed to get devices: {result.stderr.strip()}"
+                return []
+
+            devices = []
+
+            for line in result.stdout.strip().split('\n'):
+                if not line.strip():
+                    continue
+
+                # Parse: Device XX:XX:XX:XX:XX:XX Name
+                match = re.match(r'Device\s+([0-9A-F:]{17})\s+(.*)', line)
+                if match:
+                    mac = match.group(1)
+                    name = match.group(2).strip()
+
+                    # Check if paired
+                    paired_result = subprocess.run(
+                        ["bluetoothctl", "info", mac],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    paired = "Paired: yes" in paired_result.stdout
+
+                    devices.append(BluetoothDevice(mac, name, paired=paired))
+
+            if not devices:
+                self.status_message = "No devices found. Make sure devices are discoverable."
+            else:
+                self.status_message = f"Found {len(devices)} device(s)"
+
+            return devices
+
+        except subprocess.TimeoutExpired:
+            self.status_message = "Scan timeout - try again"
+            return []
+        except FileNotFoundError:
+            self.status_message = "bluetoothctl not found. Install with: sudo apt install bluez"
+            return []
+        except Exception as e:
+            self.status_message = f"Scan error: {e}"
+            return []
 
             if "UP" not in hciconfig_result.stdout:
                 self.status_message = "Bluetooth adapter is down. Run: sudo hciconfig hci0 up"
