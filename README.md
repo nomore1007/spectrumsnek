@@ -32,6 +32,7 @@ Whether you're a ham radio enthusiast, aviation spotter, or just curious about t
 - **✈️ ADS-B Aircraft Tracker**: Real-time aircraft surveillance and tracking - spot planes before you see them
 - **📻 Traditional Radio Scanner**: Scan user-defined frequency lists with squelch support - classic radio monitoring
 - **📝 Frequency Bank Editor**: Command-line tool for managing XML frequency databases - organize your radio favorites
+- **🔧 System Tools**: WiFi connectivity, Bluetooth pairing, audio device management, and GitHub updates
 
 ### Technical Capabilities
 - **Real-time Spectrum Analysis**: Terminal-based frequency spectrum visualization
@@ -42,12 +43,17 @@ Whether you're a ham radio enthusiast, aviation spotter, or just curious about t
 - **CTCSS/DCS Squelch**: Tone-based squelch detection for FM channels
 - **DMR Support**: Digital Mobile Radio frequency handling
 - **Web Interfaces**: Optional web-based control interfaces for all tools
+- **WiFi Network Management**: Scan and connect to wireless networks
+- **Bluetooth Device Pairing**: Connect to Bluetooth audio devices and peripherals
+- **Audio Output Control**: Select and test multiple audio devices including Bluetooth
+- **GitHub Update Integration**: Pull latest updates directly from the menu
 
 ### System Features
 - **Modular Architecture**: Extensible plugin system for easy tool addition
 - **Terminal-Only Operation**: No GUI or desktop environment required
-- **Boot-time Startup**: Optional systemd service for automatic startup
+- **Boot-time Startup**: Optional systemd service for automatic startup or console autostart
 - **Virtual Environment**: Isolated Python environment for clean dependencies
+- **Raspberry Pi Optimized**: Special support for headless Pi operation with console autostart
 - **Flexible Configuration**: Adjustable sample rates, gains, and frequencies
 - **Cross-Platform**: Linux-focused with proper OS detection
 
@@ -66,7 +72,10 @@ Whether you're a ham radio enthusiast, aviation spotter, or just curious about t
 
 ### Quick Setup
 ```bash
-# Full installation with boot startup
+# Full installation with console autostart (Raspberry Pi handheld)
+./setup.sh --console
+
+# Background boot startup
 ./setup.sh --boot
 
 # Basic installation without system dependencies
@@ -87,7 +96,10 @@ Whether you're a ham radio enthusiast, aviation spotter, or just curious about t
 
 ### Boot-Time Startup
 ```bash
-# Enable automatic startup on boot
+# Console autostart (tty1, perfect for handheld devices)
+./setup.sh --console
+
+# Background boot startup
 ./setup.sh --boot
 
 # Check service status
@@ -113,6 +125,11 @@ sudo systemctl disable radio-tools-loader
 
 1. **After installation, launch the main menu:**
    ```bash
+   # Easy launcher (activates venv automatically)
+   ./run.sh
+
+   # Or manually:
+   source venv/bin/activate
    python main.py
    ```
 
@@ -394,7 +411,25 @@ Banks are stored as XML files in `radio_scanner/banks/`:
 </frequency_bank>
 ```
 
-### 4. 🏠 Main Loader (`main.py`)
+### 4. 🔧 System Tools (`system_tools/`)
+Essential utilities for device management and connectivity.
+
+**Features:**
+- **WiFi Network Selector**: Scan and connect to wireless networks
+- **Bluetooth Device Connector**: Pair and connect to Bluetooth devices
+- **Audio Output Selector**: Choose and test audio devices including Bluetooth
+- **GitHub Update Tool**: Pull latest updates directly from the menu
+
+**Usage:**
+```bash
+# Access through main menu
+./run.sh  # Select "System Tools"
+
+# Or run directly
+python -m system_tools.system_menu
+```
+
+### 5. 🏠 Main Loader (`main.py`)
 The heart of SpectrumSnek - your command center for all radio adventures!
 
 **Features:**
@@ -402,11 +437,19 @@ The heart of SpectrumSnek - your command center for all radio adventures!
 - Tool selection and launching - pick your poison
 - Global web interface toggle - web or terminal, your choice
 - Status monitoring - keep an eye on your snake
+- Raspberry Pi console autostart support
 
 **Usage:**
 ```bash
-# Launch the main menu - where the magic begins
+# Easy launcher (recommended)
+./run.sh
+
+# Manual activation
+source venv/bin/activate
 python main.py
+
+# Console autostart (for handheld devices)
+sudo ./setup.sh --console
 ```
    This will create the virtual environment, install dependencies, and check for RTL-SDR drivers.
 
@@ -536,8 +579,9 @@ The interface is designed for **limited input devices** with arrow keys, select 
 This project uses a modular design with the following structure:
 
 ```
-radio-scanner/
+SpectrumSnek/
 ├── main.py              # Main loader with menu system
+├── run.sh               # Easy launcher script (activates venv)
 ├── rtl_scanner.py       # Direct RTL-SDR scanner launcher
 ├── rtl_scanner/         # RTL-SDR scanner module
 │   ├── __init__.py      # Module info and entry point
@@ -546,8 +590,23 @@ radio-scanner/
 ├── adsb_tool/           # ADS-B aircraft tracker module
 │   ├── __init__.py      # Module info and entry point
 │   └── adsb_tracker.py  # ADS-B tracking implementation
+├── radio_scanner/       # Traditional radio scanner module
+│   ├── __init__.py      # Module info and entry point
+│   ├── scanner.py       # Core scanner implementation
+│   ├── freq_editor.py   # Frequency bank editor
+│   └── banks/           # XML frequency banks
+├── system_tools/        # System utilities module
+│   ├── __init__.py      # Module info and entry point
+│   ├── system_menu.py   # System tools submenu
+│   ├── wifi_selector.py # WiFi network selector
+│   ├── bluetooth_connector.py # Bluetooth device connector
+│   └── audio_output_selector.py # Audio device selector
+├── wifi_tool/           # WiFi selector module
+├── bluetooth_tool/      # Bluetooth connector module
 ├── demo_scanner.py      # Demo spectrum analyzer
-├── run_scanner.sh       # Convenience launcher script
+├── run_scanner.sh       # Legacy launcher script
+├── setup.sh             # Installation and setup script
+├── uninstall.sh         # Uninstallation script
 └── requirements.txt     # Dependencies
 ```
 
@@ -555,6 +614,8 @@ radio-scanner/
 
 - **RTL-SDR Scanner**: Full-featured radio spectrum scanner with demodulation
 - **ADS-B Aircraft Tracker**: Real-time aircraft surveillance and tracking
+- **Traditional Radio Scanner**: Frequency bank scanning with squelch
+- **System Tools**: WiFi, Bluetooth, audio, and update utilities
 - **Spectrum Analyzer (Demo)**: Basic spectrum analysis demonstration
 - **Web Portal Toggle**: Enable/disable web interfaces globally
 
@@ -569,8 +630,13 @@ radio-scanner/
 
 **Main Menu (Interactive Selection):**
 ```bash
+# Easy launcher
+./run.sh
+# Shows menu to select RTL-SDR Scanner, ADS-B Tracker, Radio Scanner, System Tools, etc.
+
+# Manual
+source venv/bin/activate
 python main.py
-# Shows menu to select RTL-SDR Scanner or other tools
 ```
 
 **Direct RTL-SDR Scanner:**
@@ -728,6 +794,44 @@ Common frequency bands you can monitor:
 - **Police/Fire**: Varies by location (typically 150-170 MHz, 450-470 MHz)
 - **Weather Radio**: 162.40-162.55 MHz
 - **Satellite**: 137-138 MHz (NOAA weather satellites)
+
+## Raspberry Pi Handheld Device Setup
+
+SpectrumSnek is optimized for Raspberry Pi-based handheld radio devices:
+
+### Console Autostart
+For dedicated handheld devices where the menu should appear automatically on boot:
+
+```bash
+# Install with console autostart
+sudo ./setup.sh --console
+
+# This creates a systemd service that runs the menu directly on tty1
+# Perfect for devices without monitors/keyboards
+```
+
+### Easy Launcher
+Use the provided launcher script for convenience:
+
+```bash
+# Automatically activates virtual environment
+./run.sh
+
+# No need to manually source venv/bin/activate
+```
+
+### System Tools for Connectivity
+Access WiFi, Bluetooth, and audio management through the System Tools menu:
+- Connect to WiFi networks
+- Pair Bluetooth audio devices
+- Select audio output devices
+- Update from GitHub
+
+### Power Management
+For battery-powered devices, consider:
+- Disable unused services
+- Use appropriate gain settings to minimize power
+- Configure auto-sleep when inactive
 
 ## Legal Notice
 
