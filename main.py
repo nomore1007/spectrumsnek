@@ -189,9 +189,10 @@ class RadioToolsLoader:
         except KeyboardInterrupt:
             print("\nRadio Tools Loader stopped by user")
         except Exception as e:
-            print(f"Error in menu system: {e}")
-            print("This may be due to terminal compatibility issues.")
-            print("Try: export TERM=linux")
+            if "endwin() returned ERR" not in str(e):
+                print(f"Error in menu system: {e}")
+                print("This may be due to terminal compatibility issues.")
+                print("Try: export TERM=linux")
 
 def check_dependencies():
     """Check if basic dependencies are available."""
