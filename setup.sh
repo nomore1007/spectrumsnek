@@ -22,6 +22,7 @@ VENV_DIR="$SCRIPT_DIR/venv"
 DEV_MODE=false
 BOOT_SERVICE_NAME="radio-tools-loader"
 BOOT_ENABLED=false
+CONSOLE_ENABLED=false
 
 # Function to print colored output
 print_status() {
@@ -166,15 +167,44 @@ EOF
 
 # Function to create systemd service for boot startup
 create_boot_service() {
-    if [ "$BOOT_ENABLED" = true ]; then
-        print_info "Setting up boot-time startup..."
+    if [ "$BOOT_ENABLED" = true ] || [ "$CONSOLE_ENABLED" = true ]; then
+        if [ "$CONSOLE_ENABLED" = true ]; then
+            print_info "Setting up console autostart..."
+            SERVICE_TYPE="console"
+        else
+            print_info "Setting up boot-time startup..."
+            SERVICE_TYPE="background"
+        fi
 
         SUDO_CMD=$(get_sudo)
 
         # Create systemd service file
         SERVICE_FILE="/etc/systemd/system/$BOOT_SERVICE_NAME.service"
 
-        cat > /tmp/$BOOT_SERVICE_NAME.service << EOF
+        if [ "$CONSOLE_ENABLED" = true ]; then
+            # Console service - runs on tty1
+            cat > /tmp/$BOOT_SERVICE_NAME.service << EOF
+[Unit]
+Description=SpectrumSnek Radio Tools Loader 🐍📻
+After=network.target getty@tty1.service
+
+[Service]
+Type=idle
+User=$USER
+WorkingDirectory=$SCRIPT_DIR
+ExecStart=$SCRIPT_DIR/venv/bin/python $SCRIPT_DIR/main.py
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        else
+            # Background service
+            cat > /tmp/$BOOT_SERVICE_NAME.service << EOF
 [Unit]
 Description=SpectrumSnek Radio Tools Loader 🐍📻
 After=network.target
@@ -190,12 +220,19 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOF
+        fi
 
         if $SUDO_CMD mv /tmp/$BOOT_SERVICE_NAME.service $SERVICE_FILE; then
             $SUDO_CMD systemctl daemon-reload
             $SUDO_CMD systemctl enable $BOOT_SERVICE_NAME.service
-            print_status "Boot service created and enabled"
-            print_info "The Radio Tools Loader will start automatically on boot"
+            if [ "$CONSOLE_ENABLED" = true ]; then
+                print_status "Console autostart service created and enabled"
+                print_info "The Radio Tools Loader will start automatically on tty1"
+                print_warning "Note: This will replace the login prompt on tty1"
+            else
+                print_status "Boot service created and enabled"
+                print_info "The Radio Tools Loader will start automatically on boot"
+            fi
         else
             print_warning "Failed to create boot service"
         fi
@@ -232,6 +269,10 @@ while [[ $# -gt 0 ]]; do
             BOOT_ENABLED=true
             shift
             ;;
+        --console)
+            CONSOLE_ENABLED=true
+            shift
+            ;;
         --no-system-deps)
             SKIP_SYSTEM_DEPS=true
             shift
@@ -246,7 +287,8 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [options]"
             echo ""
             echo "Options:"
-            echo "  --boot            Enable boot-time startup of the loader"
+            echo "  --boot            Enable boot-time startup of the loader (background service)"
+            echo "  --console         Enable console autostart on tty1 (replaces login prompt)"
             echo "  --no-system-deps  Skip installation of system dependencies"
             echo "  --dev             Install development dependencies (pytest, flake8, etc.)"
             echo "  --help            Show this help message"
@@ -275,7 +317,10 @@ main() {
     print_header
 
     if [ "$BOOT_ENABLED" = true ]; then
-        print_info "Boot-time startup will be configured"
+        print_info "Boot-time startup will be configured (background service)"
+    fi
+    if [ "$CONSOLE_ENABLED" = true ]; then
+        print_info "Console autostart will be configured (tty1)"
     fi
 
     # Check Python
@@ -339,10 +384,15 @@ main() {
     echo "  • Spectrum Analyzer (Demo) - Basic spectrum demonstration"
     echo ""
 
-    if [ "$BOOT_ENABLED" = true ]; then
+    if [ "$BOOT_ENABLED" = true ] || [ "$CONSOLE_ENABLED" = true ]; then
         echo "Boot configuration:"
         echo "  • Service: $BOOT_SERVICE_NAME"
         echo "  • Status: $(systemctl is-enabled $BOOT_SERVICE_NAME 2>/dev/null || echo 'unknown')"
+        if [ "$CONSOLE_ENABLED" = true ]; then
+            echo "  • Mode: Console autostart (tty1)"
+        else
+            echo "  • Mode: Background service"
+        fi
         echo ""
     fi
 
