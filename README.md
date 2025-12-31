@@ -72,14 +72,17 @@ Whether you're a ham radio enthusiast, aviation spotter, or just curious about t
 
 ### Quick Setup
 ```bash
-# Full installation with console autostart (Raspberry Pi handheld)
+# Interactive console mode (HDMI menu + SSH)
 ./setup.sh --console
 
-# Background boot startup
-./setup.sh --boot
+# Headless service mode (web/API access only)
+./setup.sh --headless
 
-# Basic installation without system dependencies
-./setup.sh --no-system-deps
+# Full installation (console + headless)
+./setup.sh --full
+
+# Automated setup (no prompts)
+./setup.sh
 
 # Show help
 ./setup.sh --help
@@ -87,27 +90,51 @@ Whether you're a ham radio enthusiast, aviation spotter, or just curious about t
 
 ### What the Setup Script Does
 - ✅ Creates Python virtual environment
-- ✅ Installs system dependencies (RTL-SDR drivers, etc.)
-- ✅ Installs Python dependencies (Flask, numpy, scipy, etc.)
-- ✅ Sets up RTL-SDR device permissions
-- ✅ Creates desktop shortcuts
-- ✅ Optionally configures boot-time startup
+- ✅ Installs system dependencies (RTL-SDR, Bluetooth, Audio, etc.)
+- ✅ Installs Python dependencies
+- ✅ Sets up device permissions (RTL-SDR, Bluetooth)
+- ✅ Configures architecture (console/headless/full)
+- ✅ Sets up systemd services for selected architecture
+- ✅ Enables boot-time startup for chosen mode
 - ✅ Creates uninstaller script
 
-### Boot-Time Startup
+### Architecture Setup
 ```bash
-# Console autostart (tty1, perfect for handheld devices)
+# Interactive console mode
 ./setup.sh --console
 
-# Background boot startup
-./setup.sh --boot
+# Headless service mode
+./setup.sh --headless
+
+# Both console and headless
+./setup.sh --full
 
 # Check service status
-sudo systemctl status radio-tools-loader
+sudo systemctl status spectrum-service  # for headless/full
+sudo systemctl status spectrum-console  # for console/full
 
-# Disable boot startup
-sudo systemctl disable radio-tools-loader
+# Disable services
+sudo systemctl disable spectrum-service spectrum-console
 ```
+
+### Architecture Options
+
+#### Console Mode (`--console`)
+- Interactive menu on HDMI/console
+- Autologin on tty1 with tmux session persistence
+- SSH access attaches to shared tmux session
+- Perfect for handheld devices with screens
+
+#### Headless Mode (`--headless`)
+- Background service with REST API
+- Web interfaces for all tools
+- No console UI, remote access only
+- Ideal for servers or headless Pis
+
+#### Full Mode (`--full`)
+- Both console and headless features
+- Complete local and remote access
+- Maximum flexibility for different use cases
 
 ### Uninstallation
 ```bash
@@ -116,9 +143,10 @@ sudo systemctl disable radio-tools-loader
 
 # This will:
 # - Remove virtual environment
-# - Disable boot service
+# - Disable all services
 # - Remove udev rules
 # - Remove desktop shortcuts
+# - Clean up configuration files
 ```
 
 ## Quick Start
@@ -795,43 +823,72 @@ Common frequency bands you can monitor:
 - **Weather Radio**: 162.40-162.55 MHz
 - **Satellite**: 137-138 MHz (NOAA weather satellites)
 
-## Raspberry Pi Handheld Device Setup
+## Raspberry Pi Setup
 
-SpectrumSnek is optimized for Raspberry Pi-based handheld radio devices:
+SpectrumSnek supports different Raspberry Pi configurations:
 
-### Console Autostart
-For dedicated handheld devices where the menu should appear automatically on boot:
+### Handheld Device (Console Mode)
+For touchscreen or HDMI-connected devices:
 
 ```bash
-# Install with console autostart
+# Install console mode
 sudo ./setup.sh --console
 
-# This creates a systemd service that runs the menu directly on tty1
-# Perfect for devices without monitors/keyboards
+# Features:
+# - Automatic menu on HDMI boot
+# - Touchscreen or keyboard control
+# - SSH access to shared session
+# - Perfect for portable radios
+```
+
+### Headless Server (Headless Mode)
+For remote access without display:
+
+```bash
+# Install headless mode
+sudo ./setup.sh --headless
+
+# Features:
+# - Web interface access
+# - REST API for automation
+# - SSH tool control
+# - Background operation
+```
+
+### Development/Multi-User (Full Mode)
+For complete access options:
+
+```bash
+# Install full mode
+sudo ./setup.sh --full
+
+# Features:
+# - All console and headless features
+# - Maximum flexibility
+# - Multiple access methods
 ```
 
 ### Easy Launcher
-Use the provided launcher script for convenience:
-
 ```bash
 # Automatically activates virtual environment
 ./run.sh
 
-# No need to manually source venv/bin/activate
+# Works in all architectures
 ```
 
-### System Tools for Connectivity
-Access WiFi, Bluetooth, and audio management through the System Tools menu:
-- Connect to WiFi networks
-- Pair Bluetooth audio devices
-- Select audio output devices
-- Update from GitHub
+### System Tools
+Available in all modes:
+- WiFi network management
+- Bluetooth device pairing
+- Audio output selection
+- GitHub updates
 
 ### Power Management
-For battery-powered devices, consider:
-- Disable unused services
-- Use appropriate gain settings to minimize power
-- Configure auto-sleep when inactive
+For battery-powered setups:
+- Use appropriate gain settings
+- Configure service idle timeouts
+- Disable unused peripherals
+- Monitor power consumption
 
 ## Legal Notice
 

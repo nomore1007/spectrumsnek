@@ -20,9 +20,10 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
 DEV_MODE=false
-BOOT_SERVICE_NAME="radio-tools-loader"
-BOOT_ENABLED=false
-CONSOLE_ENABLED=false
+SERVICE_NAME="spectrum-service"
+CONSOLE_SERVICE_NAME="spectrum-console"
+ARCHITECTURE="console"  # console, headless, full
+AUTOMATED=true
 
 # Function to print colored output
 print_status() {
@@ -183,8 +184,29 @@ EOF
     fi
 }
 
+# Function to setup architecture-specific services
+setup_architecture() {
+    SUDO_CMD=$(get_sudo)
+
+    case $ARCHITECTURE in
+        console)
+            print_info "Configuring Console Architecture..."
+            setup_console_service
+            ;;
+        headless)
+            print_info "Configuring Headless Architecture..."
+            setup_headless_service
+            ;;
+        full)
+            print_info "Configuring Full Architecture..."
+            setup_console_service
+            setup_headless_service
+            ;;
+    esac
+}
+
 # Function to setup console autologin and tmux
-setup_console() {
+setup_console_service() {
     print_info "Setting up console autologin and tmux session..."
 
     SUDO_CMD=$(get_sudo)
@@ -228,62 +250,48 @@ EOF
     $SUDO_CMD systemctl restart getty@tty1
 
     print_status "Console autologin and tmux configured"
-    print_info "Reboot required for changes to take effect"
+    print_info "Console will start SpectrumSnek on boot"
 }
 
-# Function to create systemd service for boot startup
-create_boot_service() {
-    if [ "$BOOT_ENABLED" = true ] || [ "$CONSOLE_ENABLED" = true ]; then
-        if [ "$CONSOLE_ENABLED" = true ]; then
-            print_info "Setting up console autostart..."
-            setup_console
-            SERVICE_TYPE="console"
-        else
-            print_info "Setting up boot-time startup..."
-            SERVICE_TYPE="background"
-        fi
+# Function to setup headless service
+setup_headless_service() {
+    print_info "Setting up headless service..."
 
-        SUDO_CMD=$(get_sudo)
+    SUDO_CMD=$(get_sudo)
 
-        # Create systemd service file
-        SERVICE_FILE="/etc/systemd/system/$BOOT_SERVICE_NAME.service"
+    # Create systemd service for spectrum service
+    SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
 
-        if [ "$CONSOLE_ENABLED" = true ]; then
-            # For console mode, we use autologin + tmux instead of direct service
-            print_info "Console mode uses autologin and tmux for session management"
-            return
-        else
-            # Background service
-            cat > /tmp/$BOOT_SERVICE_NAME.service << EOF
+    cat > /tmp/$SERVICE_NAME.service << EOF
 [Unit]
-Description=SpectrumSnek Radio Tools Loader 🐍📻
-After=network.target
+Description=SpectrumSnek Service 🐍📻
+After=network.target bluetooth.service
 
 [Service]
 Type=simple
 User=$USER
 WorkingDirectory=$SCRIPT_DIR
-        ExecStart=$SCRIPT_DIR/venv/bin/python $SCRIPT_DIR/main.py --service
+ExecStart=$SCRIPT_DIR/venv/bin/python $SCRIPT_DIR/main.py --service
 Restart=always
 RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 EOF
-        fi
 
-        if [ "$CONSOLE_ENABLED" = false ]; then
-            if $SUDO_CMD mv /tmp/$BOOT_SERVICE_NAME.service $SERVICE_FILE; then
-                $SUDO_CMD systemctl daemon-reload
-                $SUDO_CMD systemctl enable $BOOT_SERVICE_NAME.service
-                print_status "Boot service created and enabled"
-                print_info "The Radio Tools Loader will start automatically on boot"
-            else
-                print_warning "Failed to create boot service"
-            fi
-        fi
+    if $SUDO_CMD mv /tmp/$SERVICE_NAME.service $SERVICE_FILE; then
+        $SUDO_CMD systemctl daemon-reload
+        $SUDO_CMD systemctl enable $SERVICE_NAME.service
+        $SUDO_CMD systemctl start $SERVICE_NAME.service
+        print_status "Headless service configured and started"
+        print_info "Service running on http://localhost:5000"
+        print_info "Web interfaces available for tools"
+    else
+        print_warning "Failed to create headless service"
     fi
 }
+
+
 
 # Function to create desktop shortcut (optional)
 create_desktop_shortcut() {
@@ -311,12 +319,16 @@ EOF
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --boot)
-            BOOT_ENABLED=true
+        --console)
+            ARCHITECTURE="console"
             shift
             ;;
-        --console)
-            CONSOLE_ENABLED=true
+        --headless)
+            ARCHITECTURE="headless"
+            shift
+            ;;
+        --full)
+            ARCHITECTURE="full"
             shift
             ;;
         --no-system-deps)
@@ -327,25 +339,40 @@ while [[ $# -gt 0 ]]; do
             DEV_MODE=true
             shift
             ;;
+        --interactive)
+            AUTOMATED=false
+            shift
+            ;;
         --help)
+            print_header
             echo "SpectrumSnek Setup Script 🐍📻"
             echo ""
-            echo "Usage: $0 [options]"
+            echo "Usage: $0 [architecture] [options]"
+            echo ""
+            echo "Architectures:"
+            echo "  --console         Interactive console mode (default)"
+            echo "  --headless        Headless service mode (web/API access)"
+            echo "  --full            Both console and headless modes"
             echo ""
             echo "Options:"
-            echo "  --boot            Enable boot-time startup of the loader (background service)"
-            echo "  --console         Enable console autostart on tty1 (replaces login prompt)"
             echo "  --no-system-deps  Skip installation of system dependencies"
-            echo "  --dev             Install development dependencies (pytest, flake8, etc.)"
+            echo "  --dev             Install development dependencies"
+            echo "  --interactive     Prompt for configuration choices"
             echo "  --help            Show this help message"
             echo ""
-            echo "This script will:"
-            echo "  - Create a Python virtual environment"
-            echo "  - Install system dependencies (RTL-SDR, etc.)"
-            echo "  - Install Python dependencies"
-            echo "  - Set up RTL-SDR device permissions"
-            echo "  - Create desktop shortcuts"
-            echo "  - Optionally configure boot-time startup"
+            echo "Console Mode:"
+            echo "  - Interactive menu on HDMI/console"
+            echo "  - Autologin and tmux for session persistence"
+            echo "  - SSH access to shared tmux session"
+            echo ""
+            echo "Headless Mode:"
+            echo "  - Background service with REST API"
+            echo "  - Web interface access"
+            echo "  - No console UI, remote control only"
+            echo ""
+            echo "Full Mode:"
+            echo "  - Both console and headless features"
+            echo "  - Complete SpectrumSnek experience"
             echo ""
             echo "Uninstallation: ./uninstall.sh"
             exit 0
@@ -362,12 +389,17 @@ done
 main() {
     print_header
 
-    if [ "$BOOT_ENABLED" = true ]; then
-        print_info "Boot-time startup will be configured (background service)"
-    fi
-    if [ "$CONSOLE_ENABLED" = true ]; then
-        print_info "Console autostart will be configured (tty1)"
-    fi
+    case $ARCHITECTURE in
+        console)
+            print_info "Setting up Console Architecture (Interactive HDMI/SSH)"
+            ;;
+        headless)
+            print_info "Setting up Headless Architecture (Service + Web)"
+            ;;
+        full)
+            print_info "Setting up Full Architecture (Console + Headless)"
+            ;;
+    esac
 
     # Check Python
     if ! command -v python3 &> /dev/null; then
@@ -421,11 +453,13 @@ main() {
         print_warning "Failed to enable Bluetooth service"
     fi
 
-    # Create boot service if requested
-    create_boot_service
+    # Setup architecture-specific configuration
+    setup_architecture
 
-    # Create desktop shortcut
-    create_desktop_shortcut
+    # Create desktop shortcut (for console/headless with desktop)
+    if [ "$ARCHITECTURE" != "headless" ]; then
+        create_desktop_shortcut
+    fi
 
     # Deactivate virtual environment
     deactivate
@@ -434,21 +468,56 @@ main() {
     echo ""
     print_status "SpectrumSnek setup completed! 🐍📻"
     echo ""
-    echo "Available tools:"
-    echo "  • RTL-SDR Scanner - Full radio spectrum analysis"
-    echo "  • ADS-B Aircraft Tracker - Real-time aircraft surveillance"
-    echo "  • Spectrum Analyzer (Demo) - Basic spectrum demonstration"
+    echo "Architecture: $ARCHITECTURE"
     echo ""
 
-    if [ "$BOOT_ENABLED" = true ] || [ "$CONSOLE_ENABLED" = true ]; then
-        echo "Boot configuration:"
-        echo "  • Service: $BOOT_SERVICE_NAME"
-        echo "  • Status: $(systemctl is-enabled $BOOT_SERVICE_NAME 2>/dev/null || echo 'unknown')"
-        if [ "$CONSOLE_ENABLED" = true ]; then
-            echo "  • Mode: Console autostart (tty1)"
-        else
-            echo "  • Mode: Background service"
-        fi
+    case $ARCHITECTURE in
+        console)
+            echo "Console Mode Setup:"
+            echo "  • Autologin configured on tty1"
+            echo "  • tmux session for HDMI/SSH access"
+            echo "  • Reboot to activate console menu"
+            echo ""
+            echo "SSH Access:"
+            echo "  • ssh user@hostname (attaches to tmux session)"
+            ;;
+        headless)
+            echo "Headless Mode Setup:"
+            echo "  • Service running: $SERVICE_NAME"
+            echo "  • API available: http://localhost:5000"
+            echo "  • Web interfaces for all tools"
+            echo ""
+            echo "Remote Access:"
+            echo "  • Web UI: http://hostname:5000 (if port forwarded)"
+            echo "  • API: http://hostname:5000/api/"
+            ;;
+        full)
+            echo "Full Mode Setup:"
+            echo "  • Console autologin + tmux on tty1"
+            echo "  • Background service for web access"
+            echo "  • Complete local and remote access"
+            echo ""
+            echo "Access Methods:"
+            echo "  • HDMI: Automatic menu on boot"
+            echo "  • SSH: Shared tmux session"
+            echo "  • Web: http://localhost:5000"
+            ;;
+    esac
+
+    echo ""
+    echo "Available tools:"
+    echo "  • RTL-SDR Spectrum Analyzer"
+    echo "  • ADS-B Aircraft Tracker"
+    echo "  • Traditional Radio Scanner"
+    echo "  • WiFi Network Selector"
+    echo "  • Bluetooth Device Connector"
+    echo "  • Audio Output Selector"
+    echo ""
+
+    if [ "$EUID" -ne 0 ]; then
+        echo "Note: Some features may require sudo for hardware access"
+        echo "Run 'sudo ./setup.sh' if you encounter permission issues"
+    fi
         echo ""
     fi
 
