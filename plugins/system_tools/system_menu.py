@@ -178,8 +178,8 @@ class SystemMenu:
         # Tools
         start_y = 4
         for i, tool in enumerate(self.tools):
-            y = start_y + i * 2
-            if y + 1 >= height:
+            y = start_y + i
+            if y >= height:
                 break
 
             # Tool name with selection indicator

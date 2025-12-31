@@ -33,6 +33,7 @@ class RadioToolsLoader:
     def load_modules(self):
         """Load available modules from plugins directory."""
         plugins_dir = "plugins"
+        system_tools = None
 
         # Load plugins dynamically
         if os.path.exists(plugins_dir):
@@ -43,18 +44,32 @@ class RadioToolsLoader:
                         # Import the plugin module
                         plugin_module = __import__(f"{plugins_dir}.{item}", fromlist=[item])
                         info = plugin_module.get_module_info()
-                        self.modules.append(ModuleInfo(
-                            info["name"],
-                            info["description"],
-                            f"{plugins_dir}.{item}",
-                            plugin_module.run
-                        ))
+
+                        if item == "system_tools":
+                            # Save system_tools to add last
+                            system_tools = ModuleInfo(
+                                info["name"],
+                                info["description"],
+                                f"{plugins_dir}.{item}",
+                                plugin_module.run
+                            )
+                        else:
+                            self.modules.append(ModuleInfo(
+                                info["name"],
+                                info["description"],
+                                f"{plugins_dir}.{item}",
+                                plugin_module.run
+                            ))
                     except ImportError:
                         # Plugin not available, skip silently
                         pass
                     except Exception:
                         # Other errors, skip silently
                         pass
+
+        # Add system_tools last if found
+        if system_tools:
+            self.modules.append(system_tools)
 
         # Web portal toggle (special menu item)
         self.modules.append(ModuleInfo(
@@ -104,8 +119,8 @@ class RadioToolsLoader:
         # Simple layout for all connections
         start_y = 4
         for i, module in enumerate(self.modules):
-            y = start_y + i * 2
-            if y + 1 >= height:
+            y = start_y + i
+            if y >= height:
                 break
 
             # Module name with selection indicator
