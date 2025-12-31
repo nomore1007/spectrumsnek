@@ -256,53 +256,67 @@ ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
 EOF
     $SUDO_CMD mv /tmp/autologin.conf /etc/systemd/system/getty@tty1.service.d/autologin.conf
 
-    # Create robust start script with error handling
+    # Create robust start script with comprehensive logging
     cat > /tmp/start_spectrum.sh << EOF
 #!/bin/bash
-# SpectrumSnek startup script with error handling
+# SpectrumSnek startup script with comprehensive error logging
 
-echo "Starting SpectrumSnek..."
+LOG_FILE="\$HOME/spectrum_startup.log"
+echo "=== SpectrumSnek Startup Log - \$(date) ===" >> "\$LOG_FILE"
+echo "Starting SpectrumSnek..." | tee -a "\$LOG_FILE"
 cd $SCRIPT_DIR
+echo "Working directory: \$(pwd)" >> "\$LOG_FILE"
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
-    echo "ERROR: Virtual environment not found. Run ./setup.sh first."
+    echo "ERROR: Virtual environment not found. Run ./setup.sh first." | tee -a "\$LOG_FILE"
     exit 1
 fi
+echo "✓ Virtual environment found" >> "\$LOG_FILE"
 
 # Check if run_spectrum.sh exists
 if [ ! -x "run_spectrum.sh" ]; then
-    echo "ERROR: run_spectrum.sh not found or not executable."
+    echo "ERROR: run_spectrum.sh not found or not executable." | tee -a "\$LOG_FILE"
+    ls -la run_spectrum.sh >> "\$LOG_FILE" 2>&1
     exit 1
 fi
+echo "✓ run_spectrum.sh is executable" >> "\$LOG_FILE"
 
-# Start SpectrumSnek with error handling
-echo "Launching SpectrumSnek service..."
-if ./run_spectrum.sh --service 2>&1; then
-    echo "SpectrumSnek exited successfully"
+# Start SpectrumSnek with comprehensive error capture
+echo "Launching SpectrumSnek service..." | tee -a "\$LOG_FILE"
+echo "Command: ./run_spectrum.sh --service" >> "\$LOG_FILE"
+echo "Environment:" >> "\$LOG_FILE"
+env | grep -E "(PATH|PYTHON|USER|HOME)" >> "\$LOG_FILE"
+
+if ./run_spectrum.sh --service 2>&1 | tee -a "\$LOG_FILE"; then
+    echo "SpectrumSnek exited successfully" | tee -a "\$LOG_FILE"
 else
-    echo "ERROR: SpectrumSnek exited with error code $?"
-    echo "Common issues:"
-    echo "  - Missing dependencies: Run 'pip install -r requirements.txt'"
-    echo "  - RTL-SDR not connected: Check USB devices with 'lsusb'"
-    echo "  - Permission issues: Run 'sudo usermod -a -G plugdev $USER'"
-    echo ""
-    echo "To retry manually: ./run_spectrum.sh"
-    echo "To exit: Press Ctrl+C"
-    echo ""
-    echo "Session will remain active for 60 seconds for troubleshooting..."
-    sleep 60
+    EXIT_CODE=\$?
+    echo "ERROR: SpectrumSnek exited with error code \$EXIT_CODE" | tee -a "\$LOG_FILE"
+    echo "Common issues:" | tee -a "\$LOG_FILE"
+    echo "  - Missing dependencies: Run 'pip install -r requirements.txt'" | tee -a "\$LOG_FILE"
+    echo "  - RTL-SDR not connected: Check USB devices with 'lsusb'" | tee -a "\$LOG_FILE"
+    echo "  - Permission issues: Run 'sudo usermod -a -G plugdev \$USER'" | tee -a "\$LOG_FILE"
+    echo "" | tee -a "\$LOG_FILE"
+    echo "Check \$LOG_FILE for full error details" | tee -a "\$LOG_FILE"
+    echo "To retry manually: ./run_spectrum.sh" | tee -a "\$LOG_FILE"
 fi
+
+echo "=== End Log ===" >> "\$LOG_FILE"
+echo "Log saved to: \$LOG_FILE"
 EOF
     chmod +x /tmp/start_spectrum.sh
     mv /tmp/start_spectrum.sh $HOME/start_spectrum.sh
 
-    # Create SSH entry point script
+    # Create SSH entry point script with logging
     print_info "Creating SSH entry point for SpectrumSnek..."
 
     cat > "$HOME/spectrum_ssh.sh" << 'EOF'
 #!/bin/bash
-# SpectrumSnek SSH Entry Point - Stable SSH access
+# SpectrumSnek SSH Entry Point - Stable SSH access with logging
+
+LOG_FILE="$HOME/spectrum_ssh.log"
+echo "=== SpectrumSnek SSH Session - $(date) ===" >> "$LOG_FILE"
 
 echo "========================================"
 echo "  SpectrumSnek SSH Session"
@@ -310,29 +324,36 @@ echo "  $(date)"
 echo "========================================"
 echo ""
 echo "Starting SpectrumSnek... Press Ctrl+C to exit"
+echo "All output is logged to: $LOG_FILE"
 echo ""
 
 # Change to SpectrumSnek directory
 cd ~/spectrumsnek
+echo "Working directory: $(pwd)" >> "$LOG_FILE"
 
 # Run start script with error handling
-if ~/start_spectrum.sh; then
+if ~/start_spectrum.sh 2>&1 | tee -a "$LOG_FILE"; then
     echo ""
-    echo "SpectrumSnek session completed successfully."
+    echo "SpectrumSnek session completed successfully." | tee -a "$LOG_FILE"
 else
+    EXIT_CODE=$?
     echo ""
-    echo "SpectrumSnek session ended with errors."
-    echo "You can still use this shell for troubleshooting."
-    echo ""
-    echo "Common commands:"
-    echo "  ./run_spectrum.sh     - Retry SpectrumSnek"
-    echo "  pip list             - Check installed packages"
-    echo "  lsusb                - Check USB devices"
-    echo "  exit                 - Close SSH connection"
-    echo ""
+    echo "SpectrumSnek session ended with errors (code: $EXIT_CODE)." | tee -a "$LOG_FILE"
+    echo "Check the log file for details: $LOG_FILE" | tee -a "$LOG_FILE"
+    echo "You can still use this shell for troubleshooting." | tee -a "$LOG_FILE"
+    echo "" | tee -a "$LOG_FILE"
+    echo "Common commands:" | tee -a "$LOG_FILE"
+    echo "  ./run_spectrum.sh     - Retry SpectrumSnek" | tee -a "$LOG_FILE"
+    echo "  cat $LOG_FILE         - View full error log" | tee -a "$LOG_FILE"
+    echo "  pip list             - Check installed packages" | tee -a "$LOG_FILE"
+    echo "  lsusb                - Check USB devices" | tee -a "$LOG_FILE"
+    echo "  exit                 - Close SSH connection" | tee -a "$LOG_FILE"
+    echo "" | tee -a "$LOG_FILE"
 fi
 
+echo "=== SSH Session End ===" >> "$LOG_FILE"
 echo "SSH session remains active. Type 'exit' to disconnect."
+echo "Full logs available at: $LOG_FILE"
 EOF
 
     chmod +x "$HOME/spectrum_ssh.sh"
