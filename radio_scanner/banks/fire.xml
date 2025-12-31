@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<frequency_bank name="Fire" description="Fire department and emergency services">
+  <frequency value="154.280" mode="FM" name="Fire Dispatch">
+    <squelch type="CTCSS" tone="110.9"/>
+  </frequency>
+  <frequency value="154.145" mode="FM" name="Fire Tac 1">
+    <squelch type="CTCSS" tone="114.8"/>
+  </frequency>
+  <frequency value="154.265" mode="FM" name="Fire Tac 2">
+    <squelch type="CTCSS" tone="118.8"/>
+  </frequency>
+</frequency_bank>

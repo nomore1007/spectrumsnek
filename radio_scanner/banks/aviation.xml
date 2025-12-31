@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<frequency_bank name="Aviation" description="Air traffic control and aviation frequencies">
+  <frequency value="118.300" mode="AM" name="Tower"/>
+  <frequency value="121.500" mode="AM" name="Emergency"/>
+  <frequency value="123.000" mode="AM" name="Unicom"/>
+  <frequency value="438.500" mode="DMR" name="DMR Repeater 1">
+    <dmr color_code="1" timeslot="1"/>
+  </frequency>
+  <frequency value="439.200" mode="DMR" name="DMR Repeater 2">
+    <dmr color_code="2" timeslot="2"/>
+  </frequency>
+</frequency_bank>

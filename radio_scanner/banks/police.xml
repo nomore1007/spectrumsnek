@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<frequency_bank name="Police" description="Local police department frequencies">
+  <frequency value="155.475" mode="FM" name="Police Main">
+    <squelch type="CTCSS" tone="123.0"/>
+  </frequency>
+  <frequency value="155.685" mode="FM" name="Police Tac 1">
+    <squelch type="CTCSS" tone="131.8"/>
+  </frequency>
+  <frequency value="155.895" mode="FM" name="Police Tac 2">
+    <squelch type="DCS" code="023"/>
+  </frequency>
+  <frequency value="155.520" mode="FM" name="Police Dispatch">
+    <squelch type="CTCSS" tone="114.8"/>
+  </frequency>
+</frequency_bank>
