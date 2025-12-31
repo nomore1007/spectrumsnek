@@ -86,6 +86,7 @@ install_system_deps() {
         PYTHON_DEV_PKG="python3-dev python3-pip"
         PULSEAUDIO_PKG="pulseaudio pulseaudio-module-bluetooth alsa-utils"
         BLUEZ_PKG="bluez"
+        BLUEZ_TOOLS_PKG="bluez-tools"
         BLUEZ_ALSA_PKG="bluez-alsa-utils"
         PORTAUDIO_PKG="portaudio19-dev"
     elif [ -f /etc/redhat-release ]; then
@@ -95,6 +96,7 @@ install_system_deps() {
         PYTHON_DEV_PKG="python3-devel python3-pip"
         PULSEAUDIO_PKG="pulseaudio pulseaudio-module-bluetooth alsa-utils"
         BLUEZ_PKG="bluez"
+        BLUEZ_TOOLS_PKG="bluez-tools"
         BLUEZ_ALSA_PKG="bluez-alsa"
         PORTAUDIO_PKG="portaudio-devel"
     elif [ -f /etc/arch-release ]; then
@@ -104,6 +106,7 @@ install_system_deps() {
         PYTHON_DEV_PKG="python python-pip"
         PULSEAUDIO_PKG="pulseaudio pulseaudio-bluetooth alsa-utils"
         BLUEZ_PKG="bluez"
+        BLUEZ_TOOLS_PKG="bluez-tools"
         BLUEZ_ALSA_PKG="bluez-alsa"
         PORTAUDIO_PKG="portaudio"
     else
@@ -119,13 +122,13 @@ install_system_deps() {
         case $OS in
             debian)
                 $SUDO_CMD apt-get update
-                $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG
+                $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG
                 ;;
             redhat)
-                $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG
+                $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG
                 ;;
             arch)
-                $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG
+                $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG
                 ;;
         esac
 

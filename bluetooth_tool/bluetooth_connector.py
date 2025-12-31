@@ -13,10 +13,9 @@ from typing import List, Dict, Any, Optional
 
 class BluetoothDevice:
     """Represents a Bluetooth device."""
-    def __init__(self, mac: str, name: str, rssi: int = 0, paired: bool = False):
+    def __init__(self, mac: str, name: str, paired: bool = False):
         self.mac = mac
         self.name = name or f"[{mac}]"
-        self.rssi = rssi
         self.paired = paired
 
 class BluetoothConnector:
@@ -28,45 +27,31 @@ class BluetoothConnector:
         self.status_message = ""
 
     def scan_devices(self) -> List[BluetoothDevice]:
-        """Scan for available Bluetooth devices using bluetoothctl."""
+        """Scan for available Bluetooth devices using hcitool."""
         try:
-            # First check if Bluetooth is powered and available
-            show_result = subprocess.run(
-                ["bluetoothctl", "show"],
+            # First check if Bluetooth is available using hciconfig
+            hciconfig_result = subprocess.run(
+                ["hciconfig"],
                 capture_output=True, text=True, timeout=5
             )
 
-            if show_result.returncode != 0:
-                self.status_message = "Bluetooth controller not available"
+            if hciconfig_result.returncode != 0:
+                self.status_message = "Bluetooth adapter not found"
                 return []
 
-            if "Powered: no" in show_result.stdout:
-                self.status_message = "Bluetooth is powered off. Enable with: bluetoothctl power on"
-                return []
-            elif "Powered: yes" not in show_result.stdout:
-                self.status_message = "Bluetooth status unknown. Try: sudo systemctl start bluetooth"
+            if "UP" not in hciconfig_result.stdout:
+                self.status_message = "Bluetooth adapter is down. Run: sudo hciconfig hci0 up"
                 return []
 
-            # Start scan
-            scan_on = subprocess.run(["bluetoothctl", "scan", "on"], timeout=2, capture_output=True)
-            if scan_on.returncode != 0:
-                self.status_message = "Failed to start scan"
-                return []
-
+            # Use hcitool for scanning
             self.status_message = "Scanning for devices..."
-            time.sleep(8)  # Scan for 8 seconds on Pi
-
-            # Stop scan
-            subprocess.run(["bluetoothctl", "scan", "off"], timeout=2, capture_output=True)
-
-            # Get devices
             result = subprocess.run(
-                ["bluetoothctl", "devices"],
-                capture_output=True, text=True, timeout=5
+                ["hcitool", "scan"],
+                capture_output=True, text=True, timeout=15
             )
 
             if result.returncode != 0:
-                self.status_message = f"Failed to get devices: {result.stderr.strip()}"
+                self.status_message = f"Scan failed: {result.stderr.strip()}"
                 return []
 
             devices = []
@@ -75,33 +60,43 @@ class BluetoothConnector:
                 if not line.strip():
                     continue
 
-                # Parse: Device XX:XX:XX:XX:XX:XX Name
-                match = re.match(r'Device\s+([0-9A-F:]{17})\s+(.*)', line)
-                if match:
-                    mac = match.group(1)
-                    name = match.group(2).strip()
+                # Skip header line
+                if line.startswith('\t') or line.startswith('Scanning'):
+                    continue
 
-                    # Check if paired
-                    paired_result = subprocess.run(
-                        ["bluetoothctl", "info", mac],
-                        capture_output=True, text=True, timeout=5
-                    )
-                    paired = "Paired: yes" in paired_result.stdout
+                # Parse: \tXX:XX:XX:XX:XX:XX\tName
+                parts = line.strip().split('\t')
+                if len(parts) >= 2:
+                    mac = parts[0].strip()
+                    name = parts[1].strip() if len(parts) > 1 else ""
 
-                    devices.append(BluetoothDevice(mac, name, paired=paired))
+                    # Validate MAC address format
+                    if re.match(r'^([0-9A-F]{2}:){5}[0-9A-F]{2}$', mac, re.IGNORECASE):
+                        # Check if paired using bluetoothctl
+                        paired = False
+                        try:
+                            paired_result = subprocess.run(
+                                ["bluetoothctl", "info", mac],
+                                capture_output=True, text=True, timeout=3
+                            )
+                            paired = "Paired: yes" in paired_result.stdout
+                        except:
+                            pass
+
+                        devices.append(BluetoothDevice(mac, name, paired=paired))
 
             if not devices:
-                self.status_message = "No devices found. Make sure devices are in pairing mode."
+                self.status_message = "No devices found. Make sure devices are discoverable."
             else:
                 self.status_message = f"Found {len(devices)} device(s)"
 
             return devices
 
         except subprocess.TimeoutExpired:
-            self.status_message = "Scan timeout - Bluetooth may be busy"
+            self.status_message = "Scan timeout - try again"
             return []
         except FileNotFoundError:
-            self.status_message = "bluetoothctl not found. Install with: sudo apt install bluez"
+            self.status_message = "hcitool not found. Install with: sudo apt install bluez"
             return []
         except Exception as e:
             self.status_message = f"Scan error: {e}"
@@ -186,7 +181,6 @@ class BluetoothConnector:
 
                 # Device info
                 paired_icon = "🔗" if device.paired else "📱"
-                rssi_bars = "█" * max(1, min(4, (device.rssi + 100) // 20)) if device.rssi else "░" * 4
 
                 if i == self.selected_index:
                     stdscr.addstr(y, 4, f"> {paired_icon} {device.name}", curses.A_REVERSE | curses.A_BOLD)
@@ -195,8 +189,6 @@ class BluetoothConnector:
 
                 # Details
                 details = f"MAC: {device.mac}"
-                if device.rssi:
-                    details += f" | RSSI: {rssi_bars} ({device.rssi}dB)"
                 stdscr.addstr(y + 1, 6, details)
 
         # Instructions
