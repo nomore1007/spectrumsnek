@@ -272,6 +272,19 @@ def main():
     print("Radio Tools Loader")
     print("=" * 20)
 
+    # Check if we have a controlling terminal for interactive mode
+    if not sys.stdout.isatty():
+        print("Error: Interactive mode requires a controlling terminal (TTY).")
+        print("This program uses curses for the menu interface.")
+        print("")
+        print("Please run directly in a terminal:")
+        print("  python main.py")
+        print("")
+        print("For headless operation, consider starting individual tools:")
+        print("  python -m rtl_scanner.web_scanner  # Web RTL-SDR interface")
+        print("  python -m adsb_tool.adsb_tracker --web  # Web ADS-B interface")
+        sys.exit(1)
+
     if not check_dependencies():
         sys.exit(1)
 
