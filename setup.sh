@@ -458,8 +458,7 @@ main() {
         create_desktop_shortcut
     fi
 
-    # Deactivate virtual environment
-    deactivate
+    # Virtual environment commands completed
 
     # Final summary
     echo ""
