@@ -282,15 +282,13 @@ if ./run_spectrum.sh --service 2>&1; then
     echo "SpectrumSnek exited successfully"
 else
     echo "ERROR: SpectrumSnek exited with error code $?"
-    echo "Check dependencies and try running: ./run_spectrum.sh"
+    echo "Common issues:"
+    echo "  - Missing dependencies: Run 'pip install -r requirements.txt'"
+    echo "  - RTL-SDR not connected: Check USB devices with 'lsusb'"
+    echo "  - Permission issues: Run 'sudo usermod -a -G plugdev $USER'"
     echo ""
-    echo "Press Ctrl+C to exit this tmux session"
-    echo "Or run './run_spectrum.sh' manually to test"
-    # Keep session alive for debugging
-    while true; do
-        echo "Session active - run './run_spectrum.sh' to retry"
-        sleep 10
-    done
+    echo "To retry manually: ./run_spectrum.sh"
+    echo "To exit tmux: Press Ctrl+B then D (or Ctrl+C if attached)"
 fi
 EOF
     chmod +x /tmp/start_spectrum.sh
@@ -326,10 +324,11 @@ if [[ -z "$TMUX" ]]; then
                 tmux new-session -s spectrum -d
                 tmux send-keys -t spectrum "~/start_spectrum.sh" C-m
             fi
-            exec tmux attach-session -t spectrum
+            # For SSH, don't use exec - let user return to shell if tmux exits
+            tmux attach-session -t spectrum || echo "Tmux session ended. Type 'exit' to close SSH connection."
         else
             echo "tmux not found, running SpectrumSnek directly via SSH..."
-            ~/start_spectrum.sh
+            ~/start_spectrum.sh || echo "SpectrumSnek exited. Type 'exit' to close SSH connection."
         fi
     fi
 fi
