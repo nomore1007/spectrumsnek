@@ -89,6 +89,7 @@ install_system_deps() {
         BLUEZ_TOOLS_PKG="bluez-tools"
         BLUEZ_ALSA_PKG="bluez-alsa-utils"
         PORTAUDIO_PKG="portaudio19-dev"
+        TMUX_PKG="tmux"
     elif [ -f /etc/redhat-release ]; then
         # RHEL/CentOS/Fedora
         OS="redhat"
@@ -99,6 +100,7 @@ install_system_deps() {
         BLUEZ_TOOLS_PKG="bluez-tools"
         BLUEZ_ALSA_PKG="bluez-alsa"
         PORTAUDIO_PKG="portaudio-devel"
+        TMUX_PKG="tmux"
     elif [ -f /etc/arch-release ]; then
         # Arch Linux
         OS="arch"
@@ -109,6 +111,7 @@ install_system_deps() {
         BLUEZ_TOOLS_PKG="bluez-tools"
         BLUEZ_ALSA_PKG="bluez-alsa"
         PORTAUDIO_PKG="portaudio"
+        TMUX_PKG="tmux"
     else
         print_warning "Unknown OS, skipping system dependency installation"
         return
@@ -122,13 +125,13 @@ install_system_deps() {
         case $OS in
             debian)
                 $SUDO_CMD apt-get update
-                $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG
+                $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
                 ;;
             redhat)
-                $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG
+                $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
                 ;;
             arch)
-                $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG
+                $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
                 ;;
         esac
 
@@ -180,11 +183,60 @@ EOF
     fi
 }
 
+# Function to setup console autologin and tmux
+setup_console() {
+    print_info "Setting up console autologin and tmux session..."
+
+    SUDO_CMD=$(get_sudo)
+
+    # Enable autologin on tty1
+    $SUDO_CMD mkdir -p /etc/systemd/system/getty@tty1.service.d
+    cat > /tmp/autologin.conf << EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
+EOF
+    $SUDO_CMD mv /tmp/autologin.conf /etc/systemd/system/getty@tty1.service.d/autologin.conf
+
+    # Create start script
+    cat > /tmp/start_spectrum.sh << EOF
+#!/bin/bash
+cd $SCRIPT_DIR
+source venv/bin/activate
+python main.py
+EOF
+    chmod +x /tmp/start_spectrum.sh
+    mv /tmp/start_spectrum.sh $HOME/start_spectrum.sh
+
+    # Configure .bashrc for tmux
+    cat >> $HOME/.bashrc << 'EOF'
+
+# SpectrumSnek tmux console setup
+if [[ -z "$TMUX" ]]; then
+    if [[ "$(tty)" == "/dev/tty1" ]]; then
+        tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
+        exec tmux attach-session -t spectrum
+    elif [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; then
+        if tmux has-session -t spectrum 2>/dev/null; then
+            exec tmux attach-session -t spectrum
+        fi
+    fi
+fi
+EOF
+
+    $SUDO_CMD systemctl daemon-reload
+    $SUDO_CMD systemctl restart getty@tty1
+
+    print_status "Console autologin and tmux configured"
+    print_info "Reboot required for changes to take effect"
+}
+
 # Function to create systemd service for boot startup
 create_boot_service() {
     if [ "$BOOT_ENABLED" = true ] || [ "$CONSOLE_ENABLED" = true ]; then
         if [ "$CONSOLE_ENABLED" = true ]; then
             print_info "Setting up console autostart..."
+            setup_console
             SERVICE_TYPE="console"
         else
             print_info "Setting up boot-time startup..."
@@ -197,26 +249,9 @@ create_boot_service() {
         SERVICE_FILE="/etc/systemd/system/$BOOT_SERVICE_NAME.service"
 
         if [ "$CONSOLE_ENABLED" = true ]; then
-            # Console service - runs on tty1
-            cat > /tmp/$BOOT_SERVICE_NAME.service << EOF
-[Unit]
-Description=SpectrumSnek Radio Tools Loader 🐍📻
-After=network.target getty@tty1.service
-
-[Service]
-Type=idle
-User=$USER
-WorkingDirectory=$SCRIPT_DIR
-ExecStart=$SCRIPT_DIR/venv/bin/python $SCRIPT_DIR/main.py
-StandardInput=tty
-StandardOutput=tty
-TTYPath=/dev/tty1
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
+            # For console mode, we use autologin + tmux instead of direct service
+            print_info "Console mode uses autologin and tmux for session management"
+            return
         else
             # Background service
             cat > /tmp/$BOOT_SERVICE_NAME.service << EOF
@@ -237,19 +272,15 @@ WantedBy=multi-user.target
 EOF
         fi
 
-        if $SUDO_CMD mv /tmp/$BOOT_SERVICE_NAME.service $SERVICE_FILE; then
-            $SUDO_CMD systemctl daemon-reload
-            $SUDO_CMD systemctl enable $BOOT_SERVICE_NAME.service
-            if [ "$CONSOLE_ENABLED" = true ]; then
-                print_status "Console autostart service created and enabled"
-                print_info "The Radio Tools Loader will start automatically on tty1"
-                print_warning "Note: This will replace the login prompt on tty1"
-            else
+        if [ "$CONSOLE_ENABLED" = false ]; then
+            if $SUDO_CMD mv /tmp/$BOOT_SERVICE_NAME.service $SERVICE_FILE; then
+                $SUDO_CMD systemctl daemon-reload
+                $SUDO_CMD systemctl enable $BOOT_SERVICE_NAME.service
                 print_status "Boot service created and enabled"
                 print_info "The Radio Tools Loader will start automatically on boot"
+            else
+                print_warning "Failed to create boot service"
             fi
-        else
-            print_warning "Failed to create boot service"
         fi
     fi
 }
