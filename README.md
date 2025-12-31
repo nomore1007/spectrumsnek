@@ -246,7 +246,7 @@ sudo systemctl disable spectrum-service spectrum-console
 
 **Headless Mode:**
 ```bash
-# Access web interface
+# Access web interface (firewall automatically configured)
 # Local: http://localhost:5000
 # Remote: http://pi-ip:5000
 
@@ -324,15 +324,15 @@ python main.py  # ❌ Missing dependencies error
 
 #### Service Mode
 ```bash
-# Start service in background
+# Start service in background (binds to 0.0.0.0:5000)
 ssh user@pi
 ./run_spectrum.sh --service &
 
-# Or specify custom port if 5000 is in use:
-./run_spectrum.sh --service --port 5001
+# Or specify custom settings:
+./run_spectrum.sh --service --host 127.0.0.1 --port 5001
 
-# Access web interface at http://pi-ip:5000 (or custom port)
-# Or use SSH client: ./ssh_client.py --host pi-ip --port 5001
+# Access web interface at http://pi-ip:5000 (firewall auto-configured)
+# Or use SSH client: ./ssh_client.py --host pi-ip --port 5000
 ```
 
 ### Manual Tool Execution
@@ -559,7 +559,13 @@ pip install -r requirements.txt
 ./check_port.sh
 
 # Use different port (advanced):
-python main.py --service --port 5001
+python main.py --service --port 5001 --host 127.0.0.1
+
+# Firewall issues (if remote access fails):
+sudo ufw status                    # Check UFW status
+sudo ufw allow 5000/tcp           # Allow port 5000
+sudo firewall-cmd --add-port=5000/tcp  # Firewalld
+sudo iptables -A INPUT -p tcp --dport 5000 -j ACCEPT
 ```
 
 **Import Errors**

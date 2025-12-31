@@ -686,7 +686,7 @@ After=network.target bluetooth.service
 Type=simple
 User=$USER
 WorkingDirectory=$SCRIPT_DIR
-ExecStart=$SCRIPT_DIR/venv/bin/python $SCRIPT_DIR/main.py --service
+ExecStart=$SCRIPT_DIR/venv/bin/python $SCRIPT_DIR/main.py --service --host 0.0.0.0 --port 5000
 Restart=always
 RestartSec=10
 
@@ -875,6 +875,36 @@ main() {
     SUDO_CMD=$(get_sudo)
     if $SUDO_CMD systemctl enable bluetooth.service 2>/dev/null; then
         $SUDO_CMD systemctl start bluetooth.service 2>/dev/null
+
+    # Configure firewall for web access
+    print_info "Configuring firewall for web access..."
+    if command -v ufw &> /dev/null; then
+        # UFW firewall
+        if $SUDO_CMD ufw status | grep -q "Status: active"; then
+            $SUDO_CMD ufw allow 5000/tcp 2>/dev/null && print_status "UFW firewall configured for port 5000"
+        else
+            print_info "UFW firewall is not active - SpectrumSnek web interface may not be accessible remotely"
+        fi
+    elif command -v firewall-cmd &> /dev/null; then
+        # Firewalld
+        if $SUDO_CMD firewall-cmd --state 2>/dev/null | grep -q "running"; then
+            $SUDO_CMD firewall-cmd --permanent --add-port=5000/tcp 2>/dev/null && \
+            $SUDO_CMD firewall-cmd --reload 2>/dev/null && \
+            print_status "Firewalld configured for port 5000"
+        else
+            print_info "Firewalld is not running - SpectrumSnek web interface may not be accessible remotely"
+        fi
+    else
+        # Try iptables directly
+        if command -v iptables &> /dev/null; then
+            $SUDO_CMD iptables -C INPUT -p tcp --dport 5000 -j ACCEPT 2>/dev/null || \
+            $SUDO_CMD iptables -A INPUT -p tcp --dport 5000 -j ACCEPT 2>/dev/null && \
+            print_status "IPTables configured for port 5000"
+        else
+            print_warning "No firewall management tool found - manual firewall configuration may be required"
+            print_warning "To allow remote access: iptables -A INPUT -p tcp --dport 5000 -j ACCEPT"
+        fi
+    fi
         print_status "Bluetooth service enabled"
     else
         print_warning "Failed to enable Bluetooth service"

@@ -302,7 +302,7 @@ class SpectrumService:
     def run(self, host=None, port=None):
         """Run the service."""
         if host is None:
-            host = self.config.get('service.host', '127.0.0.1')
+            host = self.config.get('service.host', '0.0.0.0')
         if port is None:
             port = self.config.get('service.port', 5000)
 
