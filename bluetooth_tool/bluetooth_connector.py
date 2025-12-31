@@ -31,53 +31,41 @@ class BluetoothConnector:
         try:
             output = ""  # Initialize output variable
 
-            # Check if Bluetooth adapter is available using hciconfig
+            # Check if Bluetooth is available using bluetoothctl
             self.status_message = "Checking Bluetooth adapter..."
-            hciconfig_result = subprocess.run(
-                ["hciconfig"],
+            show_result = subprocess.run(
+                ["bluetoothctl", "show"],
                 capture_output=True, text=True, timeout=5
             )
 
-            if hciconfig_result.returncode != 0:
-                self.status_message = f"hciconfig failed: {hciconfig_result.stderr.strip()}"
+            if show_result.returncode != 0:
+                self.status_message = f"Bluetooth controller not available: {show_result.stderr.strip()}"
                 return []
 
-            adapter_info = hciconfig_result.stdout.strip()
-            if "hci0" not in adapter_info:
-                self.status_message = f"No hci0 adapter found. Output: {adapter_info[:100]}"
+            adapter_info = show_result.stdout.strip()
+            if "Powered: no" in adapter_info:
+                self.status_message = f"Bluetooth is powered off. Run: bluetoothctl power on"
+                return []
+            elif "Powered: yes" not in adapter_info:
+                self.status_message = f"Bluetooth status unknown. Info: {adapter_info[:150]}"
                 return []
 
-            # Get detailed adapter info
-            hciconfig_detail = subprocess.run(
-                ["hciconfig", "hci0"],
-                capture_output=True, text=True, timeout=5
-            )
-            detail_info = hciconfig_detail.stdout.strip() if hciconfig_detail.returncode == 0 else "Detail failed"
-
-            if "UP" not in detail_info:
-                self.status_message = f"Adapter down. Detail: {detail_info[:150]}"
-                return []
-
-            # Check devices
-            hcitool_dev = subprocess.run(
-                ["hcitool", "dev"],
-                capture_output=True, text=True, timeout=5
-            )
-            dev_info = hcitool_dev.stdout.strip() if hcitool_dev.returncode == 0 else "Dev check failed"
-
-            self.status_message = f"Adapter ready. Detail: {detail_info[:100]} | Dev: {dev_info[:50]}"
+            self.status_message = f"Adapter ready. Info: {adapter_info[:100]}"
 
             # Use bluetoothctl for scanning
-            self.status_message = "Scanning... Put devices in pairing mode (40 sec)"
+            self.status_message = "Starting scan..."
             scan_on = subprocess.run(["bluetoothctl", "scan", "on"], timeout=2, capture_output=True)
             if scan_on.returncode != 0:
-                self.status_message = "Failed to start scan"
+                self.status_message = f"Failed to start scan: {scan_on.stderr.strip()}"
                 return []
 
+            self.status_message = "Scanning... Put devices in pairing mode (40 sec)"
             time.sleep(40)  # Scan for 40 seconds
 
-            # Stop scan
-            subprocess.run(["bluetoothctl", "scan", "off"], timeout=2, capture_output=True)
+            self.status_message = "Stopping scan..."
+            scan_off = subprocess.run(["bluetoothctl", "scan", "off"], timeout=2, capture_output=True)
+            if scan_off.returncode != 0:
+                self.status_message = f"Warning: Failed to stop scan: {scan_off.stderr.strip()}"
 
             # Get devices
             result = subprocess.run(
