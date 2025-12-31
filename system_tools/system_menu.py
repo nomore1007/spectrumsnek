@@ -42,6 +42,13 @@ class SystemMenu:
             self.run_bluetooth_connector
         ))
 
+        # Audio Output Selector
+        self.tools.append(SystemTool(
+            "🔊 Audio Output Selector",
+            "Select and test audio output devices including Bluetooth",
+            self.run_audio_selector
+        ))
+
         # Update from GitHub
         self.tools.append(SystemTool(
             "⬆️ Update from GitHub",
@@ -65,6 +72,16 @@ class SystemMenu:
             bluetooth_tool.run()
         except ImportError:
             print("Bluetooth tool not available")
+            input("Press Enter to continue...")
+
+    def run_audio_selector(self):
+        """Launch Audio output selector."""
+        try:
+            from .audio_output_selector import AudioOutputSelector
+            selector = AudioOutputSelector()
+            selector.run()
+        except ImportError:
+            print("Audio selector not available")
             input("Press Enter to continue...")
 
     def update_from_github(self):

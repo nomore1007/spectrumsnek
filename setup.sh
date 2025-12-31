@@ -80,20 +80,26 @@ install_system_deps() {
 
     # Detect OS
     if [ -f /etc/debian_version ]; then
-        # Debian/Ubuntu
+        # Debian/Ubuntu/Raspberry Pi OS
         OS="debian"
         RTLSDR_PKG="rtl-sdr"
         PYTHON_DEV_PKG="python3-dev"
+        PULSEAUDIO_PKG="pulseaudio pulseaudio-module-bluetooth"
+        BLUEZ_ALSA_PKG="bluez-alsa-utils"
     elif [ -f /etc/redhat-release ]; then
         # RHEL/CentOS/Fedora
         OS="redhat"
         RTLSDR_PKG="rtl-sdr"
         PYTHON_DEV_PKG="python3-devel"
+        PULSEAUDIO_PKG="pulseaudio pulseaudio-module-bluetooth"
+        BLUEZ_ALSA_PKG="bluez-alsa"
     elif [ -f /etc/arch-release ]; then
         # Arch Linux
         OS="arch"
         RTLSDR_PKG="rtl-sdr"
         PYTHON_DEV_PKG="python"
+        PULSEAUDIO_PKG="pulseaudio pulseaudio-bluetooth"
+        BLUEZ_ALSA_PKG="bluez-alsa"
     else
         print_warning "Unknown OS, skipping system dependency installation"
         return
@@ -107,13 +113,13 @@ install_system_deps() {
         case $OS in
             debian)
                 $SUDO_CMD apt-get update
-                $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential
+                $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_ALSA_PKG
                 ;;
             redhat)
-                $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc
+                $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_ALSA_PKG
                 ;;
             arch)
-                $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel
+                $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel $PULSEAUDIO_PKG $BLUEZ_ALSA_PKG
                 ;;
         esac
 
