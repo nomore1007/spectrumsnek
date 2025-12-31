@@ -170,7 +170,7 @@ class WiFiSelector:
                 stdscr.addstr(y + 1, 6, details)
 
         # Instructions
-        instructions = "↑↓ navigate, Enter connect, 'r' rescan, 'q' quit"
+        instructions = "↑↓ navigate, Enter connect, 'r' rescan, 'b' back, 'q' quit"
         stdscr.addstr(height - 2, (width - len(instructions)) // 2, instructions, curses.A_DIM)
 
         stdscr.refresh()
@@ -190,8 +190,11 @@ class WiFiSelector:
             try:
                 key = stdscr.getch()
 
-                if key == ord('q') or key == ord('Q'):
+                if key == ord('b') or key == ord('B'):
                     return
+                elif key == ord('q') or key == ord('Q'):
+                    import sys
+                    sys.exit(0)
                 elif key == ord('r') or key == ord('R'):
                     self.status_message = "Scanning..."
                     stdscr.refresh()
