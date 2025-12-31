@@ -33,6 +33,7 @@ class RadioToolsLoader:
     def load_modules(self):
         """Load available modules from plugins directory."""
         plugins_dir = "plugins"
+        system_tools = None
 
         # Load plugins dynamically
         if os.path.exists(plugins_dir):
@@ -43,18 +44,32 @@ class RadioToolsLoader:
                         # Import the plugin module
                         plugin_module = __import__(f"{plugins_dir}.{item}", fromlist=[item])
                         info = plugin_module.get_module_info()
-                        self.modules.append(ModuleInfo(
-                            info["name"],
-                            info["description"],
-                            f"{plugins_dir}.{item}",
-                            plugin_module.run
-                        ))
+
+                        if item == "system_tools":
+                            # Save system_tools to add last
+                            system_tools = ModuleInfo(
+                                info["name"],
+                                info["description"],
+                                f"{plugins_dir}.{item}",
+                                plugin_module.run
+                            )
+                        else:
+                            self.modules.append(ModuleInfo(
+                                info["name"],
+                                info["description"],
+                                f"{plugins_dir}.{item}",
+                                plugin_module.run
+                            ))
                     except ImportError:
                         # Plugin not available, skip silently
                         pass
                     except Exception:
                         # Other errors, skip silently
                         pass
+
+        # Add system_tools last if found
+        if system_tools:
+            self.modules.append(system_tools)
 
         # Web portal toggle (special menu item)
         self.modules.append(ModuleInfo(
@@ -64,13 +79,14 @@ class RadioToolsLoader:
             self.toggle_web_portal
         ))
 
+
+
     def toggle_web_portal(self):
         """Toggle web portal on/off."""
         self.web_portal_enabled = not self.web_portal_enabled
         print(f"Web portal {'enabled' if self.web_portal_enabled else 'disabled'} globally")
         print("This affects all tools that support web interfaces.")
-        print("Returning to menu in 3 seconds...")
-        time.sleep(3)
+        input("Press Enter to continue...")
 
         # Update the menu item name
         for module in self.modules:
@@ -107,10 +123,6 @@ class RadioToolsLoader:
                 stdscr.addstr(y, 2, f"> {module.name}", curses.A_REVERSE | curses.A_BOLD)
             else:
                 stdscr.addstr(y, 2, f"  {module.name}")
-
-            # Description inline
-            desc = module.description[:width-6-len(module.name)]
-            stdscr.addstr(y, 4 + len(module.name), f" - {desc}", curses.A_DIM)
 
         # Description of selected item at bottom
         if self.modules:
@@ -170,93 +182,38 @@ class RadioToolsLoader:
         except Exception as e:
             print(f"Error running {module.name}: {e}")
         finally:
-            print(f"\nReturning to Radio Tools Loader")
-            time.sleep(2)
+            print(f"\nReturned to Radio Tools Loader")
 
     def run(self):
-        """Main run loop."""
-        def menu_main(stdscr):
-            while True:
-                selected_module = self.run_menu(stdscr)
-                if selected_module is None:
-                    break  # Quit
+        """Main run method."""
+        print("Radio Tools Loader")
+        print("=" * 20)
 
-                self.run_selected_module(selected_module)
+        if not check_dependencies():
+            sys.exit(1)
 
-                # Brief pause before returning to menu
-                print("\nPress Enter to return to menu...")
+        loader = RadioToolsLoader()
+
+        if len(sys.argv) > 1:
+            # Direct module execution
+            module_name = sys.argv[1]
+
+            if module_name == "rtl_scanner" or module_name == "scanner":
+                print("Starting RTL-SDR Scanner directly...")
                 try:
-                    input()
-                except:
-                    pass
-
-        if not self.modules:
-            print("No modules available!")
-            print("Make sure RTL-SDR dependencies are installed.")
-            return
-
-        try:
-            curses.wrapper(menu_main)
-        except KeyboardInterrupt:
-            print("\nRadio Tools Loader stopped by user")
-        except Exception as e:
-            print(f"Error in menu system: {e}")
-            print("This may be due to terminal compatibility issues.")
-            print("Try: export TERM=linux")
-
-def check_dependencies():
-    """Check if basic dependencies are available."""
-    missing_deps = []
-
-    try:
-        import numpy
-    except ImportError:
-        missing_deps.append("numpy")
-
-    try:
-        import scipy
-    except ImportError:
-        missing_deps.append("scipy")
-
-    if missing_deps:
-        print("Missing dependencies:")
-        for dep in missing_deps:
-            print(f"  - {dep}")
-        print("Run: pip install -r requirements.txt")
-        return False
-
-    return True
-
-def main():
-    """Main entry point."""
-    print("Radio Tools Loader")
-    print("=" * 20)
-
-    if not check_dependencies():
-        sys.exit(1)
-
-    loader = RadioToolsLoader()
-
-    if len(sys.argv) > 1:
-        # Direct module execution
-        module_name = sys.argv[1]
-
-        if module_name == "rtl_scanner" or module_name == "scanner":
-            print("Starting RTL-SDR Scanner directly...")
-            try:
-                import rtl_scanner
-                rtl_scanner.run()
-            except ImportError:
-                print("RTL-SDR scanner not available. Run setup.sh first.")
-                sys.exit(1)
-        elif module_name == "adsb" or module_name == "adsb_tool":
-            print("Starting ADS-B Aircraft Tracker directly...")
-            try:
-                import adsb_tool
-                adsb_tool.run()
-            except ImportError:
-                print("ADS-B tool not available. Run setup.sh first.")
-                sys.exit(1)
+                    import rtl_scanner
+                    rtl_scanner.run()
+                except ImportError:
+                    print("RTL-SDR scanner not available. Run setup.sh first.")
+                    sys.exit(1)
+            elif module_name == "adsb" or module_name == "adsb_tool":
+                print("Starting ADS-B Aircraft Tracker directly...")
+                try:
+                    import adsb_tool
+                    adsb_tool.run()
+                except ImportError:
+                    print("ADS-B tool not available. Run setup.sh first.")
+                    sys.exit(1)
         else:
             print(f"Unknown module: {module_name}")
             print("Available modules: rtl_scanner, adsb_tool, demo")
