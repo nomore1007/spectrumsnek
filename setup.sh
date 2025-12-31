@@ -394,12 +394,9 @@ while [[ $# -gt 0 ]]; do
             echo "  --dev                 Enable development mode (install dev dependencies)"
             ;;
         --repair-tmux)
-            echo "  --repair-tmux         Repair tmux installation and configuration"
+            repair_tmux
+            exit 0
             ;;
-         --repair-tmux)
-             repair_tmux
-             exit 0
-             ;;
         --interactive)
             AUTOMATED=false
             shift
