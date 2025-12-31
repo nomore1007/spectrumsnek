@@ -59,8 +59,8 @@ class BluetoothConnector:
                 self.status_message = f"Failed to start scan: {scan_on.stderr.strip()}"
                 return []
 
-            self.status_message = "Scanning... Put devices in pairing mode (40 sec)"
-            time.sleep(40)  # Scan for 40 seconds
+            self.status_message = "SCANNING... Put Bluetooth devices in PAIRING/DISCOVERABLE mode NOW (10 sec)"
+            time.sleep(10)  # Scan for 10 seconds
 
             self.status_message = "Stopping scan..."
             scan_off = subprocess.run(["bluetoothctl", "scan", "off"], timeout=2, capture_output=True)
