@@ -86,7 +86,7 @@ class BluetoothConnector:
                         devices.append(BluetoothDevice(mac, name, paired=paired))
 
             if not devices:
-                self.status_message = f"No devices found. Output: {result.stdout.strip()[:100]}"
+                self.status_message = f"No devices found. Output: {output[:100]}"
             else:
                 self.status_message = f"Found {len(devices)} device(s): {[d.name for d in devices]}"
 
@@ -127,13 +127,15 @@ class BluetoothConnector:
                 capture_output=True, text=True, timeout=5
             )
 
+            output = result.stdout.strip() or result.stderr.strip()
+
             if result.returncode != 0:
-                self.status_message = f"Failed to get devices: {result.stderr.strip()}"
+                self.status_message = f"Scan failed: {result.stderr.strip()}"
                 return []
 
             devices = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in output.split('\n'):
                 if not line.strip():
                     continue
 
