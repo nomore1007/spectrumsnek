@@ -489,9 +489,30 @@ python main.py
 ./run_spectrum.sh          # ✅ Direct launcher
 ~/spectrum_ssh.sh          # ✅ Full diagnostic interface
 
+# If dependencies are missing, reinstall:
+./run_spectrum.sh --reinstall-deps
+
 # Manual activation (if needed):
 source venv/bin/activate
 python main.py
+```
+
+**ModuleNotFoundError (psutil, etc.)**
+```bash
+# Symptom: "ModuleNotFoundError: No module named 'psutil'"
+# Cause: Missing system monitoring dependencies
+
+# Solution: Install missing packages
+sudo apt-get update
+sudo apt-get install -y python3-dev build-essential
+
+# Reinstall Python dependencies
+cd ~/spectrumsnek
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Or use the launcher to reinstall:
+./run_spectrum.sh --reinstall-deps
 ```
 
 **Import Errors**

@@ -11,6 +11,17 @@ if [ ! -d "$VENV_DIR" ]; then
     exit 1
 fi
 
+# Handle special commands
+if [ "$1" = "--reinstall-deps" ]; then
+    echo "Reinstalling Python dependencies..."
+    source "$VENV_DIR/bin/activate"
+    cd "$SCRIPT_DIR"
+    pip install --upgrade pip setuptools
+    pip install -r requirements.txt
+    echo "Dependencies reinstalled successfully."
+    exit 0
+fi
+
 # Activate virtual environment and run main.py
 source "$VENV_DIR/bin/activate"
 cd "$SCRIPT_DIR"
