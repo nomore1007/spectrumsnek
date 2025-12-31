@@ -613,8 +613,7 @@ echo ""
 echo "For help:"
 echo "  ./run_scanner.sh --help"
 
-# Deactivate virtual environment
-deactivate
+# Virtual environment commands completed
 
 echo ""
 echo "Setup Summary:"
