@@ -10,6 +10,7 @@ import subprocess
 import time
 import os
 from typing import List, Dict, Any, Optional
+import os as os_module  # For environ check
 
 class SystemTool:
     """Represents a system tool."""
@@ -159,7 +160,8 @@ class SystemMenu:
         height, width = stdscr.getmaxyx()
 
         # Fallback for SSH connections
-        if width < 40:
+        is_ssh = 'SSH_CLIENT' in os.environ or 'SSH_TTY' in os.environ
+        if width < 40 or is_ssh:
             try:
                 import os
                 term_size = os.get_terminal_size()
