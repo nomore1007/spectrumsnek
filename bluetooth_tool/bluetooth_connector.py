@@ -30,12 +30,34 @@ class BluetoothConnector:
     def scan_devices(self) -> List[BluetoothDevice]:
         """Scan for available Bluetooth devices using bluetoothctl."""
         try:
+            # First check if Bluetooth is powered and available
+            show_result = subprocess.run(
+                ["bluetoothctl", "show"],
+                capture_output=True, text=True, timeout=5
+            )
+
+            if show_result.returncode != 0:
+                self.status_message = "Bluetooth controller not available"
+                return []
+
+            if "Powered: no" in show_result.stdout:
+                self.status_message = "Bluetooth is powered off. Enable with: bluetoothctl power on"
+                return []
+            elif "Powered: yes" not in show_result.stdout:
+                self.status_message = "Bluetooth status unknown. Try: sudo systemctl start bluetooth"
+                return []
+
             # Start scan
-            subprocess.run(["bluetoothctl", "scan", "on"], timeout=1, capture_output=True)
-            time.sleep(5)  # Scan for 5 seconds
+            scan_on = subprocess.run(["bluetoothctl", "scan", "on"], timeout=2, capture_output=True)
+            if scan_on.returncode != 0:
+                self.status_message = "Failed to start scan"
+                return []
+
+            self.status_message = "Scanning for devices..."
+            time.sleep(8)  # Scan for 8 seconds on Pi
 
             # Stop scan
-            subprocess.run(["bluetoothctl", "scan", "off"], timeout=1, capture_output=True)
+            subprocess.run(["bluetoothctl", "scan", "off"], timeout=2, capture_output=True)
 
             # Get devices
             result = subprocess.run(
@@ -44,7 +66,7 @@ class BluetoothConnector:
             )
 
             if result.returncode != 0:
-                self.status_message = f"Scan failed: {result.stderr.strip()}"
+                self.status_message = f"Failed to get devices: {result.stderr.strip()}"
                 return []
 
             devices = []
@@ -68,13 +90,18 @@ class BluetoothConnector:
 
                     devices.append(BluetoothDevice(mac, name, paired=paired))
 
+            if not devices:
+                self.status_message = "No devices found. Make sure devices are in pairing mode."
+            else:
+                self.status_message = f"Found {len(devices)} device(s)"
+
             return devices
 
         except subprocess.TimeoutExpired:
-            self.status_message = "Scan timeout"
+            self.status_message = "Scan timeout - Bluetooth may be busy"
             return []
         except FileNotFoundError:
-            self.status_message = "bluetoothctl not found. Install bluez."
+            self.status_message = "bluetoothctl not found. Install with: sudo apt install bluez"
             return []
         except Exception as e:
             self.status_message = f"Scan error: {e}"
