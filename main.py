@@ -24,14 +24,48 @@ class ModuleInfo:
 class RadioToolsLoader:
     """Main loader with menu system for radio tools."""
 
-    def __init__(self):
+    def __init__(self, service_url='http://127.0.0.1:5000'):
+        self.service_url = service_url
         self.modules: List[ModuleInfo] = []
         self.selected_index = 0
         self.web_portal_enabled = True  # Global web portal toggle
         self.load_modules()
 
     def load_modules(self):
-        """Load available modules from plugins directory."""
+        """Load available tools from service API."""
+        try:
+            import requests
+            response = requests.get(f"{self.service_url}/api/tools", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                for tool_name, tool_data in data['tools'].items():
+                    info = tool_data['info']
+                    self.modules.append(ModuleInfo(
+                        info["name"],
+                        info["description"],
+                        tool_name,
+                        lambda name=tool_name: self.start_tool(name)
+                    ))
+            else:
+                # Fallback: load locally if service not available
+                self.load_local_modules()
+        except ImportError:
+            # requests not available, load locally
+            self.load_local_modules()
+        except Exception:
+            # Service not available, load locally
+            self.load_local_modules()
+
+        # Web portal toggle (special menu item)
+        self.modules.append(ModuleInfo(
+            f"Web Portal: {'ON' if self.web_portal_enabled else 'OFF'}",
+            "Toggle web interfaces for all tools",
+            "web_toggle",
+            self.toggle_web_portal
+        ))
+
+    def load_local_modules(self):
+        """Fallback: Load available modules locally."""
         plugins_dir = "plugins"
 
         # Load plugins dynamically
@@ -55,6 +89,12 @@ class RadioToolsLoader:
                     except Exception:
                         # Other errors, skip silently
                         pass
+                    except ImportError:
+                        # Plugin not available, skip silently
+                        pass
+                    except Exception:
+                        # Other errors, skip silently
+                        pass
 
         # Web portal toggle (special menu item)
         self.modules.append(ModuleInfo(
@@ -63,6 +103,22 @@ class RadioToolsLoader:
             "web_toggle",
             self.toggle_web_portal
         ))
+
+    def start_tool(self, tool_name):
+        """Start a tool via service API."""
+        try:
+            import requests
+            response = requests.post(f"{self.service_url}/api/tools/{tool_name}/start", timeout=10)
+            if response.status_code == 200:
+                print(f"Started {tool_name}")
+            else:
+                print(f"Failed to start {tool_name}: {response.text}")
+        except ImportError:
+            print("Service not available, cannot start tool")
+        except Exception as e:
+            print(f"Error starting tool: {e}")
+        print("Returning to menu in 3 seconds...")
+        time.sleep(3)
 
     def toggle_web_portal(self):
         """Toggle web portal on/off."""
@@ -227,8 +283,15 @@ def main():
 
     loader = RadioToolsLoader()
 
+    if len(sys.argv) > 1 and sys.argv[1] == "--service":
+        # Run as service
+        from spectrum_service import SpectrumService
+        service = SpectrumService()
+        service.run()
+        return
+
     if len(sys.argv) > 1:
-        # Direct module execution
+        # Direct module execution (legacy)
         module_name = sys.argv[1]
 
         if module_name == "rtl_scanner" or module_name == "scanner":

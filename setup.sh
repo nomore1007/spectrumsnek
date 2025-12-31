@@ -203,7 +203,7 @@ EOF
 #!/bin/bash
 cd $SCRIPT_DIR
 source venv/bin/activate
-python main.py
+python main.py --service
 EOF
     chmod +x /tmp/start_spectrum.sh
     mv /tmp/start_spectrum.sh $HOME/start_spectrum.sh
@@ -263,7 +263,7 @@ After=network.target
 Type=simple
 User=$USER
 WorkingDirectory=$SCRIPT_DIR
-ExecStart=$SCRIPT_DIR/venv/bin/python $SCRIPT_DIR/main.py
+        ExecStart=$SCRIPT_DIR/venv/bin/python $SCRIPT_DIR/main.py --service
 Restart=always
 RestartSec=10
 
