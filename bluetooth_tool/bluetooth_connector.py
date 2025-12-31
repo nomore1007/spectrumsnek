@@ -52,8 +52,8 @@ class BluetoothConnector:
                 self.status_message = "Failed to start scan"
                 return []
 
-            self.status_message = "Scanning... Put devices in pairing mode"
-            time.sleep(20)  # Scan for 20 seconds
+            self.status_message = "Scanning... Put devices in pairing mode (30 sec)"
+            time.sleep(30)  # Scan for 30 seconds
 
             # Stop scan
             subprocess.run(["bluetoothctl", "scan", "off"], timeout=2, capture_output=True)
@@ -90,9 +90,9 @@ class BluetoothConnector:
                     devices.append(BluetoothDevice(mac, name, paired=paired))
 
             if not devices:
-                self.status_message = f"No devices found. Devices output: {result.stdout.strip()[:200]}"
+                self.status_message = f"No devices found. Check devices are discoverable. Output: {result.stdout.strip()[:100]}"
             else:
-                self.status_message = f"Found {len(devices)} device(s)"
+                self.status_message = f"Found {len(devices)} device(s): {[d.name for d in devices]}"
 
             return devices
 

@@ -191,7 +191,7 @@ class SystemMenu:
                 stdscr.addstr(y, 2, f"  {tool.name}")
 
         # Instructions
-        instructions = "↑↓ navigate, Enter select, 'b' back, 'q' quit"
+        instructions = "↑↓ navigate, Enter select, 'b' back, 'q' quit all"
         stdscr.addstr(height - 1, (width - len(instructions)) // 2, instructions, curses.A_DIM)
 
         stdscr.refresh()
@@ -207,7 +207,8 @@ class SystemMenu:
                 key = stdscr.getch()
 
                 if key == ord('q') or key == ord('Q'):
-                    return False  # Quit
+                    import sys
+                    sys.exit(0)  # Quit completely
                 elif key == ord('b') or key == ord('B'):
                     return True  # Back to main menu
                 elif key == curses.KEY_UP:
