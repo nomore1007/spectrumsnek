@@ -49,6 +49,13 @@ class SystemMenu:
             self.run_audio_selector
         ))
 
+        # TTY Display Settings
+        self.tools.append(SystemTool(
+            "🖥️ TTY Display Info",
+            "Show terminal resolution and display settings",
+            self.show_display_info
+        ))
+
         # Update from GitHub
         self.tools.append(SystemTool(
             "⬆️ Update from GitHub",
@@ -83,6 +90,35 @@ class SystemMenu:
         except ImportError:
             print("Audio selector not available")
             input("Press Enter to continue...")
+
+    def show_display_info(self):
+        """Show TTY display information."""
+        try:
+            import os
+            import curses
+
+            # Get terminal info
+            rows, cols = os.get_terminal_size()
+            term = os.environ.get('TERM', 'unknown')
+            colors = curses.COLORS if hasattr(curses, 'COLORS') else 'unknown'
+
+            print("TTY Display Information")
+            print("=" * 25)
+            print(f"Terminal size: {cols} x {rows}")
+            print(f"Terminal type: {term}")
+            print(f"Color support: {colors} colors")
+            print(f"Curses colors available: {'Yes' if curses.has_colors() else 'No'}")
+            print(f"Curses can change color: {'Yes' if curses.can_change_color() else 'No'}")
+            print()
+            print("For handheld devices:")
+            print("- Ensure terminal is at least 80x24 for full menus")
+            print("- Use 'setterm -blank 0' to disable screen blanking")
+            print("- Check /boot/config.txt for display settings")
+
+        except Exception as e:
+            print(f"Error getting display info: {e}")
+        finally:
+            input("\nPress Enter to continue...")
 
     def update_from_github(self):
         """Update from GitHub repository."""
@@ -132,23 +168,32 @@ class SystemMenu:
 
         # Tools
         start_y = 4
-        for i, tool in enumerate(self.tools):
-            y = start_y + i * 3
+        max_items = (height - 8) // 2  # 2 lines per item, reserve space for description
+        start_idx = max(0, min(self.selected_index - max_items // 2, len(self.tools) - max_items))
+
+        for i in range(max_items):
+            idx = start_idx + i
+            if idx >= len(self.tools):
+                break
+            tool = self.tools[idx]
+            y = start_y + i * 2
 
             # Tool name with selection indicator
-            if i == self.selected_index:
-                stdscr.addstr(y, 4, f"> {tool.name}", curses.A_REVERSE | curses.A_BOLD)
+            if idx == self.selected_index:
+                stdscr.addstr(y, 2, f"> {tool.name}", curses.A_REVERSE | curses.A_BOLD)
             else:
-                stdscr.addstr(y, 4, f"  {tool.name}")
+                stdscr.addstr(y, 2, f"  {tool.name}")
 
-            # Description
-            if y + 1 < height:
-                desc = tool.description[:width-8]
-                stdscr.addstr(y + 1, 6, desc)
+        # Description of selected item at bottom
+        if self.tools:
+            selected = self.tools[self.selected_index]
+            desc_y = height - 3
+            desc = selected.description[:width-4]
+            stdscr.addstr(desc_y, 2, f"Description: {desc}", curses.A_DIM)
 
         # Instructions
-        instructions = "↑↓ to navigate, Enter to select, 'b' back to main menu, 'q' quit"
-        stdscr.addstr(height - 2, (width - len(instructions)) // 2, instructions, curses.A_DIM)
+        instructions = "↑↓ navigate, Enter select, 'b' back, 'q' quit"
+        stdscr.addstr(height - 1, (width - len(instructions)) // 2, instructions, curses.A_DIM)
 
         stdscr.refresh()
 

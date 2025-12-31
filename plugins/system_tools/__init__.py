@@ -17,6 +17,7 @@ MODULE_INFO = {
         "WiFi Network Selector",
         "Bluetooth Device Connector",
         "Audio Output Selector",
+        "TTY Display Information",
         "Update from GitHub",
         "Curses-based submenu interface"
     ]

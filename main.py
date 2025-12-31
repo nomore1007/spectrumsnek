@@ -94,30 +94,35 @@ class RadioToolsLoader:
 
         # Draw modules
         start_y = 4
-        for i, module in enumerate(self.modules):
-            y = start_y + i * 3
+        max_items = (height - 8) // 2  # 2 lines per item, reserve space for description
+        start_idx = max(0, min(self.selected_index - max_items // 2, len(self.modules) - max_items))
+
+        for i in range(max_items):
+            idx = start_idx + i
+            if idx >= len(self.modules):
+                break
+            module = self.modules[idx]
+            y = start_y + i * 2
 
             # Module name with selection indicator
-            if i == self.selected_index:
-                stdscr.addstr(y, 4, f"> {module.name}", curses.A_REVERSE | curses.A_BOLD)
+            if idx == self.selected_index:
+                stdscr.addstr(y, 2, f"> {module.name}", curses.A_REVERSE | curses.A_BOLD)
             else:
-                stdscr.addstr(y, 4, f"  {module.name}")
+                stdscr.addstr(y, 2, f"  {module.name}")
 
-            # Description
-            if y + 1 < height:
-                desc = module.description[:width-8]
-                # Highlight web portal status
-                if "Web Portal" in module.name:
-                    if self.web_portal_enabled:
-                        stdscr.addstr(y + 1, 6, desc, curses.A_BOLD | curses.color_pair(1) if curses.has_colors() else curses.A_BOLD)
-                    else:
-                        stdscr.addstr(y + 1, 6, desc, curses.A_DIM)
-                else:
-                    stdscr.addstr(y + 1, 6, desc)
+        # Description of selected item at bottom
+        if self.modules:
+            selected = self.modules[self.selected_index]
+            desc_y = height - 3
+            desc = selected.description[:width-4]
+            stdscr.addstr(desc_y, 2, f"Description: {desc}", curses.A_DIM)
+            if "Web Portal" in selected.name:
+                status = "Enabled" if self.web_portal_enabled else "Disabled"
+                stdscr.addstr(desc_y + 1, 2, f"Status: Web interfaces {status}", curses.A_DIM)
 
         # Instructions
-        instructions = "Use ↑↓ to navigate, Enter to select, 'q' to quit"
-        stdscr.addstr(height - 2, (width - len(instructions)) // 2, instructions, curses.A_DIM)
+        instructions = "↑↓ navigate, Enter select, 'q' quit"
+        stdscr.addstr(height - 1, (width - len(instructions)) // 2, instructions, curses.A_DIM)
 
         stdscr.refresh()
 
