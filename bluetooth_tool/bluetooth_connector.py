@@ -44,7 +44,7 @@ class BluetoothConnector:
                 return []
 
             # Use hcitool for scanning
-            self.status_message = "Scanning for devices..."
+            self.status_message = "Scanning... Put devices in pairing mode"
             result = subprocess.run(
                 ["hcitool", "scan"],
                 capture_output=True, text=True, timeout=15

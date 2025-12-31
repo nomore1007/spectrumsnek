@@ -84,10 +84,9 @@ class RadioToolsLoader:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
 
-        # Fallback for SSH connections
+        # Fallback for narrow terminals
         if width < 40:
             try:
-                import os
                 term_size = os.get_terminal_size()
                 width = term_size.columns
                 height = min(height, term_size.lines)
