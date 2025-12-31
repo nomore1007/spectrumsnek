@@ -32,6 +32,7 @@ class BluetoothConnector:
             output = ""  # Initialize output variable
 
             # Check if Bluetooth adapter is available using hciconfig
+            self.status_message = "Checking Bluetooth adapter..."
             hciconfig_result = subprocess.run(
                 ["hciconfig"],
                 capture_output=True, text=True, timeout=5
@@ -41,9 +42,12 @@ class BluetoothConnector:
                 self.status_message = "Bluetooth adapter not found"
                 return []
 
-            if "UP" not in hciconfig_result.stdout:
-                self.status_message = "Bluetooth adapter is down. Run: sudo hciconfig hci0 up"
+            adapter_info = hciconfig_result.stdout.strip()
+            if "UP" not in adapter_info:
+                self.status_message = f"Bluetooth adapter down. Info: {adapter_info[:100]}"
                 return []
+
+            self.status_message = f"Adapter ready. Info: {adapter_info[:100]}"
 
             # Use hcitool for scanning
             self.status_message = "Scanning... Put devices in pairing mode (30 sec)"
