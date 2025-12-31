@@ -223,9 +223,11 @@ class SystemMenu:
                     self.selected_index = min(len(self.tools) - 1, self.selected_index + 1)
                 elif key == ord('\n') or key == ord('\r') or key == curses.KEY_ENTER:
                     tool = self.tools[self.selected_index]
-                    # Run the tool - let it handle curses transition
+                    # Run the tool
+                    curses.endwin()
                     tool.action()
-                    # After tool returns, the menu will be redrawn in next loop iteration
+                    curses.wrapper(self.run_menu)
+                    return
                 elif key == 27:  # ESC
                     return True  # Back
 
