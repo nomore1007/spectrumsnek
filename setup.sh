@@ -139,8 +139,10 @@ install_system_deps() {
         # Verify tmux installation
         if command -v tmux &> /dev/null; then
             print_status "tmux installed successfully"
+            TMUX_AVAILABLE=true
         else
             print_warning "tmux installation failed - SpectrumSnek will run without tmux session management"
+            TMUX_AVAILABLE=false
         fi
 
         if command -v rtl_test &> /dev/null; then
@@ -150,6 +152,33 @@ install_system_deps() {
         fi
     else
         print_status "RTL-SDR drivers already installed"
+    fi
+}
+
+# Function to repair tmux issues
+repair_tmux() {
+    print_info "Attempting to repair tmux installation..."
+
+    if ! command -v tmux &> /dev/null; then
+        print_info "Installing tmux..."
+        SUDO_CMD=$(get_sudo)
+
+        # Detect OS and install tmux
+        if [ -f /etc/debian_version ]; then
+            $SUDO_CMD apt-get update && $SUDO_CMD apt-get install -y tmux
+        elif [ -f /etc/redhat-release ]; then
+            $SUDO_CMD dnf install -y tmux
+        elif [ -f /etc/arch-release ]; then
+            $SUDO_CMD pacman -S --noconfirm tmux
+        fi
+    fi
+
+    if command -v tmux &> /dev/null; then
+        print_status "tmux is now available"
+        TMUX_AVAILABLE=true
+    else
+        print_error "Failed to install tmux - manual installation may be required"
+        TMUX_AVAILABLE=false
     fi
 }
 
@@ -236,30 +265,40 @@ EOF
     chmod +x /tmp/start_spectrum.sh
     mv /tmp/start_spectrum.sh $HOME/start_spectrum.sh
 
-    # Configure .bashrc for tmux
-    cat >> $HOME/.bashrc << 'EOF'
+    # Configure .bashrc for tmux with graceful fallback
+    print_info "Configuring bashrc for SpectrumSnek session management..."
 
-# SpectrumSnek tmux console setup
+    # Remove any existing SpectrumSnek tmux configuration
+    sed -i '/# SpectrumSnek tmux console setup/,/fi/d' "$HOME/.bashrc"
+
+    # Add robust tmux configuration
+    cat >> "$HOME/.bashrc" << 'EOF'
+
+# SpectrumSnek session management - Robust tmux handling
 if [[ -z "$TMUX" ]]; then
     if [[ "$(tty)" == "/dev/tty1" ]]; then
+        # Console autologin - prefer tmux, fallback to direct execution
         if command -v tmux &> /dev/null; then
             tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
             exec tmux attach-session -t spectrum
         else
-            echo "tmux not found, running SpectrumSnek directly..."
+            echo "tmux not found, running SpectrumSnek directly on console..."
             ~/start_spectrum.sh
         fi
     elif [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; then
+        # SSH connection - prefer tmux, fallback to direct execution
         if command -v tmux &> /dev/null; then
             tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
             exec tmux attach-session -t spectrum
         else
-            echo "tmux not found, running SpectrumSnek directly..."
+            echo "tmux not found, running SpectrumSnek directly via SSH..."
             ~/start_spectrum.sh
         fi
     fi
 fi
 EOF
+
+    print_status "Bashrc configured with robust session management"
 
     $SUDO_CMD systemctl daemon-reload
     $SUDO_CMD systemctl restart getty@tty1
@@ -352,8 +391,15 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dev)
             DEV_MODE=true
-            shift
+            echo "  --dev                 Enable development mode (install dev dependencies)"
             ;;
+        --repair-tmux)
+            echo "  --repair-tmux         Repair tmux installation and configuration"
+            ;;
+         --repair-tmux)
+             repair_tmux
+             exit 0
+             ;;
         --interactive)
             AUTOMATED=false
             shift
