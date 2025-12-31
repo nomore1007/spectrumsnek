@@ -31,70 +31,30 @@ class RadioToolsLoader:
         self.load_modules()
 
     def load_modules(self):
-        """Load available modules."""
-        # RTL-SDR Scanner module
-        try:
-            import rtl_scanner
-            info = rtl_scanner.get_module_info()
-            self.modules.append(ModuleInfo(
-                info["name"],
-                info["description"],
-                "rtl_scanner",
-                rtl_scanner.run
-            ))
-        except ImportError:
-            # Module not available, skip
-            pass
+        """Load available modules from plugins directory."""
+        plugins_dir = "plugins"
 
-        # ADS-B Tool module
-        try:
-            import adsb_tool
-            info = adsb_tool.get_module_info()
-            self.modules.append(ModuleInfo(
-                info["name"],
-                info["description"],
-                "adsb_tool",
-                adsb_tool.run
-            ))
-        except ImportError:
-            # Module not available, skip
-            pass
-
-        # Traditional Radio Scanner module
-        try:
-            import radio_scanner
-            info = radio_scanner.get_module_info()
-            self.modules.append(ModuleInfo(
-                info["name"],
-                info["description"],
-                "radio_scanner",
-                radio_scanner.run
-            ))
-        except ImportError:
-            # Module not available, skip
-            pass
-
-        # System Tools module
-        try:
-            import system_tools
-            info = system_tools.get_module_info()
-            self.modules.append(ModuleInfo(
-                info["name"],
-                info["description"],
-                "system_tools",
-                system_tools.run
-            ))
-        except ImportError:
-            # Module not available, skip
-            pass
-
-        # Demo spectrum analyzer
-        self.modules.append(ModuleInfo(
-            "Spectrum Analyzer (Demo)",
-            "Basic spectrum analysis demonstration",
-            "demo_spectrum",
-            self.run_demo_spectrum
-        ))
+        # Load plugins dynamically
+        if os.path.exists(plugins_dir):
+            for item in os.listdir(plugins_dir):
+                plugin_path = os.path.join(plugins_dir, item)
+                if os.path.isdir(plugin_path) and not item.startswith('__'):
+                    try:
+                        # Import the plugin module
+                        plugin_module = __import__(f"{plugins_dir}.{item}", fromlist=[item])
+                        info = plugin_module.get_module_info()
+                        self.modules.append(ModuleInfo(
+                            info["name"],
+                            info["description"],
+                            f"{plugins_dir}.{item}",
+                            plugin_module.run
+                        ))
+                    except ImportError:
+                        # Plugin not available, skip silently
+                        pass
+                    except Exception:
+                        # Other errors, skip silently
+                        pass
 
         # Web portal toggle (special menu item)
         self.modules.append(ModuleInfo(
@@ -104,17 +64,7 @@ class RadioToolsLoader:
             self.toggle_web_portal
         ))
 
-    def run_demo_spectrum(self):
-        """Run demo spectrum analyzer."""
-        try:
-            import demo_scanner
-            # Run with default parameters
-            sys.argv = ['demo_scanner', '--freq', '100', '--mode', 'spectrum', '--duration', '10']
-            demo_scanner.main()
-        except ImportError:
-            print("Demo scanner not available")
-        except Exception as e:
-            print(f"Error running demo spectrum: {e}")
+
 
     def toggle_web_portal(self):
         """Toggle web portal on/off."""
