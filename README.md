@@ -239,7 +239,9 @@ sudo systemctl disable spectrum-service spectrum-console
 **Console Mode:**
 ```bash
 # Reboot - menu appears automatically on HDMI
-# SSH: ssh user@pi (attaches to tmux session)
+# SSH: ssh user@pi
+# Then run: ~/spectrum_ssh.sh (recommended)
+# Or: ./run_spectrum.sh (direct)
 ```
 
 **Headless Mode:**
@@ -247,32 +249,78 @@ sudo systemctl disable spectrum-service spectrum-console
 # Access web interface
 # Local: http://localhost:5000
 # Remote: http://pi-ip:5000
+
+# SSH access (manual):
+ssh user@pi
+~/spectrum_ssh.sh
 ```
 
 **Full Mode:**
 ```bash
 # All access methods available
 # HDMI + SSH + Web interfaces
+
+# SSH with tmux autologin (if enabled):
+ssh user@pi  # Automatically starts tmux with SpectrumSnek
+
+# SSH manual access:
+ssh user@pi
+~/spectrum_ssh.sh  # Full diagnostic interface
+./run_spectrum.sh  # Direct launcher
+```
+
+### SSH Access Methods
+
+SpectrumSnek provides multiple ways to access from SSH:
+
+#### Recommended: Diagnostic Interface
+```bash
+ssh user@pi
+~/spectrum_ssh.sh
+```
+- ✅ Handles virtual environment automatically
+- ✅ Comprehensive error logging
+- ✅ System diagnostics and troubleshooting
+- ✅ Safe error recovery
+
+#### Direct Launcher
+```bash
+ssh user@pi
+./run_spectrum.sh
+```
+- ✅ Activates virtual environment
+- ✅ Runs main interface directly
+- ⚠️ May exit on errors
+
+#### Manual Environment (Not Recommended)
+```bash
+ssh user@pi
+source venv/bin/activate
+python main.py  # ❌ Missing dependencies error
+```
+
+#### Service Mode
+```bash
+# Start service in background
+ssh user@pi
+./run_spectrum.sh --service &
+
+# Access web interface at http://pi-ip:5000
+# Or use SSH client: ./ssh_client.py --host pi-ip
 ```
 
 ### Manual Tool Execution
 
-If you need to run tools manually (bypassing the client-server architecture):
+For advanced users running tools directly:
 
 ```bash
-# Activate environment
-./run.sh
+# Activate environment first
+./run_spectrum.sh  # This activates venv and runs main.py
 
 # Or manually:
 source venv/bin/activate
 
-# Run service
-python main.py --service
-
-# Run console client (in another terminal)
-python main.py
-
-# Direct tool access
+# Then run tools:
 python -m rtl_scanner.scanner --freq 100
 python -m adsb_tool.adsb_tracker --freq 1090
 ```
@@ -429,6 +477,21 @@ sudo usermod -a -G plugdev $USER
 
 # Or run with sudo (not recommended)
 sudo python rtl_scanner.py --freq 100
+```
+
+**Missing Dependencies Error**
+```bash
+# Symptom: "Missing dependencies: numpy, scipy"
+python main.py
+# ❌ Don't run python directly!
+
+# Solution: Use the provided launchers
+./run_spectrum.sh          # ✅ Direct launcher
+~/spectrum_ssh.sh          # ✅ Full diagnostic interface
+
+# Manual activation (if needed):
+source venv/bin/activate
+python main.py
 ```
 
 **Import Errors**
