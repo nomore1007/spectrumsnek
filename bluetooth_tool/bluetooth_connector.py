@@ -39,15 +39,33 @@ class BluetoothConnector:
             )
 
             if hciconfig_result.returncode != 0:
-                self.status_message = "Bluetooth adapter not found"
+                self.status_message = f"hciconfig failed: {hciconfig_result.stderr.strip()}"
                 return []
 
             adapter_info = hciconfig_result.stdout.strip()
-            if "UP" not in adapter_info:
-                self.status_message = f"Bluetooth adapter down. Info: {adapter_info[:100]}"
+            if "hci0" not in adapter_info:
+                self.status_message = f"No hci0 adapter found. Output: {adapter_info[:100]}"
                 return []
 
-            self.status_message = f"Adapter ready. Info: {adapter_info[:100]}"
+            # Get detailed adapter info
+            hciconfig_detail = subprocess.run(
+                ["hciconfig", "hci0"],
+                capture_output=True, text=True, timeout=5
+            )
+            detail_info = hciconfig_detail.stdout.strip() if hciconfig_detail.returncode == 0 else "Detail failed"
+
+            if "UP" not in detail_info:
+                self.status_message = f"Adapter down. Detail: {detail_info[:150]}"
+                return []
+
+            # Check devices
+            hcitool_dev = subprocess.run(
+                ["hcitool", "dev"],
+                capture_output=True, text=True, timeout=5
+            )
+            dev_info = hcitool_dev.stdout.strip() if hcitool_dev.returncode == 0 else "Dev check failed"
+
+            self.status_message = f"Adapter ready. Detail: {detail_info[:100]} | Dev: {dev_info[:50]}"
 
             # Use hcitool for scanning
             self.status_message = "Scanning... Put devices in pairing mode (30 sec)"
