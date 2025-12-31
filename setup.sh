@@ -224,8 +224,7 @@ EOF
     cat > /tmp/start_spectrum.sh << EOF
 #!/bin/bash
 cd $SCRIPT_DIR
-source venv/bin/activate
-python main.py --service
+./run_spectrum.sh --service
 EOF
     chmod +x /tmp/start_spectrum.sh
     mv /tmp/start_spectrum.sh $HOME/start_spectrum.sh
@@ -239,9 +238,8 @@ if [[ -z "$TMUX" ]]; then
         tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
         exec tmux attach-session -t spectrum
     elif [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; then
-        if tmux has-session -t spectrum 2>/dev/null; then
-            exec tmux attach-session -t spectrum
-        fi
+        tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
+        exec tmux attach-session -t spectrum
     fi
 fi
 EOF
@@ -517,7 +515,7 @@ main() {
         echo ""
 
     echo "Usage:"
-    echo "  • Interactive: python main.py"
+    echo "  • Interactive: ./run_spectrum.sh"
     echo "  • Direct RTL-SDR: ./run_scanner.sh --interactive --freq 100"
     echo "  • Direct ADS-B: python -m adsb_tool.adsb_tracker --freq 1090"
     echo ""
