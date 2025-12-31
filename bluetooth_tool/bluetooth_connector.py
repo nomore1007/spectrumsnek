@@ -47,7 +47,7 @@ class BluetoothConnector:
             self.status_message = "Scanning... Put devices in pairing mode (30 sec)"
             result = subprocess.run(
                 ["hcitool", "scan"],
-                capture_output=True, text=True, timeout=35
+                capture_output=True, text=True, timeout=40
             )
 
             if result.returncode != 0:
@@ -115,8 +115,8 @@ class BluetoothConnector:
                 self.status_message = "Failed to start scan"
                 return []
 
-            self.status_message = "Scanning... Put devices in pairing mode (30 sec)"
-            time.sleep(30)  # Scan for 30 seconds
+            self.status_message = "Scanning... Put devices in pairing mode (35 sec)"
+            time.sleep(35)  # Scan for 35 seconds
 
             # Stop scan
             subprocess.run(["bluetoothctl", "scan", "off"], timeout=2, capture_output=True)
