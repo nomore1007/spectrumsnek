@@ -12,6 +12,11 @@ if [ ! -d "$VENV_DIR" ]; then
     exit 1
 fi
 
+# Set terminal if not set
+if [ -z "$TERM" ]; then
+    export TERM=linux
+fi
+
 # Activate virtual environment
 echo "Activating virtual environment..."
 source "$VENV_DIR/bin/activate"

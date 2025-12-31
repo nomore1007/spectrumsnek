@@ -190,107 +190,55 @@ class RadioToolsLoader:
             print(f"\nReturned to Radio Tools Loader")
 
     def run(self):
-        """Main run loop."""
-        def menu_main(stdscr):
-            while True:
-                selected_module = self.run_menu(stdscr)
-                if selected_module is None:
-                    break  # Quit
+        """Main run method."""
+        print("Radio Tools Loader")
+        print("=" * 20)
 
-                self.run_selected_module(selected_module)
+        if not check_dependencies():
+            sys.exit(1)
 
-                # Brief pause before returning to menu
-                print("\nPress Enter to return to menu...")
-                input()
+        loader = RadioToolsLoader()
 
-        if not self.modules:
-            print("No modules available!")
-            print("Make sure RTL-SDR dependencies are installed.")
-            return
+        if len(sys.argv) > 1:
+            # Direct module execution
+            module_name = sys.argv[1]
 
+            if module_name == "rtl_scanner" or module_name == "scanner":
+                print("Starting RTL-SDR Scanner directly...")
+                try:
+                    import rtl_scanner
+                    rtl_scanner.run()
+                except ImportError:
+                    print("RTL-SDR scanner not available. Run setup.sh first.")
+                    sys.exit(1)
+            elif module_name == "adsb" or module_name == "adsb_tool":
+                print("Starting ADS-B Aircraft Tracker directly...")
+                try:
+                    import adsb_tool
+                    adsb_tool.run()
+                except ImportError:
+                    print("ADS-B tool not available. Run setup.sh first.")
+                    sys.exit(1)
+            else:
+                print(f"Unknown module: {module_name}")
+                print("Available modules: rtl_scanner, adsb_tool, demo")
+                sys.exit(1)
+    else:
+        # Interactive menu
         try:
-            curses.wrapper(menu_main)
+            loader.run()
         except KeyboardInterrupt:
             print("\nRadio Tools Loader stopped by user")
         except Exception as e:
-            print(f"Error in menu system: {e}")
-
-def check_dependencies():
-    """Check if basic dependencies are available."""
-    missing_deps = []
-
-    try:
-        import numpy
-    except ImportError:
-        missing_deps.append("numpy")
-
-    try:
-        import scipy
-    except ImportError:
-        missing_deps.append("scipy")
-
-    if missing_deps:
-        print("Missing dependencies:")
-        for dep in missing_deps:
-            print(f"  - {dep}")
-        print("Run: pip install -r requirements.txt")
-        return False
-
-    return True
-
-def main():
-    """Main entry point."""
-    print("Radio Tools Loader")
-    print("=" * 20)
-
-    # Check if we have a controlling terminal for interactive mode
-    if not sys.stdout.isatty():
-        print("Error: Interactive mode requires a controlling terminal (TTY).")
-        print("This program uses curses for the menu interface.")
-        print("")
-        print("Please run directly in a terminal:")
-        print("  python main.py")
-        print("")
-        print("For headless operation, consider starting individual tools:")
-        print("  python -m rtl_scanner.web_scanner  # Web RTL-SDR interface")
-        print("  python -m adsb_tool.adsb_tracker --web  # Web ADS-B interface")
-        sys.exit(1)
-
-    if not check_dependencies():
-        sys.exit(1)
-
-    loader = RadioToolsLoader()
-
-    if len(sys.argv) > 1:
-        # Direct module execution
-        module_name = sys.argv[1]
-
-        if module_name == "rtl_scanner" or module_name == "scanner":
-            print("Starting RTL-SDR Scanner directly...")
-            try:
-                import rtl_scanner
-                rtl_scanner.run()
-            except ImportError:
-                print("RTL-SDR scanner not available. Run setup.sh first.")
-                sys.exit(1)
-        elif module_name == "adsb" or module_name == "adsb_tool":
-            print("Starting ADS-B Aircraft Tracker directly...")
-            try:
-                import adsb_tool
-                adsb_tool.run()
-            except ImportError:
-                print("ADS-B tool not available. Run setup.sh first.")
-                sys.exit(1)
-        elif module_name == "demo":
-            print("Starting demo spectrum...")
-            loader.run_demo_spectrum()
-        else:
-            print(f"Unknown module: {module_name}")
-            print("Available modules: rtl_scanner, adsb_tool, demo")
+            print(f"\nError in interactive menu: {e}")
+            print("Try running with a different terminal or check TERM variable")
             sys.exit(1)
-    else:
-        # Interactive menu
-        loader.run()
+            except KeyboardInterrupt:
+                print("\nRadio Tools Loader stopped by user")
+            except Exception as e:
+                print(f"\nError in interactive menu: {e}")
+                print("Try running with a different terminal or check TERM variable")
+                sys.exit(1)
 
 if __name__ == "__main__":
     main()
