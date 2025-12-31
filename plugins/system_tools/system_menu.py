@@ -10,7 +10,6 @@ import subprocess
 import time
 import os
 from typing import List, Dict, Any, Optional
-import os as os_module  # For environ check
 
 class SystemTool:
     """Represents a system tool."""
@@ -159,9 +158,8 @@ class SystemMenu:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
 
-        # Fallback for SSH connections
-        is_ssh = 'SSH_CLIENT' in os.environ or 'SSH_TTY' in os.environ
-        if width < 40 or is_ssh:
+        # Fallback for narrow terminals
+        if width < 40:
             try:
                 import os
                 term_size = os.get_terminal_size()
@@ -180,28 +178,20 @@ class SystemMenu:
 
         # Tools
         start_y = 4
-        max_items = (height - 8) // 2  # 2 lines per item, reserve space for description
-        start_idx = max(0, min(self.selected_index - max_items // 2, len(self.tools) - max_items))
-
-        for i in range(max_items):
-            idx = start_idx + i
-            if idx >= len(self.tools):
-                break
-            tool = self.tools[idx]
+        for i, tool in enumerate(self.tools):
             y = start_y + i * 2
+            if y + 1 >= height:
+                break
 
             # Tool name with selection indicator
-            if idx == self.selected_index:
+            if i == self.selected_index:
                 stdscr.addstr(y, 2, f"> {tool.name}", curses.A_REVERSE | curses.A_BOLD)
             else:
                 stdscr.addstr(y, 2, f"  {tool.name}")
 
-        # Description of selected item at bottom
-        if self.tools:
-            selected = self.tools[self.selected_index]
-            desc_y = height - 3
-            desc = selected.description[:width-4]
-            stdscr.addstr(desc_y, 2, f"Description: {desc}", curses.A_DIM)
+            # Description inline
+            desc = tool.description[:width-6-len(tool.name)]
+            stdscr.addstr(y, 4 + len(tool.name), f" - {desc}", curses.A_DIM)
 
         # Instructions
         instructions = "↑↓ navigate, Enter select, 'b' back, 'q' quit"

@@ -102,51 +102,22 @@ class RadioToolsLoader:
         subtitle = "Choose your radio adventure!"
         stdscr.addstr(2, (width - len(subtitle)) // 2, subtitle)
 
-        # Check if running over SSH for simpler display
-        is_ssh = 'SSH_CLIENT' in os.environ or 'SSH_TTY' in os.environ
+        # Simple layout for all connections
+        start_y = 4
+        for i, module in enumerate(self.modules):
+            y = start_y + i * 2
+            if y + 1 >= height:
+                break
 
-        if is_ssh or len(self.modules) <= 8:
-            # Simple layout for SSH or few items
-            start_y = 4
-            for i, module in enumerate(self.modules):
-                y = start_y + i * 2
-                if y + 1 >= height:
-                    break
+            # Module name with selection indicator
+            if i == self.selected_index:
+                stdscr.addstr(y, 2, f"> {module.name}", curses.A_REVERSE | curses.A_BOLD)
+            else:
+                stdscr.addstr(y, 2, f"  {module.name}")
 
-                # Module name with selection indicator
-                if i == self.selected_index:
-                    stdscr.addstr(y, 2, f"> {module.name}", curses.A_REVERSE | curses.A_BOLD)
-                else:
-                    stdscr.addstr(y, 2, f"  {module.name}")
-
-                # Description inline
-                desc = module.description[:width-6-len(module.name)]
-                stdscr.addstr(y, 4 + len(module.name), f" - {desc}", curses.A_DIM)
-        else:
-            # Condensed scrolling layout for local terminal
-            start_y = 4
-            max_items = (height - 6) // 2  # 2 lines per item, minimal reserve
-            start_idx = max(0, min(self.selected_index - max_items // 2, len(self.modules) - max_items))
-
-            for i in range(max_items):
-                idx = start_idx + i
-                if idx >= len(self.modules):
-                    break
-                module = self.modules[idx]
-                y = start_y + i * 2
-
-                # Module name with selection indicator
-                if idx == self.selected_index:
-                    stdscr.addstr(y, 2, f"> {module.name}", curses.A_REVERSE | curses.A_BOLD)
-                else:
-                    stdscr.addstr(y, 2, f"  {module.name}")
-
-        # Description of selected item at bottom (only for local)
-        if not is_ssh and self.modules:
-            selected = self.modules[self.selected_index]
-            desc_y = height - 2
-            desc = selected.description[:width-4]
-            stdscr.addstr(desc_y, 2, f"Desc: {desc}", curses.A_DIM)
+            # Description inline
+            desc = module.description[:width-6-len(module.name)]
+            stdscr.addstr(y, 4 + len(module.name), f" - {desc}", curses.A_DIM)
 
         # Instructions
         instructions = "↑↓ navigate, Enter select, 'q' quit"
