@@ -297,50 +297,68 @@ EOF
     chmod +x /tmp/start_spectrum.sh
     mv /tmp/start_spectrum.sh $HOME/start_spectrum.sh
 
-    # Configure .bashrc for tmux with graceful fallback
-    print_info "Configuring bashrc for SpectrumSnek session management..."
+    # Create SSH entry point script
+    print_info "Creating SSH entry point for SpectrumSnek..."
 
-    # Remove any existing SpectrumSnek tmux configuration
-    sed -i '/# SpectrumSnek tmux console setup/,/fi/d' "$HOME/.bashrc"
+    cat > "$HOME/spectrum_ssh.sh" << 'EOF'
+#!/bin/bash
+# SpectrumSnek SSH Entry Point - Stable SSH access
 
-    # Add robust tmux configuration
+echo "========================================"
+echo "  SpectrumSnek SSH Session"
+echo "  $(date)"
+echo "========================================"
+echo ""
+echo "Starting SpectrumSnek... Press Ctrl+C to exit"
+echo ""
+
+# Change to SpectrumSnek directory
+cd ~/spectrumsnek
+
+# Run start script with error handling
+if ~/start_spectrum.sh; then
+    echo ""
+    echo "SpectrumSnek session completed successfully."
+else
+    echo ""
+    echo "SpectrumSnek session ended with errors."
+    echo "You can still use this shell for troubleshooting."
+    echo ""
+    echo "Common commands:"
+    echo "  ./run_spectrum.sh     - Retry SpectrumSnek"
+    echo "  pip list             - Check installed packages"
+    echo "  lsusb                - Check USB devices"
+    echo "  exit                 - Close SSH connection"
+    echo ""
+fi
+
+echo "SSH session remains active. Type 'exit' to disconnect."
+EOF
+
+    chmod +x "$HOME/spectrum_ssh.sh"
+    print_status "SSH entry point created at ~/spectrum_ssh.sh"
+
+    # Configure .bashrc for console only (much simpler)
+    print_info "Configuring bashrc for console autologin..."
+
+    # Remove any existing SpectrumSnek configuration
+    sed -i '/# SpectrumSnek/,/fi/d' "$HOME/.bashrc"
+
+    # Add simple console-only configuration
     cat >> "$HOME/.bashrc" << 'EOF'
 
-# SpectrumSnek session management - Robust tmux handling
-if [[ -z "$TMUX" ]]; then
-    if [[ "$(tty)" == "/dev/tty1" ]]; then
-        # Console autologin - prefer tmux, fallback to direct execution
-        if command -v tmux &> /dev/null; then
-            if ! tmux has-session -t spectrum 2>/dev/null; then
-                tmux new-session -s spectrum -d
-                tmux send-keys -t spectrum "~/start_spectrum.sh" C-m
-            fi
-            exec tmux attach-session -t spectrum
-        else
-            echo "tmux not found, running SpectrumSnek directly on console..."
-            ~/start_spectrum.sh
-        fi
-    elif [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; then
-        # SSH connection - run directly to avoid session drops
-        echo "SpectrumSnek SSH Session - $(date)"
-        echo "Running SpectrumSnek directly (no tmux for stability)"
-        echo "Press Ctrl+C to exit"
-        echo ""
+# SpectrumSnek console autologin
+if [[ -z "$TMUX" && "$(tty)" == "/dev/tty1" ]]; then
+    if command -v tmux &> /dev/null; then
+        tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
+        exec tmux attach-session -t spectrum
+    else
         ~/start_spectrum.sh
-        echo ""
-        echo "SpectrumSnek session ended. Type 'exit' to close SSH connection."
-    fi
-            # For SSH, don't use exec - let user return to shell if tmux exits
-            tmux attach-session -t spectrum || echo "Tmux session ended. Type 'exit' to close SSH connection."
-        else
-            echo "tmux not found, running SpectrumSnek directly via SSH..."
-            ~/start_spectrum.sh || echo "SpectrumSnek exited. Type 'exit' to close SSH connection."
-        fi
     fi
 fi
 EOF
 
-    print_status "Bashrc configured with robust session management"
+    print_status "Console autologin configured"
 
     $SUDO_CMD systemctl daemon-reload
     $SUDO_CMD systemctl restart getty@tty1
@@ -595,7 +613,7 @@ main() {
             echo ""
             echo "Access Methods:"
             echo "  • HDMI: Automatic menu on boot"
-            echo "  • SSH: Shared tmux session"
+            echo "  • SSH: Run '~/spectrum_ssh.sh' for stable access"
             echo "  • Web: http://localhost:5000"
             ;;
     esac
