@@ -190,9 +190,12 @@ class SystemMenu:
             else:
                 stdscr.addstr(y, 2, f"  {tool.name}")
 
-            # Description inline
-            desc = tool.description[:width-6-len(tool.name)]
-            stdscr.addstr(y, 4 + len(tool.name), f" - {desc}", curses.A_DIM)
+        # Description of selected item at bottom
+        if self.tools:
+            selected = self.tools[self.selected_index]
+            desc_y = height - 2
+            desc = selected.description[:width-4]
+            stdscr.addstr(desc_y, 2, f"Desc: {desc}", curses.A_DIM)
 
         # Instructions
         instructions = "↑↓ navigate, Enter select, 'b' back, 'q' quit"
