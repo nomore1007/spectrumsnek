@@ -256,11 +256,42 @@ ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
 EOF
     $SUDO_CMD mv /tmp/autologin.conf /etc/systemd/system/getty@tty1.service.d/autologin.conf
 
-    # Create start script
+    # Create robust start script with error handling
     cat > /tmp/start_spectrum.sh << EOF
 #!/bin/bash
+# SpectrumSnek startup script with error handling
+
+echo "Starting SpectrumSnek..."
 cd $SCRIPT_DIR
-./run_spectrum.sh --service
+
+# Check if virtual environment exists
+if [ ! -d "venv" ]; then
+    echo "ERROR: Virtual environment not found. Run ./setup.sh first."
+    exit 1
+fi
+
+# Check if run_spectrum.sh exists
+if [ ! -x "run_spectrum.sh" ]; then
+    echo "ERROR: run_spectrum.sh not found or not executable."
+    exit 1
+fi
+
+# Start SpectrumSnek with error handling
+echo "Launching SpectrumSnek service..."
+if ./run_spectrum.sh --service 2>&1; then
+    echo "SpectrumSnek exited successfully"
+else
+    echo "ERROR: SpectrumSnek exited with error code $?"
+    echo "Check dependencies and try running: ./run_spectrum.sh"
+    echo ""
+    echo "Press Ctrl+C to exit this tmux session"
+    echo "Or run './run_spectrum.sh' manually to test"
+    # Keep session alive for debugging
+    while true; do
+        echo "Session active - run './run_spectrum.sh' to retry"
+        sleep 10
+    done
+fi
 EOF
     chmod +x /tmp/start_spectrum.sh
     mv /tmp/start_spectrum.sh $HOME/start_spectrum.sh
@@ -279,7 +310,10 @@ if [[ -z "$TMUX" ]]; then
     if [[ "$(tty)" == "/dev/tty1" ]]; then
         # Console autologin - prefer tmux, fallback to direct execution
         if command -v tmux &> /dev/null; then
-            tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
+            if ! tmux has-session -t spectrum 2>/dev/null; then
+                tmux new-session -s spectrum -d
+                tmux send-keys -t spectrum "~/start_spectrum.sh" C-m
+            fi
             exec tmux attach-session -t spectrum
         else
             echo "tmux not found, running SpectrumSnek directly on console..."
@@ -288,7 +322,10 @@ if [[ -z "$TMUX" ]]; then
     elif [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; then
         # SSH connection - prefer tmux, fallback to direct execution
         if command -v tmux &> /dev/null; then
-            tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
+            if ! tmux has-session -t spectrum 2>/dev/null; then
+                tmux new-session -s spectrum -d
+                tmux send-keys -t spectrum "~/start_spectrum.sh" C-m
+            fi
             exec tmux attach-session -t spectrum
         else
             echo "tmux not found, running SpectrumSnek directly via SSH..."
