@@ -29,6 +29,8 @@ class BluetoothConnector:
     def scan_devices(self) -> List[BluetoothDevice]:
         """Scan for available Bluetooth devices using hcitool."""
         try:
+            output = ""  # Initialize output variable
+
             # Check if Bluetooth adapter is available using hciconfig
             hciconfig_result = subprocess.run(
                 ["hciconfig"],
