@@ -31,18 +31,16 @@ class AudioOutputSelector:
     def scan_devices(self) -> List[AudioDevice]:
         """Scan for available audio output devices."""
         try:
-            audio = pyaudio.PyAudio()
+            devices_info = sd.query_devices()
             devices = []
 
-            for i in range(audio.get_device_count()):
-                info = audio.get_device_info_by_index(i)
-                max_out = int(info.get('maxOutputChannels', 0))
+            for i, info in enumerate(devices_info):
+                max_out = info['max_output_channels']
                 if max_out > 0:  # Output device
-                    name = str(info.get('name', f'Device {i}'))
+                    name = info['name']
                     is_bt = 'blue' in name.lower() or 'bluetooth' in name.lower()
                     devices.append(AudioDevice(i, name, max_out, is_bt))
 
-            audio.terminate()
             return devices
 
         except Exception as e:
@@ -52,12 +50,9 @@ class AudioOutputSelector:
     def get_current_default(self) -> Optional[AudioDevice]:
         """Get the current default output device."""
         try:
-            audio = pyaudio.PyAudio()
-            default_info = audio.get_default_output_device_info()
-            audio.terminate()
-
+            default_idx = sd.default.device[1]  # [input, output]
             for device in self.devices:
-                if device.index == default_info['index']:
+                if device.index == default_idx:
                     return device
             return None
         except Exception:
@@ -78,25 +73,18 @@ class AudioOutputSelector:
     def test_audio_device(self, device: AudioDevice) -> bool:
         """Test audio output on the selected device."""
         try:
-            audio = pyaudio.PyAudio()
-            stream = audio.open(
-                format=pyaudio.paInt16,
-                channels=1,
-                rate=44100,
-                output=True,
-                output_device_index=device.index
-            )
+            import numpy as np
 
             # Generate a short test tone
-            import numpy as np
             duration = 0.5
             frequency = 440  # A4 note
-            samples = np.sin(2 * np.pi * frequency * np.arange(44100 * duration)).astype(np.int16)
+            sample_rate = 44100
+            t = np.linspace(0, duration, int(sample_rate * duration), False)
+            samples = np.sin(2 * np.pi * frequency * t).astype(np.float32)
 
-            stream.write(samples.tobytes())
-            stream.stop_stream()
-            stream.close()
-            audio.terminate()
+            # Play using sounddevice
+            sd.play(samples, samplerate=sample_rate, device=device.index)
+            sd.wait()  # Wait for playback to finish
 
             self.status_message = f"Test tone played on {device.name}"
             return True
@@ -206,11 +194,11 @@ class AudioOutputSelector:
         print("Audio Output Selector")
         print("====================")
 
-        # Check if pyaudio is available
+        # Check if sounddevice is available
         try:
-            import pyaudio
+            import sounddevice
         except ImportError:
-            print("pyaudio not found. Please install with: pip install pyaudio")
+            print("sounddevice not found. Please install with: pip install sounddevice")
             return
 
         try:
