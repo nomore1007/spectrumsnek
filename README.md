@@ -305,8 +305,11 @@ python main.py  # ❌ Missing dependencies error
 ssh user@pi
 ./run_spectrum.sh --service &
 
-# Access web interface at http://pi-ip:5000
-# Or use SSH client: ./ssh_client.py --host pi-ip
+# Or specify custom port if 5000 is in use:
+./run_spectrum.sh --service --port 5001
+
+# Access web interface at http://pi-ip:5000 (or custom port)
+# Or use SSH client: ./ssh_client.py --host pi-ip --port 5001
 ```
 
 ### Manual Tool Execution
@@ -513,6 +516,27 @@ pip install -r requirements.txt
 
 # Or use the launcher to reinstall:
 ./run_spectrum.sh --reinstall-deps
+```
+
+**Port Already In Use Error**
+```bash
+# Symptom: "OSError: [Errno 98] Address already in use"
+# Cause: Port 5000 is already being used
+
+# Solution: Check and clean up
+./check_port.sh
+
+# Manual cleanup:
+pkill -f spectrum_service
+pkill -f "python main.py"
+
+# Use different port:
+python main.py --service --port 5001
+~/spectrum_ssh.sh --port 5001
+
+# Check what's using the port:
+netstat -tulpn | grep :5000
+lsof -i :5000
 ```
 
 **Import Errors**

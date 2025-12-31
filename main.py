@@ -287,7 +287,29 @@ def main():
         # Run as service
         from spectrum_service import SpectrumService
         service = SpectrumService()
-        service.run()
+
+        # Parse additional arguments
+        port = 5000
+        host = '127.0.0.1'
+
+        i = 2
+        while i < len(sys.argv):
+            if sys.argv[i] == '--port' and i + 1 < len(sys.argv):
+                try:
+                    port = int(sys.argv[i + 1])
+                    i += 2
+                except ValueError:
+                    print(f"Invalid port number: {sys.argv[i + 1]}")
+                    sys.exit(1)
+            elif sys.argv[i] == '--host' and i + 1 < len(sys.argv):
+                host = sys.argv[i + 1]
+                i += 2
+            else:
+                print(f"Unknown service argument: {sys.argv[i]}")
+                print("Usage: python main.py --service [--port PORT] [--host HOST]")
+                sys.exit(1)
+
+        service.run(host=host, port=port)
         return
 
     if len(sys.argv) > 1:

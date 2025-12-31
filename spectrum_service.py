@@ -307,7 +307,32 @@ class SpectrumService:
             port = self.config.get('service.port', 5000)
 
         print(f"Starting SpectrumSnek Service on {host}:{port}")
-        self.socketio.run(self.app, host=host, port=port, debug=False)
+
+        try:
+            self.socketio.run(self.app, host=host, port=port, debug=False)
+        except OSError as e:
+            if e.errno == 98:  # Address already in use
+                print(f"ERROR: Port {port} is already in use!")
+                print("This usually means SpectrumSnek is already running.")
+                print("")
+                print("Solutions:")
+                print("1. Check if SpectrumSnek is already running:")
+                print("   ps aux | grep spectrum")
+                print("   ps aux | grep python | grep main.py")
+                print("")
+                print("2. Kill existing processes:")
+                print("   pkill -f spectrum_service")
+                print("   pkill -f 'python main.py'")
+                print("")
+                print("3. Or use a different port:")
+                print("   python main.py --service --port 5001")
+                print("")
+                print("4. Check what's using the port:")
+                print(f"   netstat -tulpn | grep :{port}")
+                print(f"   lsof -i :{port}")
+            else:
+                print(f"ERROR: Failed to start service: {e}")
+            raise
 
 if __name__ == '__main__':
     service = SpectrumService()
