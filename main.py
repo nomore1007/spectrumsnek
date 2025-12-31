@@ -233,7 +233,6 @@ class RadioToolsLoader:
             print(f"\nError in interactive menu: {e}")
             print("Try running with a different terminal or check TERM variable")
             sys.exit(1)
-                sys.exit(1)
 
 if __name__ == "__main__":
     main()
