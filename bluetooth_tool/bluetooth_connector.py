@@ -27,17 +27,80 @@ class BluetoothConnector:
         self.status_message = ""
 
     def scan_devices(self) -> List[BluetoothDevice]:
-        """Scan for available Bluetooth devices using bluetoothctl."""
+        """Scan for available Bluetooth devices using hcitool."""
         try:
-            # First check if Bluetooth is powered and available
-            show_result = subprocess.run(
-                ["bluetoothctl", "show"],
+            # Check if Bluetooth adapter is available using hciconfig
+            hciconfig_result = subprocess.run(
+                ["hciconfig"],
                 capture_output=True, text=True, timeout=5
             )
 
-            if show_result.returncode != 0:
-                self.status_message = "Bluetooth controller not available"
+            if hciconfig_result.returncode != 0:
+                self.status_message = "Bluetooth adapter not found"
                 return []
+
+            if "UP" not in hciconfig_result.stdout:
+                self.status_message = "Bluetooth adapter is down. Run: sudo hciconfig hci0 up"
+                return []
+
+            # Use hcitool for scanning
+            self.status_message = "Scanning... Put devices in pairing mode (30 sec)"
+            result = subprocess.run(
+                ["hcitool", "scan"],
+                capture_output=True, text=True, timeout=35
+            )
+
+            if result.returncode != 0:
+                self.status_message = f"Scan failed: {result.stderr.strip()}"
+                return []
+
+            devices = []
+
+            for line in result.stdout.strip().split('\n'):
+                if not line.strip():
+                    continue
+
+                # Skip header line
+                if line.startswith('\t') or line.startswith('Scanning'):
+                    continue
+
+                # Parse: \tXX:XX:XX:XX:XX:XX\tName
+                parts = line.strip().split('\t')
+                if len(parts) >= 2:
+                    mac = parts[0].strip()
+                    name = parts[1].strip() if len(parts) > 1 else ""
+
+                    # Validate MAC address format
+                    if re.match(r'^([0-9A-F]{2}:){5}[0-9A-F]{2}$', mac, re.IGNORECASE):
+                        # Check if paired using bluetoothctl
+                        paired = False
+                        try:
+                            paired_result = subprocess.run(
+                                ["bluetoothctl", "info", mac],
+                                capture_output=True, text=True, timeout=3
+                            )
+                            paired = "Paired: yes" in paired_result.stdout
+                        except:
+                            pass
+
+                        devices.append(BluetoothDevice(mac, name, paired=paired))
+
+            if not devices:
+                self.status_message = f"No devices found. Output: {result.stdout.strip()[:100]}"
+            else:
+                self.status_message = f"Found {len(devices)} device(s): {[d.name for d in devices]}"
+
+            return devices
+
+        except subprocess.TimeoutExpired:
+            self.status_message = "Scan timeout - try again"
+            return []
+        except FileNotFoundError:
+            self.status_message = "hcitool not found. Install with: sudo apt install bluez"
+            return []
+        except Exception as e:
+            self.status_message = f"Scan error: {e}"
+            return []
 
             if "Powered: no" in show_result.stdout:
                 self.status_message = "Bluetooth is powered off. Enable with: bluetoothctl power on"
