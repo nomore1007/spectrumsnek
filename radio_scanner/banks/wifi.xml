@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<frequency_bank name="WiFi" description="2.4 GHz WiFi channels">
+  <frequency value="2412" mode="AM" name="WiFi Ch 1">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2417" mode="AM" name="WiFi Ch 2">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2422" mode="AM" name="WiFi Ch 3">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2427" mode="AM" name="WiFi Ch 4">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2432" mode="AM" name="WiFi Ch 5">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2437" mode="AM" name="WiFi Ch 6">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2442" mode="AM" name="WiFi Ch 7">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2447" mode="AM" name="WiFi Ch 8">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2452" mode="AM" name="WiFi Ch 9">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2457" mode="AM" name="WiFi Ch 10">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2462" mode="AM" name="WiFi Ch 11">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2467" mode="AM" name="WiFi Ch 12">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2472" mode="AM" name="WiFi Ch 13">
+    <squelch type="NONE"/>
+  </frequency>
+  <frequency value="2484" mode="AM" name="WiFi Ch 14">
+    <squelch type="NONE"/>
+  </frequency>
+</frequency_bank>

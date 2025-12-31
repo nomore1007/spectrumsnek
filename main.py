@@ -74,6 +74,34 @@ class RadioToolsLoader:
             # Module not available, skip
             pass
 
+        # WiFi Selector module
+        try:
+            import wifi_tool
+            info = wifi_tool.get_module_info()
+            self.modules.append(ModuleInfo(
+                info["name"],
+                info["description"],
+                "wifi_tool",
+                wifi_tool.run
+            ))
+        except ImportError:
+            # Module not available, skip
+            pass
+
+        # Bluetooth Connector module
+        try:
+            import bluetooth_tool
+            info = bluetooth_tool.get_module_info()
+            self.modules.append(ModuleInfo(
+                info["name"],
+                info["description"],
+                "bluetooth_tool",
+                bluetooth_tool.run
+            ))
+        except ImportError:
+            # Module not available, skip
+            pass
+
         # Demo spectrum analyzer
         self.modules.append(ModuleInfo(
             "Spectrum Analyzer (Demo)",
