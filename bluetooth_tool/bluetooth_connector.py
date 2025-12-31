@@ -297,10 +297,12 @@ class BluetoothConnector:
                         device = self.devices[self.selected_index]
                         curses.endwin()  # Exit curses for interaction
                         if self.connect_device(device):
+                            if self.connect_device(device):
                             print(f"Successfully connected to {device.name}")
                         else:
                             print(f"Failed to connect to {device.name}")
-                        input("Press Enter to continue...")
+                        print("\nReturning to menu...")
+                        time.sleep(2)
                         curses.wrapper(self.run_interface)  # Re-enter curses
                         return
                 elif key == 27:  # ESC

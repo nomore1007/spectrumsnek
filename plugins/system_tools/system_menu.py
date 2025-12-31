@@ -118,7 +118,8 @@ class SystemMenu:
         except Exception as e:
             print(f"Error getting display info: {e}")
         finally:
-            input("\nPress Enter to continue...")
+            print("\nReturning to menu...")
+            time.sleep(2)
 
     def update_from_github(self):
         """Update from GitHub repository."""
@@ -151,7 +152,8 @@ class SystemMenu:
         except Exception as e:
             print(f"❌ Update error: {e}")
         finally:
-            input("\nPress Enter to continue...")
+            print("\nReturning to menu...")
+            time.sleep(2)
 
     def draw_menu(self, stdscr):
         """Draw the system tools menu."""

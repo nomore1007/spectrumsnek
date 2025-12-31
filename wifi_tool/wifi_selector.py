@@ -211,7 +211,8 @@ class WiFiSelector:
                             print(f"Successfully connected to {network.ssid}")
                         else:
                             print(f"Failed to connect to {network.ssid}")
-                        input("Press Enter to continue...")
+                        print("\nReturning to menu...")
+                        time.sleep(2)
                         curses.wrapper(self.run_interface)  # Re-enter curses
                         return
                 elif key == 27:  # ESC
