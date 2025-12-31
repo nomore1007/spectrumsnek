@@ -265,9 +265,32 @@ ssh user@pi  # Automatically starts tmux with SpectrumSnek
 
 # SSH manual access:
 ssh user@pi
-~/spectrum_ssh.sh  # Full diagnostic interface
-./run_spectrum.sh  # Direct launcher
+~/spectrum_ssh.sh  # Auto-detects running service, shows web interface
+./run_spectrum.sh  # Direct launcher (if service not running)
 ```
+
+### Service Management
+
+SpectrumSnek can run as a system service for reliability:
+
+```bash
+# Check service status
+./service_manager.sh status
+
+# Service control
+./service_manager.sh start    # Start service
+./service_manager.sh stop     # Stop service
+./service_manager.sh restart  # Restart service
+
+# Boot configuration
+./service_manager.sh enable   # Start on boot
+./service_manager.sh disable  # Don't start on boot
+
+# View service logs
+./service_manager.sh logs
+```
+
+**Note:** When the service is running, SSH access will connect to the existing service rather than starting a new instance.
 
 ### SSH Access Methods
 
@@ -521,22 +544,22 @@ pip install -r requirements.txt
 **Port Already In Use Error**
 ```bash
 # Symptom: "OSError: [Errno 98] Address already in use"
-# Cause: Port 5000 is already being used
+# Cause: Port 5000 is already being used (often by systemd service)
 
-# Solution: Check and clean up
+# Solution: Check service status first
+./service_manager.sh status
+
+# If service is running, connect to it instead:
+~/spectrum_ssh.sh  # Will detect running service and show web interface
+
+# If you need to restart the service:
+./service_manager.sh restart
+
+# Manual cleanup (if needed):
 ./check_port.sh
 
-# Manual cleanup:
-pkill -f spectrum_service
-pkill -f "python main.py"
-
-# Use different port:
+# Use different port (advanced):
 python main.py --service --port 5001
-~/spectrum_ssh.sh --port 5001
-
-# Check what's using the port:
-netstat -tulpn | grep :5000
-lsof -i :5000
 ```
 
 **Import Errors**

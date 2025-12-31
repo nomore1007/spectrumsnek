@@ -533,7 +533,7 @@ EOF
     # Create the full SSH script
     cat > "$HOME/spectrum_ssh.sh" << 'EOF'
 #!/bin/bash
-# SpectrumSnek SSH Entry Point with fail-safe logging
+# SpectrumSnek SSH Entry Point with service detection
 
 # Create log file immediately
 LOG_FILE="$HOME/spectrum_ssh.log"
@@ -546,6 +546,50 @@ echo "  $(date)"
 echo "========================================"
 echo ""
 echo "All output is being logged to: $LOG_FILE"
+echo ""
+
+# Check if SpectrumSnek service is already running
+echo "Checking for existing SpectrumSnek service..."
+if systemctl is-active --quiet spectrum-service 2>/dev/null; then
+    echo "✓ SpectrumSnek service is running"
+    SERVICE_RUNNING=true
+
+    # Try to connect to the service
+    if curl -s http://localhost:5000/api/status >/dev/null 2>&1; then
+        echo "✓ Service is responding on port 5000"
+        echo ""
+        echo "Opening SpectrumSnek web interface..."
+        echo "Access at: http://localhost:5000"
+        echo ""
+        echo "To access from another computer:"
+        echo "http://YOUR_PI_IP:5000"
+        echo ""
+        echo "Available tools:"
+        curl -s http://localhost:5000/api/tools | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for name, info in data.get('tools', {}).items():
+        status = info.get('status', 'unknown')
+        desc = info.get('info', {}).get('description', 'No description')
+        print(f'  • {name}: {desc} ({status})')
+except:
+    print('  Could not retrieve tool list')
+"
+        echo ""
+        echo "Press Enter to exit SSH session..."
+        read
+        echo "=== SSH Session End ==="
+        exit 0
+    else
+        echo "⚠ Service is running but not responding on port 5000"
+        echo "This might indicate a service issue."
+    fi
+else
+    echo "ℹ SpectrumSnek service is not running"
+    SERVICE_RUNNING=false
+fi
+
 echo ""
 
 # Basic system check
@@ -587,7 +631,11 @@ else
 fi
 
 echo ""
-echo "Attempting to start SpectrumSnek..."
+if [ "$SERVICE_RUNNING" = true ]; then
+    echo "Service appears to have issues. Attempting to restart SpectrumSnek..."
+else
+    echo "Attempting to start SpectrumSnek..."
+fi
 echo "(If this fails, check $LOG_FILE for details)"
 echo ""
 
@@ -600,10 +648,15 @@ else
     echo "SpectrumSnek failed with exit code: $EXIT_CODE"
     echo "Full error details in: $LOG_FILE"
     echo ""
-    echo "You can still troubleshoot:"
-    echo "  ./run_spectrum.sh     - Retry SpectrumSnek"
-    echo "  cat $LOG_FILE         - View full logs"
-    echo "  pip list             - Check packages"
+    echo "Troubleshooting options:"
+    if [ "$SERVICE_RUNNING" = true ]; then
+        echo "  Service is running but unresponsive:"
+        echo "  sudo systemctl restart spectrum-service"
+    fi
+    echo "  ./run_spectrum.sh     - Manual start attempt"
+    echo "  cat $LOG_FILE         - View full error logs"
+    echo "  ./check_port.sh       - Check port conflicts"
+    echo "  pip list             - Check installed packages"
 fi
 
 echo ""
