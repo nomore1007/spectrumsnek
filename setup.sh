@@ -288,7 +288,10 @@ else
     echo "  - Permission issues: Run 'sudo usermod -a -G plugdev $USER'"
     echo ""
     echo "To retry manually: ./run_spectrum.sh"
-    echo "To exit tmux: Press Ctrl+B then D (or Ctrl+C if attached)"
+    echo "To exit: Press Ctrl+C"
+    echo ""
+    echo "Session will remain active for 60 seconds for troubleshooting..."
+    sleep 60
 fi
 EOF
     chmod +x /tmp/start_spectrum.sh
@@ -318,12 +321,15 @@ if [[ -z "$TMUX" ]]; then
             ~/start_spectrum.sh
         fi
     elif [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; then
-        # SSH connection - prefer tmux, fallback to direct execution
-        if command -v tmux &> /dev/null; then
-            if ! tmux has-session -t spectrum 2>/dev/null; then
-                tmux new-session -s spectrum -d
-                tmux send-keys -t spectrum "~/start_spectrum.sh" C-m
-            fi
+        # SSH connection - run directly to avoid session drops
+        echo "SpectrumSnek SSH Session - $(date)"
+        echo "Running SpectrumSnek directly (no tmux for stability)"
+        echo "Press Ctrl+C to exit"
+        echo ""
+        ~/start_spectrum.sh
+        echo ""
+        echo "SpectrumSnek session ended. Type 'exit' to close SSH connection."
+    fi
             # For SSH, don't use exec - let user return to shell if tmux exits
             tmux attach-session -t spectrum || echo "Tmux session ended. Type 'exit' to close SSH connection."
         else
