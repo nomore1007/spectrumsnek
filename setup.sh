@@ -157,8 +157,9 @@ install_system_deps() {
 
 # Function to repair tmux issues
 repair_tmux() {
-    print_info "Attempting to repair tmux installation..."
+    print_info "Repairing tmux installation and recreating scripts..."
 
+    # Install tmux if missing
     if ! command -v tmux &> /dev/null; then
         print_info "Installing tmux..."
         SUDO_CMD=$(get_sudo)
@@ -180,6 +181,136 @@ repair_tmux() {
         print_error "Failed to install tmux - manual installation may be required"
         TMUX_AVAILABLE=false
     fi
+
+    # Recreate the SSH scripts
+    print_info "Recreating SSH diagnostic scripts..."
+
+    # Create ultra-simple SSH test script
+    cat > "$HOME/spectrum_test.sh" << 'EOF'
+#!/bin/bash
+# Minimal test script to isolate SSH issues
+
+LOG_FILE="$HOME/spectrum_debug.log"
+echo "=== SSH Test - $(date) ===" > "$LOG_FILE"
+echo "Script started successfully" >> "$LOG_FILE"
+echo "PID: $$" >> "$LOG_FILE"
+echo "User: $(whoami)" >> "$LOG_FILE"
+echo "Working directory: $(pwd)" >> "$LOG_FILE"
+echo "Home directory: $HOME" >> "$LOG_FILE"
+
+echo "========================================"
+echo "  SpectrumSnek SSH Test"
+echo "  $(date)"
+echo "========================================"
+echo ""
+echo "If you can see this, basic SSH is working!"
+echo "Log file: $LOG_FILE"
+echo ""
+
+# Test basic commands
+echo "Testing basic commands..." >> "$LOG_FILE"
+which python3 >> "$LOG_FILE" 2>&1
+echo "Python3 exit code: $?" >> "$LOG_FILE"
+
+ls -la ~/spectrumsnek/ >> "$LOG_FILE" 2>&1
+echo "Directory list exit code: $?" >> "$LOG_FILE"
+
+echo "Test script completed successfully" >> "$LOG_FILE"
+echo ""
+echo "Test completed. Check $LOG_FILE for details."
+echo "Press Enter to continue..."
+read
+EOF
+
+    chmod +x "$HOME/spectrum_test.sh"
+
+    # Create the full SSH script
+    cat > "$HOME/spectrum_ssh.sh" << 'EOF'
+#!/bin/bash
+# SpectrumSnek SSH Entry Point with fail-safe logging
+
+# Create log file immediately
+LOG_FILE="$HOME/spectrum_ssh.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "=== SpectrumSnek SSH Session - $(date) ==="
+
+echo "========================================"
+echo "  SpectrumSnek SSH Session"
+echo "  $(date)"
+echo "========================================"
+echo ""
+echo "All output is being logged to: $LOG_FILE"
+echo ""
+
+# Basic system check
+echo "System check:"
+echo "User: $(whoami)"
+echo "PID: $$"
+echo "Working directory: $(pwd)"
+echo "Home: $HOME"
+echo ""
+
+# Check if we can access SpectrumSnek directory
+if cd ~/spectrumsnek 2>/dev/null; then
+    echo "✓ Can access ~/spectrumsnek"
+    echo "Directory contents:"
+    ls -la
+    echo ""
+else
+    echo "✗ Cannot access ~/spectrumsnek directory"
+    echo "This might be the issue!"
+    echo ""
+    echo "Log saved to: $LOG_FILE"
+    exit 1
+fi
+
+# Check virtual environment
+if [ -d "venv" ]; then
+    echo "✓ Virtual environment exists"
+else
+    echo "✗ Virtual environment missing"
+    echo "Run: ./setup.sh --full"
+fi
+
+# Check run script
+if [ -x "run_spectrum.sh" ]; then
+    echo "✓ run_spectrum.sh is executable"
+else
+    echo "✗ run_spectrum.sh missing or not executable"
+    ls -la run_spectrum.sh
+fi
+
+echo ""
+echo "Attempting to start SpectrumSnek..."
+echo "(If this fails, check $LOG_FILE for details)"
+echo ""
+
+# Try to run SpectrumSnek
+if ~/start_spectrum.sh; then
+    echo "SpectrumSnek completed successfully"
+else
+    EXIT_CODE=$?
+    echo ""
+    echo "SpectrumSnek failed with exit code: $EXIT_CODE"
+    echo "Full error details in: $LOG_FILE"
+    echo ""
+    echo "You can still troubleshoot:"
+    echo "  ./run_spectrum.sh     - Retry SpectrumSnek"
+    echo "  cat $LOG_FILE         - View full logs"
+    echo "  pip list             - Check packages"
+fi
+
+echo ""
+echo "=== Session End ==="
+echo "Log file: $LOG_FILE"
+EOF
+
+    chmod +x "$HOME/spectrum_ssh.sh"
+
+    print_status "SSH scripts recreated successfully"
+    print_info "Available scripts:"
+    print_info "  ~/spectrum_test.sh  - Basic SSH connectivity test"
+    print_info "  ~/spectrum_ssh.sh   - Full SpectrumSnek SSH access"
 }
 
 # Function to setup udev rules
