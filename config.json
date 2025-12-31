@@ -1,0 +1,33 @@
+{
+    "service": {
+        "host": "127.0.0.1",
+        "port": 5000,
+        "auto_start_tools": [],
+        "max_concurrent_tools": 3
+    },
+    "web_interface": {
+        "enabled": true,
+        "theme": "dark",
+        "refresh_interval": 5
+    },
+    "tools": {
+        "rtl_scanner": {
+            "default_frequency": 100000000,
+            "default_gain": 20,
+            "sample_rate": 2048000
+        },
+        "adsb_tool": {
+            "default_frequency": 1090000000,
+            "gain": 40,
+            "location": {
+                "latitude": null,
+                "longitude": null
+            }
+        }
+    },
+    "system": {
+        "log_level": "INFO",
+        "data_directory": "./data",
+        "temp_directory": "/tmp/spectrumsnek"
+    }
+}

@@ -12,6 +12,10 @@ import json
 from typing import Dict, List, Any, Optional
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
+import psutil
+
+# Import configuration manager
+from config_manager import config_manager
 
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -24,10 +28,16 @@ class SpectrumService:
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         self.tools: Dict[str, Any] = {}
         self.running_tools: Dict[str, Any] = {}
+        self.config = config_manager
+        self.max_concurrent_tools = self.config.get('service.max_concurrent_tools', 3)
         self.load_tools()
 
         # Setup routes
         self.setup_routes()
+
+        # Start periodic status updates
+        self.status_thread = threading.Thread(target=self._periodic_status_updates, daemon=True)
+        self.status_thread.start()
 
     def load_tools(self):
         """Load available tools from plugins and system tools."""
@@ -104,6 +114,15 @@ class SpectrumService:
     def setup_routes(self):
         """Setup Flask routes."""
 
+        @self.app.route('/', methods=['GET'])
+        def serve_web_client():
+            """Serve the web client interface."""
+            try:
+                with open('web_client.html', 'r') as f:
+                    return f.read(), 200, {'Content-Type': 'text/html'}
+            except FileNotFoundError:
+                return "Web client not found. Make sure web_client.html exists.", 404
+
         @self.app.route('/api/tools', methods=['GET'])
         def get_tools():
             """Get list of available tools."""
@@ -125,11 +144,23 @@ class SpectrumService:
             if tool_name in self.running_tools:
                 return jsonify({'error': 'Tool already running'}), 400
 
+            # Check concurrent tool limit
+            if len(self.running_tools) >= self.max_concurrent_tools:
+                return jsonify({
+                    'error': f'Maximum concurrent tools ({self.max_concurrent_tools}) reached'
+                }), 400
+
             try:
                 # Start tool in background thread
                 def run_tool():
                     try:
-                        self.running_tools[tool_name] = {'status': 'running', 'thread': threading.current_thread()}
+                        start_time = time.time()
+                        self.running_tools[tool_name] = {
+                            'status': 'running',
+                            'thread': threading.current_thread(),
+                            'start_time': start_time,
+                            'pid': os.getpid()  # Process ID
+                        }
                         self.tools[tool_name]['status'] = 'running'
                         self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
 
@@ -162,14 +193,46 @@ class SpectrumService:
             if tool_name not in self.running_tools:
                 return jsonify({'error': 'Tool not running'}), 400
 
-            # Note: Stopping threads is complex, for now just mark as stopped
-            # In real implementation, need proper shutdown mechanism
+            # Try to terminate the thread gracefully
+            running_info = self.running_tools[tool_name]
+            thread = running_info.get('thread')
+
+            if thread and thread.is_alive():
+                # For better thread management, we could set an event
+                # For now, we'll just mark it as stopped and let the thread clean up
+                pass
+
             self.tools[tool_name]['status'] = 'stopped'
             if tool_name in self.running_tools:
                 del self.running_tools[tool_name]
             self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'stopped'})
 
             return jsonify({'status': 'stopped'})
+
+        @self.app.route('/api/tools/<tool_name>/status', methods=['GET'])
+        def get_tool_status(tool_name):
+            """Get detailed status of a specific tool."""
+            if tool_name not in self.tools:
+                return jsonify({'error': 'Tool not found'}), 404
+
+            tool_data = self.tools[tool_name]
+            status_info = {
+                'name': tool_data['info']['name'],
+                'status': tool_data['status'],
+                'description': tool_data['info']['description'],
+                'is_running': tool_name in self.running_tools
+            }
+
+            if tool_name in self.running_tools:
+                running_info = self.running_tools[tool_name]
+                thread = running_info.get('thread')
+                status_info.update({
+                    'thread_alive': thread.is_alive() if thread else False,
+                    'start_time': running_info.get('start_time'),
+                    'runtime': time.time() - running_info.get('start_time', time.time())
+                })
+
+            return jsonify(status_info)
 
         @self.app.route('/api/status', methods=['GET'])
         def get_status():
@@ -180,8 +243,69 @@ class SpectrumService:
                 'tools_running': len(self.running_tools)
             })
 
-    def run(self, host='127.0.0.1', port=5000):
+        @self.app.route('/api/system', methods=['GET'])
+        def get_system_info():
+            """Get system information."""
+            return jsonify(self._get_system_info())
+
+        @self.app.route('/api/config', methods=['GET'])
+        def get_config():
+            """Get current configuration."""
+            return jsonify(self.config.config)
+
+        @self.app.route('/api/config', methods=['POST'])
+        def update_config():
+            """Update configuration."""
+            try:
+                updates = request.get_json()
+                for key_path, value in updates.items():
+                    self.config.set(key_path, value)
+                return jsonify({'status': 'updated'})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 400
+
+    def _get_system_info(self) -> Dict[str, Any]:
+        """Get current system information."""
+        try:
+            return {
+                'cpu_percent': psutil.cpu_percent(interval=1),
+                'memory_percent': psutil.virtual_memory().percent,
+                'disk_usage': psutil.disk_usage('/').percent,
+                'network_connections': len(psutil.net_connections()),
+                'uptime': time.time() - psutil.boot_time()
+            }
+        except:
+            return {'error': 'Could not get system info'}
+
+    def _periodic_status_updates(self):
+        """Send periodic status updates via WebSocket."""
+        while True:
+            try:
+                # Send system info update
+                system_info = self._get_system_info()
+                self.socketio.emit('system_update', system_info)
+
+                # Send service status update
+                service_status = {
+                    'status': 'running',
+                    'tools_loaded': len(self.tools),
+                    'tools_running': len(self.running_tools),
+                    'timestamp': time.time()
+                }
+                self.socketio.emit('service_status', service_status)
+
+            except Exception as e:
+                print(f"Error in periodic updates: {e}")
+
+            time.sleep(5)  # Update every 5 seconds
+
+    def run(self, host=None, port=None):
         """Run the service."""
+        if host is None:
+            host = self.config.get('service.host', '127.0.0.1')
+        if port is None:
+            port = self.config.get('service.port', 5000)
+
         print(f"Starting SpectrumSnek Service on {host}:{port}")
         self.socketio.run(self.app, host=host, port=port, debug=False)
 

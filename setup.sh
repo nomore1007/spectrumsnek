@@ -420,23 +420,20 @@ main() {
         print_status "Virtual environment already exists"
     fi
 
-    # Activate virtual environment
-    source "$VENV_DIR/bin/activate"
-
-    # Upgrade pip and setuptools
+    # Upgrade pip and setuptools using venv python
     print_info "Upgrading pip and setuptools..."
-    pip install --upgrade pip setuptools
+    "$VENV_DIR/bin/python" -m pip install --upgrade pip setuptools
     print_status "Pip and setuptools upgraded"
 
     # Install Python dependencies
     print_info "Installing Python dependencies..."
-    pip install -r "$SCRIPT_DIR/requirements.txt"
+    "$VENV_DIR/bin/python" -m pip install -r "$SCRIPT_DIR/requirements.txt"
     print_status "Python dependencies installed"
 
     # Install development dependencies if requested
     if [ "$DEV_MODE" = true ]; then
         print_info "Installing development dependencies..."
-        pip install -r "$SCRIPT_DIR/requirements-dev.txt"
+        "$VENV_DIR/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-dev.txt"
         print_status "Development dependencies installed"
     fi
 
@@ -519,7 +516,6 @@ main() {
         echo "Run 'sudo ./setup.sh' if you encounter permission issues"
     fi
         echo ""
-    fi
 
     echo "Usage:"
     echo "  • Interactive: python main.py"
@@ -535,18 +531,6 @@ main() {
 
 # Run main setup
 main "$@"
-
-# Activate virtual environment
-echo "Activating virtual environment..."
-source venv/bin/activate
-
-# Upgrade pip
-echo "Upgrading pip..."
-pip install --upgrade pip
-
-# Install dependencies
-echo "Installing Python dependencies..."
-pip install -r requirements.txt
 
 # Check if RTL-SDR drivers are installed
 echo "Checking for RTL-SDR drivers..."

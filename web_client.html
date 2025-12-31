@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpectrumSnek Web Interface</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #1a1a1a;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        .tool-card {
+            background-color: #2a2a2a;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tool-info {
+            flex: 1;
+        }
+        .tool-name {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        .tool-description {
+            color: #cccccc;
+            font-size: 0.9em;
+        }
+        .tool-version {
+            color: #888888;
+            font-size: 0.8em;
+        }
+        .tool-status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .status-stopped {
+            background-color: #444444;
+            color: #ffffff;
+        }
+        .status-running {
+            background-color: #004400;
+            color: #00ff00;
+        }
+        .status-starting {
+            background-color: #444400;
+            color: #ffff00;
+        }
+        button {
+            background-color: #00ff00;
+            color: #000000;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        button:hover {
+            background-color: #00cc00;
+        }
+        button:disabled {
+            background-color: #666666;
+            cursor: not-allowed;
+        }
+        .status-bar {
+            background-color: #333333;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .system-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background-color: #2a2a2a;
+            border: 1px solid #444444;
+            border-radius: 5px;
+            padding: 10px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #00ff00;
+        }
+        .stat-label {
+            color: #cccccc;
+            font-size: 0.9em;
+        }
+        .refresh-btn {
+            background-color: #0066ff;
+            color: #ffffff;
+        }
+        .refresh-btn:hover {
+            background-color: #0044cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SpectrumSnek 🐍📻</h1>
+        <div class="status-bar">
+            <span id="service-status">Connecting to service...</span>
+            <button class="refresh-btn" onclick="loadTools()">Refresh</button>
+        </div>
+
+        <div class="system-stats">
+            <div class="stat-card">
+                <div class="stat-value" id="cpu-percent">--</div>
+                <div class="stat-label">CPU Usage</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="memory-percent">--</div>
+                <div class="stat-label">Memory Usage</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="disk-usage">--</div>
+                <div class="stat-label">Disk Usage</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="network-conn">--</div>
+                <div class="stat-label">Network Conn</div>
+            </div>
+        </div>
+
+        <div id="tools-container">
+            <!-- Tools will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        const SERVICE_URL = 'http://127.0.0.1:5000';
+        let socket;
+
+        // Initialize WebSocket connection
+        function initWebSocket() {
+            socket = new WebSocket('ws://127.0.0.1:5000');
+
+            socket.onopen = function(event) {
+                console.log('Connected to SpectrumSnek service');
+                document.getElementById('service-status').textContent = 'Connected to service';
+            };
+
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type === 'tool_update') {
+                    updateToolStatus(data.tool, data.status);
+                } else if (data.type === 'system_update') {
+                    updateSystemStats(data);
+                } else if (data.type === 'service_status') {
+                    updateServiceStatus(data);
+                }
+            };
+
+            socket.onclose = function(event) {
+                console.log('Disconnected from service');
+                document.getElementById('service-status').textContent = 'Disconnected from service';
+                // Try to reconnect after 5 seconds
+                setTimeout(initWebSocket, 5000);
+            };
+
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                document.getElementById('service-status').textContent = 'Connection error';
+            };
+        }
+
+        // Load tools from API
+        async function loadTools() {
+            try {
+                const response = await fetch(`${SERVICE_URL}/api/tools`);
+                const data = await response.json();
+
+                const container = document.getElementById('tools-container');
+                container.innerHTML = '';
+
+                for (const [toolName, toolData] of Object.entries(data.tools)) {
+                    createToolCard(toolName, toolData);
+                }
+
+                document.getElementById('service-status').textContent = `Service running - ${Object.keys(data.tools).length} tools loaded`;
+            } catch (error) {
+                console.error('Error loading tools:', error);
+                document.getElementById('service-status').textContent = 'Failed to load tools';
+                document.getElementById('tools-container').innerHTML = '<p>Error connecting to service. Make sure the SpectrumSnek service is running.</p>';
+            }
+        }
+
+        // Create a tool card element
+        function createToolCard(toolName, toolData) {
+            const container = document.getElementById('tools-container');
+
+            const card = document.createElement('div');
+            card.className = 'tool-card';
+            card.id = `tool-${toolName}`;
+
+            card.innerHTML = `
+                <div class="tool-info">
+                    <div class="tool-name">${toolData.info.name}</div>
+                    <div class="tool-description">${toolData.info.description}</div>
+                    <div class="tool-version">Version: ${toolData.info.version} | Author: ${toolData.info.author}</div>
+                </div>
+                <div class="tool-status status-${toolData.status}" id="status-${toolName}">${toolData.status.toUpperCase()}</div>
+                <button id="btn-${toolName}" onclick="toggleTool('${toolName}')">
+                    ${toolData.status === 'running' ? 'Stop' : 'Start'}
+                </button>
+            `;
+
+            container.appendChild(card);
+        }
+
+        // Update tool status display
+        function updateToolStatus(toolName, status) {
+            const statusElement = document.getElementById(`status-${toolName}`);
+            const buttonElement = document.getElementById(`btn-${toolName}`);
+
+            if (statusElement && buttonElement) {
+                statusElement.className = `tool-status status-${status}`;
+                statusElement.textContent = status.toUpperCase();
+                buttonElement.textContent = status === 'running' ? 'Stop' : 'Start';
+            }
+        }
+
+        // Update system statistics display
+        function updateSystemStats(data) {
+            if (data.cpu_percent !== undefined) {
+                document.getElementById('cpu-percent').textContent = `${data.cpu_percent.toFixed(1)}%`;
+            }
+            if (data.memory_percent !== undefined) {
+                document.getElementById('memory-percent').textContent = `${data.memory_percent.toFixed(1)}%`;
+            }
+            if (data.disk_usage !== undefined) {
+                document.getElementById('disk-usage').textContent = `${data.disk_usage.toFixed(1)}%`;
+            }
+            if (data.network_connections !== undefined) {
+                document.getElementById('network-conn').textContent = data.network_connections;
+            }
+        }
+
+        // Update service status display
+        function updateServiceStatus(data) {
+            const statusElement = document.getElementById('service-status');
+            if (data.tools_loaded !== undefined && data.tools_running !== undefined) {
+                statusElement.textContent = `Service running - ${data.tools_loaded} tools loaded, ${data.tools_running} running`;
+            }
+        }
+
+        // Toggle tool start/stop
+        async function toggleTool(toolName) {
+            const buttonElement = document.getElementById(`btn-${toolName}`);
+            const currentStatus = buttonElement.textContent.toLowerCase();
+
+            try {
+                let response;
+                if (currentStatus === 'start') {
+                    response = await fetch(`${SERVICE_URL}/api/tools/${toolName}/start`, {
+                        method: 'POST'
+                    });
+                } else {
+                    response = await fetch(`${SERVICE_URL}/api/tools/${toolName}/stop`, {
+                        method: 'POST'
+                    });
+                }
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    alert(`Error: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error toggling tool:', error);
+                alert('Failed to communicate with service');
+            }
+        }
+
+        // Initialize when page loads
+        window.onload = function() {
+            initWebSocket();
+            loadTools();
+        };
+    </script>
+</body>
+</html>

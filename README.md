@@ -1,21 +1,31 @@
-# RTL-SDR Radio Scanner
-
 # SpectrumSnek 🐍📻
 
-A Python-powered radio spectrum analysis toolkit using RTL-SDR for software-defined radio operations. Because who doesn't love snakes and signals?
+A comprehensive Python-powered radio spectrum analysis toolkit with client-server architecture for flexible deployment on Raspberry Pi and other Linux systems. Features modular plugin system, web interfaces, and multiple access methods.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
 ## Overview
 
-SpectrumSnek is your friendly neighborhood python 🐍 that slithers through the radio spectrum! This toolkit provides a complete software-defined radio (SDR) experience with multiple specialized tools for radio monitoring, analysis, and scanning. Built around the affordable RTL-SDR USB dongle, SpectrumSnek offers both traditional radio scanner functionality and modern spectrum analysis capabilities.
+SpectrumSnek is a modern, modular radio spectrum analysis toolkit with client-server architecture. It provides a complete software-defined radio (SDR) experience with multiple specialized tools for radio monitoring, analysis, and scanning. Built around the affordable RTL-SDR USB dongle, SpectrumSnek offers both traditional radio scanner functionality and modern spectrum analysis capabilities.
+
+### Key Features
+
+- **🔌 Modular Plugin System**: Extensible architecture for radio tools
+- **🏗️ Client-Server Architecture**: Flexible deployment options
+- **🌐 Web Interfaces**: Browser-based control for all tools
+- **📱 Multiple Access Methods**: Console, SSH, and web interfaces
+- **🐍 Python-Powered**: Modern async architecture with real-time updates
+- **📻 RTL-SDR Integration**: Professional-grade spectrum analysis
+- **🔧 System Tools**: WiFi, Bluetooth, and audio management
+- **🎛️ Raspberry Pi Optimized**: Handheld and headless configurations
 
 Whether you're a ham radio enthusiast, aviation spotter, or just curious about the invisible waves around you, SpectrumSnek has the tools to help you explore the electromagnetic jungle.
 
 ## Table of Contents
 
 - [Features](#features)
+- [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -25,116 +35,189 @@ Whether you're a ham radio enthusiast, aviation spotter, or just curious about t
 - [Contributing](#contributing)
 - [License](#license)
 
+## Architecture
+
+SpectrumSnek uses a modern client-server architecture for maximum flexibility:
+
+### Service Layer
+- **Background Service**: `spectrum-service` runs all radio tools
+- **REST API**: HTTP endpoints for tool control and monitoring
+- **WebSocket Updates**: Real-time status and data streaming
+- **Plugin System**: Modular tool loading from `plugins/` directory
+
+### Client Layer
+- **Console Client**: Interactive curses menu (default mode)
+- **Web Client**: Browser-based interface (future)
+- **SSH Client**: Command-line remote access (future)
+
+### Deployment Options
+- **Console Mode**: Interactive menu on HDMI/console
+- **Headless Mode**: Service + web interfaces only
+- **Full Mode**: Complete console + headless setup
+
 ## Features
 
-### Core Tools 🛠️
-- **🐍 RTL-SDR Spectrum Analyzer**: Real-time spectrum visualization and analysis - watch those signals dance!
-- **✈️ ADS-B Aircraft Tracker**: Real-time aircraft surveillance and tracking - spot planes before you see them
-- **📻 Traditional Radio Scanner**: Scan user-defined frequency lists with squelch support - classic radio monitoring
-- **📝 Frequency Bank Editor**: Command-line tool for managing XML frequency databases - organize your radio favorites
-- **🔧 System Tools**: WiFi connectivity, Bluetooth pairing, audio device management, and GitHub updates
+### Core Radio Tools 🛠️
+- **🐍 RTL-SDR Spectrum Analyzer**: Real-time spectrum visualization with demodulation
+- **✈️ ADS-B Aircraft Tracker**: Real-time aircraft surveillance and tracking
+- **📻 Traditional Radio Scanner**: Frequency bank scanning with squelch support
+- **🎵 FM Radio Tools**: Recording and playback capabilities
+
+### System Management 🔧
+- **📶 WiFi Network Selector**: Wireless network management
+- **🔵 Bluetooth Device Connector**: Bluetooth pairing and connection
+- **🔊 Audio Output Selector**: Multi-device audio routing
+- **⬆️ GitHub Update Tool**: In-app software updates
 
 ### Technical Capabilities
-- **Real-time Spectrum Analysis**: Terminal-based frequency spectrum visualization
-- **Interactive Spectrum Browser**: Keyboard-controlled live spectrum analysis with controls
-- **Frequency Scanning**: Automatically scan frequency ranges for signals
-- **FM Radio Recording**: Record FM radio stations to WAV files
-- **Signal Detection**: Automatically detect and save strong signals
-- **CTCSS/DCS Squelch**: Tone-based squelch detection for FM channels
-- **DMR Support**: Digital Mobile Radio frequency handling
-- **Web Interfaces**: Optional web-based control interfaces for all tools
-- **WiFi Network Management**: Scan and connect to wireless networks
-- **Bluetooth Device Pairing**: Connect to Bluetooth audio devices and peripherals
-- **Audio Output Control**: Select and test multiple audio devices including Bluetooth
-- **GitHub Update Integration**: Pull latest updates directly from the menu
+- **Real-time Spectrum Analysis**: Live frequency visualization
+- **Signal Processing**: AM/FM/SSB/CW demodulation
+- **Frequency Management**: XML-based frequency banks
+- **Web Interfaces**: Browser control for all tools
+- **CTCSS/DCS Squelch**: Professional audio filtering
+- **DMR Support**: Digital mobile radio compatibility
 
-### System Features
-- **Modular Architecture**: Extensible plugin system for easy tool addition
-- **Terminal-Only Operation**: No GUI or desktop environment required
-- **Boot-time Startup**: Optional systemd service for automatic startup or console autostart
-- **Virtual Environment**: Isolated Python environment for clean dependencies
-- **Raspberry Pi Optimized**: Special support for headless Pi operation with console autostart
-- **Flexible Configuration**: Adjustable sample rates, gains, and frequencies
-- **Cross-Platform**: Linux-focused with proper OS detection
+### System Architecture
+- **Client-Server Design**: Flexible deployment options
+- **Modular Plugin System**: Easy tool extension
+- **RESTful API**: Programmatic access to all features
+- **WebSocket Streaming**: Real-time data updates
+- **Cross-Platform**: Linux optimized, Raspberry Pi ready
+- **Automated Setup**: One-command installation for different architectures
 
 ## Prerequisites
 
 ### Hardware Requirements
-- RTL-SDR USB dongle (RTL2832U-based)
-- Computer with USB port
-- Antenna suitable for target frequencies
+- **RTL-SDR USB Dongle**: RTL2832U-based (recommended: RTL-SDR v3/v4)
+- **Computer with USB**: Raspberry Pi 3B+ or better recommended
+- **Antenna**: Appropriate for target frequencies (VHF/UHF for most use cases)
+- **Optional**: Bluetooth/WiFi adapters for system tools
 
 ### Software Requirements
-- Python 3.6+
-- RTL-SDR drivers installed on your system
+- **Operating System**: Raspberry Pi OS Lite (or any Debian-based Linux)
+- **Python**: 3.9+ (3.11+ recommended for Raspberry Pi)
+- **System Packages**: Will be installed automatically by setup script
+
+### Network Requirements (for headless/headless modes)
+- **Local Network Access**: For web interface and API
+- **Optional**: Port forwarding for remote access
+- **SSH Access**: For remote administration
 
 ## Installation
 
 ### Quick Setup
+
+Choose your deployment architecture:
+
 ```bash
-# Interactive console mode (HDMI menu + SSH)
-./setup.sh --console
+# 🖥️ Console Mode - Interactive menu on HDMI/console
+sudo ./setup.sh --console
 
-# Headless service mode (web/API access only)
-./setup.sh --headless
+# 🌐 Headless Mode - Web/API access only
+sudo ./setup.sh --headless
 
-# Full installation (console + headless)
-./setup.sh --full
+# 🔧 Full Mode - Console + headless features
+sudo ./setup.sh --full
 
-# Automated setup (no prompts)
-./setup.sh
+# 🤖 Automated - Uses console mode by default
+sudo ./setup.sh
 
-# Show help
+# 📚 Show all options
 ./setup.sh --help
-```
-
-### What the Setup Script Does
-- ✅ Creates Python virtual environment
-- ✅ Installs system dependencies (RTL-SDR, Bluetooth, Audio, etc.)
-- ✅ Installs Python dependencies
-- ✅ Sets up device permissions (RTL-SDR, Bluetooth)
-- ✅ Configures architecture (console/headless/full)
-- ✅ Sets up systemd services for selected architecture
-- ✅ Enables boot-time startup for chosen mode
-- ✅ Creates uninstaller script
-
-### Architecture Setup
-```bash
-# Interactive console mode
-./setup.sh --console
-
-# Headless service mode
-./setup.sh --headless
-
-# Both console and headless
-./setup.sh --full
-
-# Check service status
-sudo systemctl status spectrum-service  # for headless/full
-sudo systemctl status spectrum-console  # for console/full
-
-# Disable services
-sudo systemctl disable spectrum-service spectrum-console
 ```
 
 ### Architecture Options
 
 #### Console Mode (`--console`)
-- Interactive menu on HDMI/console
+- Interactive curses menu on HDMI/console
 - Autologin on tty1 with tmux session persistence
-- SSH access attaches to shared tmux session
+- SSH attaches to shared tmux session
 - Perfect for handheld devices with screens
 
 #### Headless Mode (`--headless`)
-- Background service with REST API
-- Web interfaces for all tools
+- Background spectrum service with REST API
+- Web interfaces for all tools on port 5000
 - No console UI, remote access only
-- Ideal for servers or headless Pis
+- Ideal for servers or API integration
 
 #### Full Mode (`--full`)
 - Both console and headless features
-- Complete local and remote access
-- Maximum flexibility for different use cases
+- Maximum flexibility for development/testing
+- All access methods available simultaneously
+
+### What the Setup Script Does
+- ✅ **System Dependencies**: Installs RTL-SDR, Bluetooth, Audio, tmux packages
+- ✅ **Python Environment**: Creates virtual environment with all dependencies
+- ✅ **Device Permissions**: Configures udev rules for hardware access
+- ✅ **Architecture Setup**: Configures services based on selected architecture
+- ✅ **Boot Configuration**: Enables automatic startup for chosen mode
+- ✅ **Service Management**: Proper systemd integration with dependencies
+- ✅ Creates uninstaller script
+
+### Service Management
+```bash
+# Check service status
+sudo systemctl status spectrum-service   # Core service (headless/full)
+sudo systemctl status spectrum-console   # Console client (console/full)
+
+# View service logs
+sudo journalctl -u spectrum-service -f
+sudo journalctl -u spectrum-console -f
+
+# Restart services
+sudo systemctl restart spectrum-service
+sudo systemctl restart spectrum-console
+
+# Disable services
+sudo systemctl disable spectrum-service spectrum-console
+```
+
+### Architecture Details
+
+#### Console Mode (`--console`)
+**Services Created:**
+- `spectrum-console`: Autologin on tty1 with tmux session
+- Interactive menu appears automatically on HDMI boot
+- SSH logins attach to shared tmux session
+
+**Access Methods:**
+- HDMI/Console: Automatic interactive menu
+- SSH: `ssh user@pi` (attaches to tmux session)
+- Local keyboard: Full control of running tools
+
+**Use Cases:**
+- Handheld radio devices
+- Touchscreen applications
+- Local interactive usage
+
+#### Headless Mode (`--headless`)
+**Services Created:**
+- `spectrum-service`: Background tool management service
+
+**Access Methods:**
+- Web Interface: `http://pi:5000` (local network)
+- REST API: `http://pi:5000/api/` (programmatic access)
+- SSH: Manual tool execution
+
+**Use Cases:**
+- Remote monitoring stations
+- API integration projects
+- Server deployments
+
+#### Full Mode (`--full`)
+**Services Created:**
+- `spectrum-service`: Background tool management
+- `spectrum-console`: Interactive console client
+
+**Access Methods:**
+- All console mode methods
+- All headless mode methods
+- Maximum flexibility
+
+**Use Cases:**
+- Development environments
+- Multi-user systems
+- Complete feature testing
 
 ### Uninstallation
 ```bash
@@ -151,15 +234,74 @@ sudo systemctl disable spectrum-service spectrum-console
 
 ## Quick Start
 
-1. **After installation, launch the main menu:**
-   ```bash
-   # Easy launcher (activates venv automatically)
-   ./run.sh
+### After Installation
 
-   # Or manually:
-   source venv/bin/activate
-   python main.py
-   ```
+**Console Mode:**
+```bash
+# Reboot - menu appears automatically on HDMI
+# SSH: ssh user@pi (attaches to tmux session)
+```
+
+**Headless Mode:**
+```bash
+# Access web interface
+# Local: http://localhost:5000
+# Remote: http://pi-ip:5000
+```
+
+**Full Mode:**
+```bash
+# All access methods available
+# HDMI + SSH + Web interfaces
+```
+
+### Manual Tool Execution
+
+If you need to run tools manually (bypassing the client-server architecture):
+
+```bash
+# Activate environment
+./run.sh
+
+# Or manually:
+source venv/bin/activate
+
+# Run service
+python main.py --service
+
+# Run console client (in another terminal)
+python main.py
+
+# Direct tool access
+python -m rtl_scanner.scanner --freq 100
+python -m adsb_tool.adsb_tracker --freq 1090
+```
+
+### Testing Setup
+
+```bash
+# Test hardware access
+./test_setup.sh
+
+# Check service status
+sudo systemctl status spectrum-service
+
+# View service logs
+sudo journalctl -u spectrum-service -f
+```
+
+### API Access (Headless/Full modes)
+
+```bash
+# Get tool list
+curl http://localhost:5000/api/tools
+
+# Start RTL-SDR scanner
+curl -X POST http://localhost:5000/api/tools/rtl_scanner/start
+
+# Check service status
+curl http://localhost:5000/api/status
+```
 
 2. **Or run tools directly:**
    ```bash
@@ -349,27 +491,114 @@ This software is for educational and research purposes only. Users are responsib
 
 ## Tools Overview
 
-### 1. 🐍 RTL-SDR Spectrum Analyzer (`rtl_scanner/`)
-The head of SpectrumSnek - advanced spectrum analysis with real-time visualization!
+### Radio Tools (Plugins)
+
+#### 1. 🐍 RTL-SDR Spectrum Analyzer
+Advanced real-time spectrum analysis with professional features.
+
+**Capabilities:**
+- Live spectrum visualization with ASCII graphics
+- Interactive frequency/gain/ demodulation controls
+- AM/FM/SSB/CW/DMR signal demodulation
+- Signal recording and audio output
+- Web interface for remote control
+
+**Access:** Available in all architectures via menu/API
+
+#### 2. ✈️ ADS-B Aircraft Tracker
+Real-time aviation surveillance and aircraft tracking.
+
+**Capabilities:**
+- 1090 MHz ADS-B signal decoding
+- Aircraft position, altitude, heading data
+- Flight information and identification
+- Terminal and web display formats
+- Position tracking and mapping
+
+**Access:** Available in all architectures via menu/API
+
+#### 3. 📻 Traditional Radio Scanner
+Classic frequency scanning with modern squelch features.
+
+**Capabilities:**
+- XML-based frequency bank management
+- CTCSS/DCS tone squelch detection
+- Sequential scanning through frequency lists
+- DMR digital radio support
+- Command-line frequency bank editor
+
+**Access:** Available in all architectures via menu/API
+
+### System Tools (Built-in)
+
+#### 4. 📶 WiFi Network Selector
+Wireless network management for connectivity.
+
+**Capabilities:**
+- Scan available WiFi networks
+- Connect to WPA2/3 secured networks
+- Signal strength monitoring
+- Network status display
+
+**Access:** System Tools submenu in console architectures
+
+#### 5. 🔵 Bluetooth Device Connector
+Bluetooth device pairing and audio management.
+
+**Capabilities:**
+- Discover nearby Bluetooth devices
+- Pair and connect to devices
+- Audio device management
+- Connection status monitoring
+
+**Access:** System Tools submenu in console architectures
+
+#### 6. 🔊 Audio Output Selector
+Multi-device audio routing and testing.
+
+**Capabilities:**
+- Enumerate available audio devices
+- Test audio output on different devices
+- Bluetooth audio device support
+- Default device configuration
+
+**Access:** System Tools submenu in console architectures
+
+#### 7. ⬆️ GitHub Update Tool
+In-application software updates.
+
+**Capabilities:**
+- Check for latest SpectrumSnek updates
+- Automatic git pull execution
+- Update status reporting
+- Safe update process
+
+**Access:** System Tools submenu in console architectures
+
+### Service Architecture
+
+#### Spectrum Service (`spectrum-service`)
+Background daemon providing core functionality.
+
+**Endpoints:**
+- `GET /api/tools` - List available tools
+- `POST /api/tools/<name>/start` - Launch tool
+- `POST /api/tools/<name>/stop` - Stop tool
+- `GET /api/status` - Service health
+- WebSocket events for real-time updates
+
+**Deployment:** Runs in headless and full architectures
+
+#### Console Client (`spectrum-console`)
+Interactive menu client connecting to service.
 
 **Features:**
-- Real-time spectrum display with ASCII visualization (because terminals are cool)
-- Interactive frequency and gain controls - tune like a pro
-- AM/FM/SSB/CW demodulation - decode all the things
-- Signal recording capabilities - save those interesting transmissions
-- Optional web interface for remote control - operate from anywhere
+- Curses-based menu interface
+- Tool selection and control
+- Real-time status updates
+- SSH session integration
 
-**Usage:**
-```bash
-# Terminal spectrum analyzer - watch the spectrum come alive
-python rtl_scanner.py --freq 100 --mode spectrum
-
-# Interactive mode with keyboard controls - hands-on spectrum surfing
-python rtl_scanner.py --interactive --freq 100
-
-# Web interface mode - control from your browser
-python rtl_scanner.py --web --freq 100
-```
+**Deployment:** Runs in console and full architectures
 
 ### 2. ✈️ ADS-B Aircraft Tracker (`adsb_tool/`)
 Spot aircraft before they spot you! Real-time aviation surveillance.
