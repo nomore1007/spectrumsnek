@@ -67,50 +67,53 @@ class BluetoothConnector:
 
             self.status_message = f"Adapter ready. Detail: {detail_info[:100]} | Dev: {dev_info[:50]}"
 
-            # Use hcitool for scanning
-            self.status_message = "Scanning... Put devices in pairing mode (30 sec)"
+            # Use bluetoothctl for scanning
+            self.status_message = "Scanning... Put devices in pairing mode (40 sec)"
+            scan_on = subprocess.run(["bluetoothctl", "scan", "on"], timeout=2, capture_output=True)
+            if scan_on.returncode != 0:
+                self.status_message = "Failed to start scan"
+                return []
+
+            time.sleep(40)  # Scan for 40 seconds
+
+            # Stop scan
+            subprocess.run(["bluetoothctl", "scan", "off"], timeout=2, capture_output=True)
+
+            # Get devices
             result = subprocess.run(
-                ["hcitool", "scan"],
-                capture_output=True, text=True, timeout=40
+                ["bluetoothctl", "devices"],
+                capture_output=True, text=True, timeout=5
             )
 
             if result.returncode != 0:
-                self.status_message = f"Scan failed: {result.stderr.strip()}"
+                self.status_message = f"Failed to get devices: {result.stderr.strip()}"
                 return []
+
+            output = result.stdout.strip()
 
             devices = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in output.split('\n'):
                 if not line.strip():
                     continue
 
-                # Skip header line
-                if line.startswith('\t') or line.startswith('Scanning'):
-                    continue
+                # Parse: Device XX:XX:XX:XX:XX:XX Name
+                match = re.match(r'Device\s+([0-9A-F:]{17})\s+(.*)', line)
+                if match:
+                    mac = match.group(1)
+                    name = match.group(2).strip()
 
-                # Parse: \tXX:XX:XX:XX:XX:XX\tName
-                parts = line.strip().split('\t')
-                if len(parts) >= 2:
-                    mac = parts[0].strip()
-                    name = parts[1].strip() if len(parts) > 1 else ""
+                    # Check if paired
+                    paired_result = subprocess.run(
+                        ["bluetoothctl", "info", mac],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    paired = "Paired: yes" in paired_result.stdout
 
-                    # Validate MAC address format
-                    if re.match(r'^([0-9A-F]{2}:){5}[0-9A-F]{2}$', mac, re.IGNORECASE):
-                        # Check if paired using bluetoothctl
-                        paired = False
-                        try:
-                            paired_result = subprocess.run(
-                                ["bluetoothctl", "info", mac],
-                                capture_output=True, text=True, timeout=3
-                            )
-                            paired = "Paired: yes" in paired_result.stdout
-                        except:
-                            pass
-
-                        devices.append(BluetoothDevice(mac, name, paired=paired))
+                    devices.append(BluetoothDevice(mac, name, paired=paired))
 
             if not devices:
-                self.status_message = f"No devices found. Output: {output[:100]}"
+                self.status_message = f"No devices found. Devices output: {output[:200]}"
             else:
                 self.status_message = f"Found {len(devices)} device(s): {[d.name for d in devices]}"
 
