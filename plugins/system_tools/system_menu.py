@@ -142,7 +142,10 @@ class SystemMenu:
                 if "Already up to date" in result.stdout:
                     print("Your SpectrumSnek is already up to date.")
                 else:
-                    print("New updates installed. Please restart with ./run.sh")
+                    print("New updates installed successfully.")
+                    print("The program will now exit. Please run ./run.sh to restart with the updates.")
+                    import sys
+                    sys.exit(0)
             else:
                 print("❌ Update failed!")
                 print("Error:", result.stderr.strip())
