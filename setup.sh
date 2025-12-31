@@ -391,10 +391,10 @@ main() {
     # Activate virtual environment
     source "$VENV_DIR/bin/activate"
 
-    # Upgrade pip
-    print_info "Upgrading pip..."
-    pip install --upgrade pip
-    print_status "Pip upgraded"
+    # Upgrade pip and setuptools
+    print_info "Upgrading pip and setuptools..."
+    pip install --upgrade pip setuptools
+    print_status "Pip and setuptools upgraded"
 
     # Install Python dependencies
     print_info "Installing Python dependencies..."
