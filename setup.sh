@@ -136,6 +136,13 @@ install_system_deps() {
                 ;;
         esac
 
+        # Verify tmux installation
+        if command -v tmux &> /dev/null; then
+            print_status "tmux installed successfully"
+        else
+            print_warning "tmux installation failed - SpectrumSnek will run without tmux session management"
+        fi
+
         if command -v rtl_test &> /dev/null; then
             print_status "RTL-SDR drivers installed successfully"
         else
@@ -235,11 +242,21 @@ EOF
 # SpectrumSnek tmux console setup
 if [[ -z "$TMUX" ]]; then
     if [[ "$(tty)" == "/dev/tty1" ]]; then
-        tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
-        exec tmux attach-session -t spectrum
+        if command -v tmux &> /dev/null; then
+            tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
+            exec tmux attach-session -t spectrum
+        else
+            echo "tmux not found, running SpectrumSnek directly..."
+            ~/start_spectrum.sh
+        fi
     elif [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; then
-        tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
-        exec tmux attach-session -t spectrum
+        if command -v tmux &> /dev/null; then
+            tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
+            exec tmux attach-session -t spectrum
+        else
+            echo "tmux not found, running SpectrumSnek directly..."
+            ~/start_spectrum.sh
+        fi
     fi
 fi
 EOF
