@@ -308,56 +308,133 @@ EOF
     chmod +x /tmp/start_spectrum.sh
     mv /tmp/start_spectrum.sh $HOME/start_spectrum.sh
 
-    # Create SSH entry point script with logging
-    print_info "Creating SSH entry point for SpectrumSnek..."
+    # Create ultra-simple SSH test script
+    print_info "Creating minimal SSH test script..."
+
+    cat > "$HOME/spectrum_test.sh" << 'EOF'
+#!/bin/bash
+# Minimal test script to isolate SSH issues
+
+LOG_FILE="$HOME/spectrum_debug.log"
+echo "=== SSH Test - $(date) ===" > "$LOG_FILE"
+echo "Script started successfully" >> "$LOG_FILE"
+echo "PID: $$" >> "$LOG_FILE"
+echo "User: $(whoami)" >> "$LOG_FILE"
+echo "Working directory: $(pwd)" >> "$LOG_FILE"
+echo "Home directory: $HOME" >> "$LOG_FILE"
+
+echo "========================================"
+echo "  SpectrumSnek SSH Test"
+echo "  $(date)"
+echo "========================================"
+echo ""
+echo "If you can see this, basic SSH is working!"
+echo "Log file: $LOG_FILE"
+echo ""
+
+# Test basic commands
+echo "Testing basic commands..." >> "$LOG_FILE"
+which python3 >> "$LOG_FILE" 2>&1
+echo "Python3 exit code: $?" >> "$LOG_FILE"
+
+ls -la ~/spectrumsnek/ >> "$LOG_FILE" 2>&1
+echo "Directory list exit code: $?" >> "$LOG_FILE"
+
+echo "Test script completed successfully" >> "$LOG_FILE"
+echo ""
+echo "Test completed. Check $LOG_FILE for details."
+echo "Press Enter to continue..."
+read
+EOF
+
+    chmod +x "$HOME/spectrum_test.sh"
+    print_status "Test script created at ~/spectrum_test.sh"
+
+    # Create the full SSH script
+    print_info "Creating full SSH entry point..."
 
     cat > "$HOME/spectrum_ssh.sh" << 'EOF'
 #!/bin/bash
-# SpectrumSnek SSH Entry Point - Stable SSH access with logging
+# SpectrumSnek SSH Entry Point with fail-safe logging
 
+# Create log file immediately
 LOG_FILE="$HOME/spectrum_ssh.log"
-echo "=== SpectrumSnek SSH Session - $(date) ===" >> "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "=== SpectrumSnek SSH Session - $(date) ==="
 
 echo "========================================"
 echo "  SpectrumSnek SSH Session"
 echo "  $(date)"
 echo "========================================"
 echo ""
-echo "Starting SpectrumSnek... Press Ctrl+C to exit"
-echo "All output is logged to: $LOG_FILE"
+echo "All output is being logged to: $LOG_FILE"
 echo ""
 
-# Change to SpectrumSnek directory
-cd ~/spectrumsnek
-echo "Working directory: $(pwd)" >> "$LOG_FILE"
+# Basic system check
+echo "System check:"
+echo "User: $(whoami)"
+echo "PID: $$"
+echo "Working directory: $(pwd)"
+echo "Home: $HOME"
+echo ""
 
-# Run start script with error handling
-if ~/start_spectrum.sh 2>&1 | tee -a "$LOG_FILE"; then
+# Check if we can access SpectrumSnek directory
+if cd ~/spectrumsnek 2>/dev/null; then
+    echo "✓ Can access ~/spectrumsnek"
+    echo "Directory contents:"
+    ls -la
     echo ""
-    echo "SpectrumSnek session completed successfully." | tee -a "$LOG_FILE"
+else
+    echo "✗ Cannot access ~/spectrumsnek directory"
+    echo "This might be the issue!"
+    echo ""
+    echo "Log saved to: $LOG_FILE"
+    exit 1
+fi
+
+# Check virtual environment
+if [ -d "venv" ]; then
+    echo "✓ Virtual environment exists"
+else
+    echo "✗ Virtual environment missing"
+    echo "Run: ./setup.sh --full"
+fi
+
+# Check run script
+if [ -x "run_spectrum.sh" ]; then
+    echo "✓ run_spectrum.sh is executable"
+else
+    echo "✗ run_spectrum.sh missing or not executable"
+    ls -la run_spectrum.sh
+fi
+
+echo ""
+echo "Attempting to start SpectrumSnek..."
+echo "(If this fails, check $LOG_FILE for details)"
+echo ""
+
+# Try to run SpectrumSnek
+if ~/start_spectrum.sh; then
+    echo "SpectrumSnek completed successfully"
 else
     EXIT_CODE=$?
     echo ""
-    echo "SpectrumSnek session ended with errors (code: $EXIT_CODE)." | tee -a "$LOG_FILE"
-    echo "Check the log file for details: $LOG_FILE" | tee -a "$LOG_FILE"
-    echo "You can still use this shell for troubleshooting." | tee -a "$LOG_FILE"
-    echo "" | tee -a "$LOG_FILE"
-    echo "Common commands:" | tee -a "$LOG_FILE"
-    echo "  ./run_spectrum.sh     - Retry SpectrumSnek" | tee -a "$LOG_FILE"
-    echo "  cat $LOG_FILE         - View full error log" | tee -a "$LOG_FILE"
-    echo "  pip list             - Check installed packages" | tee -a "$LOG_FILE"
-    echo "  lsusb                - Check USB devices" | tee -a "$LOG_FILE"
-    echo "  exit                 - Close SSH connection" | tee -a "$LOG_FILE"
-    echo "" | tee -a "$LOG_FILE"
+    echo "SpectrumSnek failed with exit code: $EXIT_CODE"
+    echo "Full error details in: $LOG_FILE"
+    echo ""
+    echo "You can still troubleshoot:"
+    echo "  ./run_spectrum.sh     - Manual start"
+    echo "  cat $LOG_FILE         - View full logs"
+    echo "  pip list             - Check packages"
 fi
 
-echo "=== SSH Session End ===" >> "$LOG_FILE"
-echo "SSH session remains active. Type 'exit' to disconnect."
-echo "Full logs available at: $LOG_FILE"
+echo ""
+echo "=== Session End ==="
+echo "Log file: $LOG_FILE"
 EOF
 
     chmod +x "$HOME/spectrum_ssh.sh"
-    print_status "SSH entry point created at ~/spectrum_ssh.sh"
+    print_status "SSH scripts created with comprehensive logging"
 
     # Configure .bashrc for console only (much simpler)
     print_info "Configuring bashrc for console autologin..."
