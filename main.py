@@ -233,11 +233,6 @@ class RadioToolsLoader:
             print(f"\nError in interactive menu: {e}")
             print("Try running with a different terminal or check TERM variable")
             sys.exit(1)
-            except KeyboardInterrupt:
-                print("\nRadio Tools Loader stopped by user")
-            except Exception as e:
-                print(f"\nError in interactive menu: {e}")
-                print("Try running with a different terminal or check TERM variable")
                 sys.exit(1)
 
 if __name__ == "__main__":
