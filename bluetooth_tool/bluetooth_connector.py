@@ -297,7 +297,6 @@ class BluetoothConnector:
                         device = self.devices[self.selected_index]
                         curses.endwin()  # Exit curses for interaction
                         if self.connect_device(device):
-                            if self.connect_device(device):
                             print(f"Successfully connected to {device.name}")
                         else:
                             print(f"Failed to connect to {device.name}")
