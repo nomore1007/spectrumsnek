@@ -158,6 +158,16 @@ class SystemMenu:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
 
+        # Fallback for SSH connections
+        if width < 40:
+            try:
+                import os
+                term_size = os.get_terminal_size()
+                width = term_size.columns
+                height = min(height, term_size.lines)
+            except:
+                width = 80  # Default fallback
+
         # Title
         title = "System Tools 🐍📻"
         stdscr.addstr(0, (width - len(title)) // 2, title, curses.A_BOLD)
