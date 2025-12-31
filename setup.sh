@@ -446,16 +446,36 @@ EOF
     # Remove any existing SpectrumSnek configuration
     sed -i '/# SpectrumSnek/,/fi/d' "$HOME/.bashrc"
 
-    # Add simple console-only configuration
+    # Add SpectrumSnek configuration
     cat >> "$HOME/.bashrc" << 'EOF'
 
-# SpectrumSnek console autologin
-if [[ -z "$TMUX" && "$(tty)" == "/dev/tty1" ]]; then
-    if command -v tmux &> /dev/null; then
-        tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
-        exec tmux attach-session -t spectrum
-    else
-        ~/start_spectrum.sh
+# SpectrumSnek autologin configuration
+if [[ -z "$TMUX" ]]; then
+    # Console autologin (tty1)
+    if [[ "$(tty)" == "/dev/tty1" ]]; then
+        if command -v tmux &> /dev/null; then
+            tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
+            exec tmux attach-session -t spectrum
+        else
+            ~/start_spectrum.sh
+        fi
+EOF
+
+    # Add SSH autologin if enabled
+    if [[ "${SSH_AUTOLOGIN:-false}" == "true" ]]; then
+        cat >> "$HOME/.bashrc" << 'EOF'
+    # SSH autologin
+    elif [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; then
+        if command -v tmux &> /dev/null; then
+            tmux has-session -t spectrum 2>/dev/null || tmux new-session -s spectrum -d ~/start_spectrum.sh
+            exec tmux attach-session -t spectrum
+        else
+            ~/start_spectrum.sh
+        fi
+EOF
+    fi
+
+    cat >> "$HOME/.bashrc" << 'EOF'
     fi
 fi
 EOF
@@ -681,9 +701,17 @@ while [[ $# -gt 0 ]]; do
             DEV_MODE=true
             echo "  --dev                 Enable development mode (install dev dependencies)"
             ;;
+        --ssh-autologin)
+            SSH_AUTOLOGIN=true
+            echo "  --ssh-autologin       Enable tmux autologin for SSH connections"
+            ;;
         --repair-tmux)
             repair_tmux
             exit 0
+            ;;
+        --ssh-autologin)
+            SSH_AUTOLOGIN=true
+            shift
             ;;
         --interactive)
             AUTOMATED=false
@@ -744,6 +772,9 @@ main() {
             ;;
         full)
             print_info "Setting up Full Architecture (Console + Headless)"
+            if [[ "${SSH_AUTOLOGIN:-false}" == "true" ]]; then
+                print_info "SSH autologin enabled - tmux will start automatically on SSH connections"
+            fi
             ;;
     esac
 
@@ -821,6 +852,9 @@ main() {
         console)
             echo "Console Mode Setup:"
             echo "  • Autologin configured on tty1"
+            if [[ "${SSH_AUTOLOGIN:-false}" == "true" ]]; then
+                echo "  • SSH autologin configured"
+            fi
             echo "  • tmux session for HDMI/SSH access"
             echo "  • Reboot to activate console menu"
             echo ""
