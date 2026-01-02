@@ -35,8 +35,16 @@ class RadioToolsLoader:
         """Load available tools from service API."""
         try:
             import requests
+        except ImportError:
+            print("⚠ Requests library not available, using local mode")
+            self.load_local_modules()
+            return
+
+        try:
+            print(f"Attempting to connect to SpectrumSnek service at {self.service_url}...")
             response = requests.get(f"{self.service_url}/api/tools", timeout=5)
             if response.status_code == 200:
+                print("✓ Successfully connected to service")
                 data = response.json()
                 for tool_name, tool_data in data['tools'].items():
                     info = tool_data['info']
@@ -46,14 +54,18 @@ class RadioToolsLoader:
                         tool_name,
                         lambda name=tool_name: self.start_tool(name)
                     ))
+                print(f"✓ Loaded {len(data.get('tools', {}))} tools from service")
             else:
-                # Fallback: load locally if service not available
+                print(f"⚠ Service responded with status {response.status_code}, falling back to local mode")
                 self.load_local_modules()
-        except ImportError:
-            # requests not available, load locally
+        except requests.exceptions.ConnectionError as e:
+            print(f"⚠ Cannot connect to service ({e}), using local mode")
             self.load_local_modules()
-        except Exception:
-            # Service not available, load locally
+        except requests.exceptions.Timeout:
+            print("⚠ Service connection timed out, using local mode")
+            self.load_local_modules()
+        except Exception as e:
+            print(f"⚠ Service connection failed ({e}), using local mode")
             self.load_local_modules()
 
         # Web portal toggle (special menu item)
