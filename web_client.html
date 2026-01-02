@@ -151,12 +151,12 @@
     </div>
 
     <script>
-        const SERVICE_URL = 'http://127.0.0.1:5000';
+        const SERVICE_URL = `http://${window.location.host}`;
         let socket;
 
         // Initialize WebSocket connection
         function initWebSocket() {
-            socket = new WebSocket('ws://127.0.0.1:5000');
+            socket = new WebSocket(`ws://${window.location.host}`);
 
             socket.onopen = function(event) {
                 console.log('Connected to SpectrumSnek service');
