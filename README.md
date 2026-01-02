@@ -617,14 +617,22 @@ pip install -r requirements.txt
 # Symptom: Console shows "Error connecting to service" on boot
 # Cause: Systemd service file missing or not enabled
 
-# Solution: Set up the service
-sudo ./setup_service.sh
+# Solution: Fix the service setup
+sudo ./fix_service.sh               # Create/recreate systemd service
+
+# Alternative manual setup:
+sudo ./setup_service.sh             # Original setup script
+
+# Enable service to start on boot:
+./service_manager.sh enable
 
 # Verify service is running:
 ./service_manager.sh status
 
-# Enable service to start on boot:
-./service_manager.sh enable
+# If console still can't connect, check:
+./health_check.sh                    # Comprehensive diagnostics
+./service_manager.sh logs           # Service startup logs
+~/spectrum_startup.log              # Client connection logs
 ```
 
 **Port Already In Use Error**
