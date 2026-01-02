@@ -118,12 +118,19 @@ sudo ./setup.sh --headless
 
 # 🔧 Full Mode - Console + headless features
 sudo ./setup.sh --full
+```
 
-# 🤖 Automated - Uses console mode by default
-sudo ./setup.sh
+### Repair & Testing Options
 
-# 📚 Show all options
-./setup.sh --help
+```bash
+# 🔧 Fix corrupted .bashrc file
+./setup.sh --fix-bashrc
+
+# 🧪 Test RTL-SDR setup and permissions
+./setup.sh --test-setup
+
+# 🔄 Repair tmux installation
+sudo ./setup.sh --repair-tmux
 ```
 
 ### Architecture Options

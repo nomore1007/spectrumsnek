@@ -186,6 +186,149 @@ repair_tmux() {
     create_ssh_scripts
 }
 
+# Function to fix corrupted bashrc
+fix_bashrc() {
+    print_info "Fixing .bashrc syntax errors..."
+
+    # Backup current .bashrc
+    cp ~/.bashrc ~/.bashrc.backup.$(date +%Y%m%d_%H%M%S)
+    print_status "Backed up .bashrc to ~/.bashrc.backup.$(date +%Y%m%d_%H%M%S)"
+
+    # Remove all SpectrumSnek-related lines (they might be corrupted)
+    sed -i '/# SpectrumSnek/,/fi/d' ~/.bashrc
+    sed -i '/# SpectrumSnek/,/EOF/d' ~/.bashrc
+
+    # Check for basic syntax errors
+    if bash -n ~/.bashrc 2>/dev/null; then
+        print_status ".bashrc syntax is valid"
+    else
+        print_warning ".bashrc has syntax errors, recreating clean version..."
+        # Create a minimal working .bashrc
+        cat > ~/.bashrc << 'EOF'
+# ~/.bashrc: executed by bash(1) for non-login shells.
+
+# If not running interactively, don't do anything
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
+# History settings
+HISTCONTROL=ignoredups:ignorespace
+HISTSIZE=1000
+HISTFILESIZE=2000
+
+# Check window size after each command
+shopt -s checkwinsize
+
+# Enable color support
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    alias ls='ls --color=auto'
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+fi
+
+# Basic aliases
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+
+# Enable programmable completion features
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+EOF
+        print_status "Created clean .bashrc"
+    fi
+
+    # Add SpectrumSnek console configuration
+    cat >> ~/.bashrc << 'EOF'
+
+# SpectrumSnek console autologin
+if [[ -z "$TMUX" && "$(tty)" == "/dev/tty1" ]]; then
+    if command -v tmux &> /dev/null; then
+        tmux has-session -t spectrum-client 2>/dev/null || tmux new-session -s spectrum-client -d ~/start_spectrum.sh
+        exec tmux attach-session -t spectrum-client
+    else
+        ~/start_spectrum.sh
+    fi
+fi
+EOF
+
+    # Test the syntax
+    if bash -n ~/.bashrc; then
+        print_status ".bashrc syntax is valid"
+        print_status "SpectrumSnek console configuration added"
+        print_info "Run 'source ~/.bashrc' or log out and back in to apply changes"
+    else
+        print_error ".bashrc still has syntax errors"
+        print_error "Check: bash -n ~/.bashrc"
+    fi
+}
+
+# Function to test RTL-SDR setup
+test_setup() {
+    print_info "Testing RTL-SDR setup and permissions..."
+
+    # Check if virtual environment exists
+    if [ ! -d "$SCRIPT_DIR/venv" ]; then
+        print_error "Virtual environment not found. Run ./setup.sh --full first."
+        exit 1
+    fi
+
+    # Activate virtual environment
+    source "$SCRIPT_DIR/venv/bin/activate"
+
+    print_info "Checking Python dependencies..."
+    if python -c "import rtlsdr, numpy, scipy, psutil; print('All Python dependencies installed')" 2>/dev/null; then
+        print_status "Python dependencies OK"
+    else
+        print_error "Missing Python dependencies"
+        print_info "Run: ./run_spectrum.sh --reinstall-deps"
+        exit 1
+    fi
+
+    print_info "Checking RTL-SDR device detection..."
+    if lsusb | grep -q "RTL2838\|RTL2832"; then
+        print_status "RTL-SDR USB device detected"
+    else
+        print_warning "No RTL-SDR USB device detected"
+        print_info "Make sure your RTL-SDR dongle is plugged in"
+    fi
+
+    print_info "Testing RTL-SDR access..."
+    if python -c "
+try:
+    from rtlsdr import RtlSdr
+    sdr = RtlSdr()
+    print('RTL-SDR device accessible')
+    print('Device info:', sdr.get_tuner_type(), 'tuner')
+    sdr.close()
+except Exception as e:
+    print('Cannot access RTL-SDR device')
+    print('Error:', e)
+    import sys
+    sys.exit(1)
+" 2>/dev/null; then
+        print_status "RTL-SDR access OK"
+        print_success "RTL-SDR setup test passed!"
+        print_info "You can now run SpectrumSnek tools"
+    else
+        print_error "Cannot access RTL-SDR device"
+        print_info "Solutions:"
+        print_info "  1. Install udev rules: sudo ./setup.sh --full"
+        print_info "  2. Add user to plugdev group: sudo usermod -a -G plugdev \$USER"
+        print_info "  3. Reboot or unplug/re-plug the device"
+        exit 1
+    fi
+}
+
 # Function to setup udev rules
 setup_udev_rules() {
     print_info "Setting up RTL-SDR device permissions..."
@@ -763,6 +906,28 @@ while [[ $# -gt 0 ]]; do
             ;;
         --repair-tmux)
             repair_tmux
+            exit 0
+            ;;
+        --fix-bashrc)
+            fix_bashrc
+            exit 0
+            ;;
+        --test-setup)
+            test_setup
+            exit 0
+            ;;
+        --fix-bashrc)
+            echo "  --fix-bashrc          Fix corrupted .bashrc file and restore SpectrumSnek config"
+            ;;
+        --test-setup)
+            echo "  --test-setup          Test RTL-SDR setup, permissions, and dependencies"
+            ;;
+        --fix-bashrc)
+            fix_bashrc
+            exit 0
+            ;;
+        --test-setup)
+            test_setup
             exit 0
             ;;
         --ssh-autologin)
