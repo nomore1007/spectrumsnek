@@ -354,7 +354,7 @@ def main():
 
     loader = RadioToolsLoader(service_url=args.service_url)
 
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):
         # Direct module execution (legacy)
         module_name = sys.argv[1]
 
