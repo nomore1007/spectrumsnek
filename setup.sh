@@ -617,13 +617,10 @@ fi
 EOF
 
     print_status "Console autologin configured"
-
-    $SUDO_CMD systemctl daemon-reload
-    $SUDO_CMD systemctl restart getty@tty1
-
-    print_status "Console autologin and tmux configured"
     print_info "Console will start SpectrumSnek on boot"
 }
+
+
 
 # Function to create SSH diagnostic scripts
 create_ssh_scripts() {
@@ -810,15 +807,9 @@ setup_headless_service() {
 
     SUDO_CMD=$(get_sudo)
 
-    # Detect the actual SpectrumSnek directory path
-    SPECTRUM_DIR=$(find /home -maxdepth 2 -type d -iname "*spectrum*" -exec test -x "{}/run_spectrum.sh" \; -print | head -1)
-    if [ -z "$SPECTRUM_DIR" ]; then
-        print_error "Cannot find SpectrumSnek directory with run_spectrum.sh"
-        print_error "Make sure setup.sh is run from the SpectrumSnek directory"
-        return 1
-    fi
-
-    print_info "Found SpectrumSnek directory: $SPECTRUM_DIR"
+    # Use the current script directory
+    SPECTRUM_DIR=$SCRIPT_DIR
+    print_info "Using SpectrumSnek directory: $SPECTRUM_DIR"
 
     # Create systemd service for spectrum service
     SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
@@ -934,11 +925,11 @@ while [[ $# -gt 0 ]]; do
             SSH_AUTOLOGIN=true
             shift
             ;;
-        --interactive)
-            AUTOMATED=false
-            shift
-            ;;
-        --help)
+         --interactive)
+             AUTOMATED=false
+             shift
+             ;;
+         --help)
             print_header
             echo "SpectrumSnek Setup Script 🐍📻"
             echo ""
@@ -949,11 +940,11 @@ while [[ $# -gt 0 ]]; do
             echo "  --headless        Headless service mode (web/API access)"
             echo "  --full            Both console and headless modes"
             echo ""
-            echo "Options:"
-            echo "  --no-system-deps  Skip installation of system dependencies"
-            echo "  --dev             Install development dependencies"
-            echo "  --interactive     Prompt for configuration choices"
-            echo "  --help            Show this help message"
+             echo "Options:"
+             echo "  --no-system-deps  Skip installation of system dependencies"
+             echo "  --dev             Install development dependencies"
+             echo "  --interactive     Prompt for configuration choices"
+             echo "  --help            Show this help message"
             echo ""
             echo "Console Mode:"
             echo "  - Interactive menu on HDMI/console"
@@ -1135,6 +1126,14 @@ main() {
             ;;
     esac
 
+    echo ""
+    echo "Production Deployment:"
+    echo "  For Raspberry Pi deployment:"
+    echo "  1. On the Pi: sudo apt update && sudo apt install git"
+    echo "  2. git clone https://github.com/YOUR_USERNAME/SpectrumSnek"
+    echo "  3. cd SpectrumSnek"
+    echo "  4. ./setup.sh --headless"
+    echo "  5. Access web UI at http://<pi_ip_address>:5000"
     echo ""
     echo "Available tools:"
     echo "  • RTL-SDR Spectrum Analyzer"

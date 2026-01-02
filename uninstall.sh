@@ -14,6 +14,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
 BOOT_SERVICE_NAME="radio-tools-loader"
+SERVICE_NAME="spectrum-service"
 
 print_status() {
     echo -e "${GREEN}✓${NC} $1"
@@ -65,6 +66,16 @@ if [ -f "/etc/systemd/system/$BOOT_SERVICE_NAME.service" ]; then
     print_status "Boot service removed"
 fi
 
+# Remove spectrum service
+if [ -f "/etc/systemd/system/$SERVICE_NAME.service" ]; then
+    print_info "Removing spectrum service..."
+    $SUDO_CMD systemctl disable $SERVICE_NAME.service 2>/dev/null || true
+    $SUDO_CMD systemctl stop $SERVICE_NAME.service 2>/dev/null || true
+    $SUDO_CMD rm -f /etc/systemd/system/$SERVICE_NAME.service
+    $SUDO_CMD systemctl daemon-reload
+    print_status "Spectrum service removed"
+fi
+
 # Remove udev rules
 if [ -f "/etc/udev/rules.d/99-rtl-sdr.rules" ]; then
     print_info "Removing udev rules..."
@@ -92,6 +103,16 @@ fi
 print_info "Cleaning up generated files..."
 rm -f rtl-sdr.rules
 print_status "Cleanup completed"
+
+# Remove the entire SpectrumSnek directory
+read -p "Remove the SpectrumSnek directory ($SCRIPT_DIR)? (y/N): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    print_info "Removing SpectrumSnek directory..."
+    cd /
+    rm -rf "$SCRIPT_DIR"
+    print_status "Directory removed"
+fi
 
 echo
 print_status "Radio Tools Suite successfully uninstalled!"
