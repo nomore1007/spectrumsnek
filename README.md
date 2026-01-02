@@ -617,9 +617,8 @@ pip install -r requirements.txt
 # Symptom: Console shows "Error connecting to service" on boot
 # Cause: Systemd service file missing, wrong path, or not enabled
 
-# Solution: Fix the service setup (automatically detects correct paths)
-sudo ./fix_service.sh               # Create/recreate systemd service
-# Alternative: sudo ./setup_service.sh
+# Solution: Re-run setup to fix service configuration
+sudo ./setup.sh --full               # Recreates service with correct paths
 
 # Enable service to start on boot:
 ./service_manager.sh enable

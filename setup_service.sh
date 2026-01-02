@@ -14,6 +14,9 @@ fi
 
 echo "Found SpectrumSnek directory: $SPECTRUM_DIR"
 
+# Get the actual username
+SERVICE_USER=${USER:-nomore}
+
 # Create systemd service file
 cat > /etc/systemd/system/spectrum-service.service << EOF
 [Unit]
@@ -22,7 +25,7 @@ After=network.target bluetooth.service
 
 [Service]
 Type=simple
-User=$USER
+User=$SERVICE_USER
 WorkingDirectory=$SPECTRUM_DIR
 ExecStart=$SPECTRUM_DIR/run_spectrum.sh --service --host 0.0.0.0 --port 5000
 Restart=always

@@ -667,6 +667,16 @@ setup_headless_service() {
 
     SUDO_CMD=$(get_sudo)
 
+    # Detect the actual SpectrumSnek directory path
+    SPECTRUM_DIR=$(find /home -maxdepth 2 -type d -iname "*spectrum*" -exec test -x "{}/run_spectrum.sh" \; -print | head -1)
+    if [ -z "$SPECTRUM_DIR" ]; then
+        print_error "Cannot find SpectrumSnek directory with run_spectrum.sh"
+        print_error "Make sure setup.sh is run from the SpectrumSnek directory"
+        return 1
+    fi
+
+    print_info "Found SpectrumSnek directory: $SPECTRUM_DIR"
+
     # Create systemd service for spectrum service
     SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
 
@@ -678,8 +688,8 @@ After=network.target bluetooth.service
 [Service]
 Type=simple
 User=$USER
-WorkingDirectory=$SCRIPT_DIR
-ExecStart=$SCRIPT_DIR/venv/bin/python $SCRIPT_DIR/main.py --service --host 0.0.0.0 --port 5000
+WorkingDirectory=$SPECTRUM_DIR
+ExecStart=$SPECTRUM_DIR/run_spectrum.sh --service --host 0.0.0.0 --port 5000
 Restart=always
 RestartSec=10
 
