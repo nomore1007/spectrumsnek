@@ -267,7 +267,7 @@ EOF
 
 LOG_FILE="\$HOME/spectrum_startup.log"
 echo "=== SpectrumSnek Startup Log - \$(date) ===" >> "\$LOG_FILE"
-echo "Starting SpectrumSnek..." | tee -a "\$LOG_FILE"
+echo "Starting SpectrumSnek client..." | tee -a "\$LOG_FILE"
 cd $SCRIPT_DIR
 echo "Working directory: \$(pwd)" >> "\$LOG_FILE"
 
@@ -286,28 +286,21 @@ if [ ! -x "run_spectrum.sh" ]; then
 fi
 echo "✓ run_spectrum.sh is executable" >> "\$LOG_FILE"
 
-# Start SpectrumSnek with comprehensive error capture
-echo "Launching SpectrumSnek service..." | tee -a "\$LOG_FILE"
-echo "Command: ./run_spectrum.sh --service" >> "\$LOG_FILE"
-echo "Environment:" >> "\$LOG_FILE"
-env | grep -E "(PATH|PYTHON|USER|HOME)" >> "\$LOG_FILE"
+# Launch client (connects to service, doesn't start it)
+echo "Launching SpectrumSnek client interface..." | tee -a "\$LOG_FILE"
+echo "Command: ./run_spectrum.sh" >> "\$LOG_FILE"
+echo "Note: This connects to the running service, it does not start one" >> "\$LOG_FILE"
 
-if ./run_spectrum.sh --service 2>&1 | tee -a "\$LOG_FILE"; then
-    echo "SpectrumSnek exited successfully" | tee -a "\$LOG_FILE"
+if ./run_spectrum.sh 2>&1 | tee -a "\$LOG_FILE"; then
+    echo "SpectrumSnek client exited successfully" | tee -a "\$LOG_FILE"
 else
     EXIT_CODE=\$?
-    echo "ERROR: SpectrumSnek exited with error code \$EXIT_CODE" | tee -a "\$LOG_FILE"
-    echo "Common issues:" | tee -a "\$LOG_FILE"
-    echo "  - Missing dependencies: Run 'pip install -r requirements.txt'" | tee -a "\$LOG_FILE"
-    echo "  - RTL-SDR not connected: Check USB devices with 'lsusb'" | tee -a "\$LOG_FILE"
-    echo "  - Permission issues: Run 'sudo usermod -a -G plugdev \$USER'" | tee -a "\$LOG_FILE"
-    echo "" | tee -a "\$LOG_FILE"
-    echo "Check \$LOG_FILE for full error details" | tee -a "\$LOG_FILE"
-    echo "To retry manually: ./run_spectrum.sh" | tee -a "\$LOG_FILE"
+    echo "SpectrumSnek client exited with code \$EXIT_CODE" | tee -a "\$LOG_FILE"
+    echo "This is normal when the client interface closes" | tee -a "\$LOG_FILE"
 fi
 
-echo "=== End Log ===" >> "\$LOG_FILE"
-echo "Log saved to: \$LOG_FILE"
+echo "=== End Client Log ===" >> "\$LOG_FILE"
+echo "Client log saved to: \$LOG_FILE"
 EOF
     chmod +x /tmp/start_spectrum.sh
     mv /tmp/start_spectrum.sh $HOME/start_spectrum.sh

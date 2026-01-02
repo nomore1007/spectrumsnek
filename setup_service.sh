@@ -4,17 +4,27 @@
 
 echo "Setting up SpectrumSnek systemd service..."
 
+# Detect the actual SpectrumSnek directory path
+SPECTRUM_DIR=$(find /home -maxdepth 2 -type d -iname "*spectrum*" -exec test -x "{}/run_spectrum.sh" \; -print | head -1)
+if [ -z "$SPECTRUM_DIR" ]; then
+    echo "ERROR: Cannot find SpectrumSnek directory with run_spectrum.sh"
+    echo "Make sure you're in the SpectrumSnek directory or it exists in /home"
+    exit 1
+fi
+
+echo "Found SpectrumSnek directory: $SPECTRUM_DIR"
+
 # Create systemd service file
-cat > /etc/systemd/system/spectrum-service.service << 'EOF'
+cat > /etc/systemd/system/spectrum-service.service << EOF
 [Unit]
 Description=SpectrumSnek Service 🐍📻
 After=network.target bluetooth.service
 
 [Service]
 Type=simple
-User=nomore
-WorkingDirectory=/home/nomore/SpectrumSnek
-ExecStart=/home/nomore/SpectrumSnek/venv/bin/python /home/nomore/SpectrumSnek/main.py --service --host 0.0.0.0 --port 5000
+User=$USER
+WorkingDirectory=$SPECTRUM_DIR
+ExecStart=$SPECTRUM_DIR/run_spectrum.sh --service --host 0.0.0.0 --port 5000
 Restart=always
 RestartSec=10
 

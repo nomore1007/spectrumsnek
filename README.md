@@ -615,13 +615,11 @@ pip install -r requirements.txt
 **Service Not Starting on Boot**
 ```bash
 # Symptom: Console shows "Error connecting to service" on boot
-# Cause: Systemd service file missing or not enabled
+# Cause: Systemd service file missing, wrong path, or not enabled
 
-# Solution: Fix the service setup
+# Solution: Fix the service setup (automatically detects correct paths)
 sudo ./fix_service.sh               # Create/recreate systemd service
-
-# Alternative manual setup:
-sudo ./setup_service.sh             # Original setup script
+# Alternative: sudo ./setup_service.sh
 
 # Enable service to start on boot:
 ./service_manager.sh enable
@@ -633,6 +631,9 @@ sudo ./setup_service.sh             # Original setup script
 ./health_check.sh                    # Comprehensive diagnostics
 ./service_manager.sh logs           # Service startup logs
 ~/spectrum_startup.log              # Client connection logs
+
+# Check service is using correct path:
+sudo systemctl cat spectrum-service.service
 ```
 
 **Port Already In Use Error**
