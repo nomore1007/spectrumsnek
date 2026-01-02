@@ -123,6 +123,8 @@ class SpectrumService:
             except FileNotFoundError:
                 return "Web client not found. Make sure web_client.html exists.", 404
 
+
+
         @self.app.route('/api/tools', methods=['GET'])
         def get_tools():
             """Get list of available tools."""
@@ -164,12 +166,22 @@ class SpectrumService:
                         self.tools[tool_name]['status'] = 'running'
                         self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
 
-                        # Run the tool
+                        # Run the tool with output captured to prevent interference
+                        import sys
+                        from io import StringIO
                         tool_data = self.tools[tool_name]
-                        if 'run_func' in tool_data:
-                            tool_data['run_func']()
-                        else:
-                            tool_data['module'].run()
+                        old_stdout = sys.stdout
+                        old_stderr = sys.stderr
+                        sys.stdout = StringIO()
+                        sys.stderr = StringIO()
+                        try:
+                            if 'run_func' in tool_data:
+                                tool_data['run_func']()
+                            else:
+                                tool_data['module'].run()
+                        finally:
+                            sys.stdout = old_stdout
+                            sys.stderr = old_stderr
 
                     except Exception as e:
                         print(f"Tool {tool_name} error: {e}")
