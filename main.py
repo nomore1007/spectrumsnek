@@ -308,13 +308,21 @@ def check_dependencies():
 
 def main():
     """Main entry point."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="SpectrumSnek Radio Tools Loader")
+    parser.add_argument('--service-url', default='http://127.0.0.1:5000',
+                       help='URL of the SpectrumSnek service (default: http://127.0.0.1:5000)')
+
+    args, unknown = parser.parse_known_args()
+
     print("Radio Tools Loader")
     print("=" * 20)
 
     if not check_dependencies():
         sys.exit(1)
 
-    loader = RadioToolsLoader()
+    loader = RadioToolsLoader(service_url=args.service_url)
 
     if len(sys.argv) > 1 and sys.argv[1] == "--service":
         # Run as service
@@ -344,6 +352,17 @@ def main():
 
         service.run(host=host, port=port)
         return
+
+    # For UI mode, parse arguments
+    import argparse
+
+    parser = argparse.ArgumentParser(description="SpectrumSnek Radio Tools Loader")
+    parser.add_argument('--service-url', default='http://127.0.0.1:5000',
+                       help='URL of the SpectrumSnek service (default: http://127.0.0.1:5000)')
+
+    args, unknown = parser.parse_known_args()
+
+    loader = RadioToolsLoader(service_url=args.service_url)
 
     if len(sys.argv) > 1:
         # Direct module execution (legacy)
