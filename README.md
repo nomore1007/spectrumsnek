@@ -612,6 +612,21 @@ pip install -r requirements.txt
 ./run_spectrum.sh --reinstall-deps
 ```
 
+**Service Not Starting on Boot**
+```bash
+# Symptom: Console shows "Error connecting to service" on boot
+# Cause: Systemd service file missing or not enabled
+
+# Solution: Set up the service
+sudo ./setup_service.sh
+
+# Verify service is running:
+./service_manager.sh status
+
+# Enable service to start on boot:
+./service_manager.sh enable
+```
+
 **Port Already In Use Error**
 ```bash
 # Symptom: "OSError: [Errno 98] Address already in use"
@@ -625,9 +640,6 @@ pip install -r requirements.txt
 
 # If you need to restart the service:
 ./service_manager.sh restart
-
-# Manual cleanup (if needed):
-./check_port.sh
 
 # Use different port (advanced):
 python main.py --service --port 5001 --host 127.0.0.1

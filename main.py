@@ -32,7 +32,7 @@ class RadioToolsLoader:
         self.load_modules()
 
     def load_modules(self):
-        """Load available tools from service API."""
+        """Load available tools from service API with retry logic."""
         try:
             import requests
         except ImportError:
@@ -40,33 +40,54 @@ class RadioToolsLoader:
             self.load_local_modules()
             return
 
-        try:
-            print(f"Attempting to connect to SpectrumSnek service at {self.service_url}...")
-            response = requests.get(f"{self.service_url}/api/tools", timeout=5)
-            if response.status_code == 200:
-                print("✓ Successfully connected to service")
-                data = response.json()
-                for tool_name, tool_data in data['tools'].items():
-                    info = tool_data['info']
-                    self.modules.append(ModuleInfo(
-                        info["name"],
-                        info["description"],
-                        tool_name,
-                        lambda name=tool_name: self.start_tool(name)
-                    ))
-                print(f"✓ Loaded {len(data.get('tools', {}))} tools from service")
-            else:
-                print(f"⚠ Service responded with status {response.status_code}, falling back to local mode")
-                self.load_local_modules()
-        except requests.exceptions.ConnectionError as e:
-            print(f"⚠ Cannot connect to service ({e}), using local mode")
-            self.load_local_modules()
-        except requests.exceptions.Timeout:
-            print("⚠ Service connection timed out, using local mode")
-            self.load_local_modules()
-        except Exception as e:
-            print(f"⚠ Service connection failed ({e}), using local mode")
-            self.load_local_modules()
+        # Try multiple times to connect to service (handles startup timing)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                print(f"Attempting to connect to SpectrumSnek service at {self.service_url}... (attempt {attempt + 1}/{max_retries})")
+                response = requests.get(f"{self.service_url}/api/tools", timeout=5)
+                if response.status_code == 200:
+                    print("✓ Successfully connected to service")
+                    data = response.json()
+                    for tool_name, tool_data in data['tools'].items():
+                        info = tool_data['info']
+                        self.modules.append(ModuleInfo(
+                            info["name"],
+                            info["description"],
+                            tool_name,
+                            lambda name=tool_name: self.start_tool(name)
+                        ))
+                    print(f"✓ Loaded {len(data.get('tools', {}))} tools from service")
+                    return  # Success, exit the retry loop
+                else:
+                    print(f"⚠ Service responded with status {response.status_code}")
+                    if attempt < max_retries - 1:
+                        print("   Retrying in 2 seconds...")
+                        time.sleep(2)
+                    else:
+                        print("   Falling back to local mode")
+                        self.load_local_modules()
+            except requests.exceptions.ConnectionError as e:
+                if attempt < max_retries - 1:
+                    print(f"⚠ Cannot connect to service (attempt {attempt + 1}), retrying in 2 seconds...")
+                    time.sleep(2)
+                else:
+                    print(f"⚠ Cannot connect to service after {max_retries} attempts, using local mode")
+                    self.load_local_modules()
+            except requests.exceptions.Timeout:
+                if attempt < max_retries - 1:
+                    print(f"⚠ Service connection timed out (attempt {attempt + 1}), retrying in 2 seconds...")
+                    time.sleep(2)
+                else:
+                    print("⚠ Service connection timed out, using local mode")
+                    self.load_local_modules()
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"⚠ Service connection failed (attempt {attempt + 1}): {e}, retrying in 2 seconds...")
+                    time.sleep(2)
+                else:
+                    print(f"⚠ Service connection failed after {max_retries} attempts, using local mode")
+                    self.load_local_modules()
 
         # Web portal toggle (special menu item)
         self.modules.append(ModuleInfo(

@@ -16,8 +16,8 @@ if [ "$1" = "--reinstall-deps" ]; then
     echo "Reinstalling Python dependencies..."
     source "$VENV_DIR/bin/activate"
     cd "$SCRIPT_DIR"
-    pip install --upgrade pip setuptools
-    pip install -r requirements.txt
+    pip install --upgrade pip setuptools --break-system-packages
+    pip install -r requirements.txt --break-system-packages
     echo "Dependencies reinstalled successfully."
     exit 0
 fi
