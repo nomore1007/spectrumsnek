@@ -20,7 +20,7 @@ SpectrumSnek is a modern, modular radio spectrum analysis toolkit with client-se
 - **🔧 System Tools**: WiFi, Bluetooth, and audio management
 - **🎛️ Raspberry Pi Optimized**: Handheld and headless configurations
 
-Whether you're a ham radio enthusiast, aviation spotter, or just curious about the invisible waves around you, SpectrumSnek has the tools to help you explore the electromagnetic jungle.
+Whether you're a ham radio enthusiast, aviation spotter, or just curious about the invisible waves around you, SpectrumSnek provides a complete software-defined radio experience with professional-grade tools and modern deployment options.
 
 ## Table of Contents
 
@@ -47,8 +47,8 @@ SpectrumSnek uses a modern client-server architecture for maximum flexibility:
 
 ### Client Layer
 - **Console Client**: Interactive curses menu (default mode)
-- **Web Client**: Browser-based interface (future)
-- **SSH Client**: Command-line remote access (future)
+- **Web Client**: Browser-based interface with real-time stats
+- **SSH Client**: Command-line remote access with diagnostics
 
 ### Deployment Options
 - **Console Mode**: Interactive menu on HDMI/console
@@ -335,18 +335,38 @@ ssh user@pi
 # Or use SSH client: ./ssh_client.py --host pi-ip --port 5000
 ```
 
+### Service Management
+
+SpectrumSnek includes comprehensive service management:
+
+```bash
+# Check service status
+./service_manager.sh status
+
+# Control the service
+./service_manager.sh start    # Start service
+./service_manager.sh stop     # Stop service
+./service_manager.sh restart  # Restart service
+./service_manager.sh enable   # Start on boot
+./service_manager.sh disable  # Don't start on boot
+
+# View service logs
+./service_manager.sh logs
+```
+
 ### Manual Tool Execution
 
 For advanced users running tools directly:
 
 ```bash
-# Activate environment first
-./run_spectrum.sh  # This activates venv and runs main.py
+# Use the launcher (recommended)
+./run_spectrum.sh  # Activates venv and runs main.py
 
 # Or manually:
 source venv/bin/activate
+python main.py --service --host 0.0.0.0 --port 5000
 
-# Then run tools:
+# Direct tool access:
 python -m rtl_scanner.scanner --freq 100
 python -m adsb_tool.adsb_tracker --freq 1090
 ```
@@ -354,14 +374,18 @@ python -m adsb_tool.adsb_tracker --freq 1090
 ### Testing Setup
 
 ```bash
-# Test hardware access
-./test_setup.sh
+# Comprehensive test suite
+~/spectrum_ssh.sh          # Service connectivity test
+./service_manager.sh status # Service status check
+./check_port.sh            # Port usage analysis
 
-# Check service status
-sudo systemctl status spectrum-service
+# Hardware tests
+lsusb | grep RTL           # RTL-SDR detection
+rtl_test -t               # RTL-SDR functionality test
 
-# View service logs
-sudo journalctl -u spectrum-service -f
+# API tests
+curl http://localhost:5000/api/status
+curl http://localhost:5000/api/tools
 ```
 
 ### API Access (Headless/Full modes)
@@ -480,6 +504,26 @@ All tools support optional web interfaces on different ports:
 
 ## Troubleshooting
 
+### Quick Diagnostics
+
+**Run the diagnostic script:**
+```bash
+~/spectrum_ssh.sh  # Comprehensive connectivity test
+```
+
+**Check service status:**
+```bash
+./service_manager.sh status
+./service_manager.sh logs
+```
+
+**Port and firewall check:**
+```bash
+./check_port.sh
+sudo ufw status        # Check firewall
+curl http://localhost:5000/api/status  # Test API
+```
+
 ### Common Issues
 
 **RTL-SDR Device Not Found**
@@ -490,19 +534,46 @@ lsusb | grep RTL
 # Check permissions
 ls -la /dev/bus/usb/
 
-# Install udev rules
-sudo ./install_udev_rules.sh
+# Setup permissions (run once)
+sudo ./setup.sh --full  # Includes udev rules
 sudo usermod -a -G plugdev $USER
 # Logout and login again
 ```
 
+**Port Already In Use / Service Not Accessible**
+```bash
+# Check what's using port 5000
+./check_port.sh
+
+# Kill conflicting processes
+pkill -f spectrum_service
+pkill -f "python main.py"
+
+# Restart service
+./service_manager.sh restart
+
+# Test connectivity
+curl http://localhost:5000/api/status
+```
+
 **Permission Denied Errors**
 ```bash
-# Add user to plugdev group
-sudo usermod -a -G plugdev $USER
+# Add user to required groups
+sudo usermod -a -G plugdev,bluetooth $USER
 
-# Or run with sudo (not recommended)
-sudo python rtl_scanner.py --freq 100
+# For USB devices (alternative)
+sudo chmod 666 /dev/bus/usb/*/*
+```
+
+**Firewall Blocking Access**
+```bash
+# Check firewall status
+sudo ufw status
+sudo firewall-cmd --list-all  # (if using firewalld)
+
+# Allow port 5000 (setup does this automatically)
+sudo ufw allow 5000/tcp
+sudo firewall-cmd --add-port=5000/tcp --permanent
 ```
 
 **Missing Dependencies Error**
