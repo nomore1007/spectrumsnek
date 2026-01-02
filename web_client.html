@@ -117,6 +117,7 @@
             background-color: #0044cc;
         }
     </style>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -154,37 +155,38 @@
         const SERVICE_URL = `http://${window.location.host}`;
         let socket;
 
-        // Initialize WebSocket connection
+        // Initialize Socket.IO connection
         function initWebSocket() {
-            socket = new WebSocket(`ws://${window.location.host}`);
+            socket = io(SERVICE_URL);
 
-            socket.onopen = function(event) {
+            socket.on('connect', function() {
                 console.log('Connected to SpectrumSnek service');
                 document.getElementById('service-status').textContent = 'Connected to service';
-            };
+            });
 
-            socket.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                if (data.type === 'tool_update') {
-                    updateToolStatus(data.tool, data.status);
-                } else if (data.type === 'system_update') {
-                    updateSystemStats(data);
-                } else if (data.type === 'service_status') {
-                    updateServiceStatus(data);
-                }
-            };
+            socket.on('tool_update', function(data) {
+                updateToolStatus(data.tool, data.status);
+            });
 
-            socket.onclose = function(event) {
+            socket.on('system_update', function(data) {
+                updateSystemStats(data);
+            });
+
+            socket.on('service_status', function(data) {
+                updateServiceStatus(data);
+            });
+
+            socket.on('disconnect', function() {
                 console.log('Disconnected from service');
                 document.getElementById('service-status').textContent = 'Disconnected from service';
                 // Try to reconnect after 5 seconds
                 setTimeout(initWebSocket, 5000);
-            };
+            });
 
-            socket.onerror = function(error) {
-                console.error('WebSocket error:', error);
+            socket.on('connect_error', function(error) {
+                console.error('Socket.IO connection error:', error);
                 document.getElementById('service-status').textContent = 'Connection error';
-            };
+            });
         }
 
         // Load tools from API

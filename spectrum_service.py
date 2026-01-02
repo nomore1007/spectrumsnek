@@ -166,20 +166,21 @@ class SpectrumService:
                         self.tools[tool_name]['status'] = 'running'
                         self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
 
-                        # Run the tool with output captured to prevent interference
+                        # Run the tool with output suppressed to prevent interference
                         import sys
-                        from io import StringIO
                         tool_data = self.tools[tool_name]
                         old_stdout = sys.stdout
                         old_stderr = sys.stderr
-                        sys.stdout = StringIO()
-                        sys.stderr = StringIO()
+                        sys.stdout = open('/dev/null', 'w')
+                        sys.stderr = open('/dev/null', 'w')
                         try:
                             if 'run_func' in tool_data:
                                 tool_data['run_func']()
                             else:
                                 tool_data['module'].run()
                         finally:
+                            sys.stdout.close()
+                            sys.stderr.close()
                             sys.stdout = old_stdout
                             sys.stderr = old_stderr
 
