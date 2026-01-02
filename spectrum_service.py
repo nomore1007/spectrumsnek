@@ -308,6 +308,14 @@ class SpectrumService:
 
         print(f"Starting SpectrumSnek Service on {host}:{port}")
 
+        # Check for existing service first
+        if self._check_existing_service(host, port):
+            print("ERROR: SpectrumSnek service appears to already be running!")
+            print("Use './service_manager.sh status' to check status")
+            print("Use './service_manager.sh restart' to restart if needed")
+            print("Use './service_manager.sh stop' to stop the service first")
+            return
+
         try:
             self.socketio.run(self.app, host=host, port=port, debug=False)
         except OSError as e:
@@ -315,24 +323,30 @@ class SpectrumService:
                 print(f"ERROR: Port {port} is already in use!")
                 print("This usually means SpectrumSnek is already running.")
                 print("")
-                print("Solutions:")
-                print("1. Check if SpectrumSnek is already running:")
-                print("   ps aux | grep spectrum")
-                print("   ps aux | grep python | grep main.py")
+                print("Use service manager to control the service:")
+                print("  ./service_manager.sh status   # Check status")
+                print("  ./service_manager.sh restart  # Restart service")
+                print("  ./service_manager.sh stop     # Stop service")
                 print("")
-                print("2. Kill existing processes:")
-                print("   pkill -f spectrum_service")
-                print("   pkill -f 'python main.py'")
-                print("")
-                print("3. Or use a different port:")
-                print("   python main.py --service --port 5001")
-                print("")
-                print("4. Check what's using the port:")
-                print(f"   netstat -tulpn | grep :{port}")
-                print(f"   lsof -i :{port}")
+                print("To connect as a client:")
+                print("  ~/spectrum_ssh.sh             # SSH interface")
+                print("  ./run_spectrum.sh             # Console interface")
+                print("  http://localhost:5000         # Web interface")
             else:
                 print(f"ERROR: Failed to start service: {e}")
             raise
+
+    def _check_existing_service(self, host, port):
+        """Check if service is already running on the specified host/port."""
+        import socket
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            return result == 0  # 0 means connection successful
+        except:
+            return False
 
 if __name__ == '__main__':
     service = SpectrumService()
