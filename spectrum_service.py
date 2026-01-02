@@ -29,7 +29,7 @@ class SpectrumService:
         self.tools: Dict[str, Any] = {}
         self.running_tools: Dict[str, Any] = {}
         self.config = config_manager
-        self.max_concurrent_tools = self.config.get('service.max_concurrent_tools', 3)
+        self.max_concurrent_tools = self.config.get('service.max_concurrent_tools', 1)
         self.load_tools()
 
         # Setup routes
@@ -63,6 +63,25 @@ class SpectrumService:
 
         # Add system tools
         self.add_system_tools()
+
+        # Set local run functions for interactive tools
+        for name, tool in self.tools.items():
+            try:
+                if name in ['rtl_scanner', 'adsb_tool', 'radio_scanner', 'demo_scanner']:
+                    local_module = __import__(f'plugins.{name}.{name}', fromlist=['run'])
+                    tool['local_run'] = local_module.run
+                elif name == 'wifi_tool':
+                    import wifi_tool
+                    tool['local_run'] = wifi_tool.run
+                elif name == 'bluetooth_tool':
+                    import bluetooth_tool
+                    tool['local_run'] = bluetooth_tool.run
+                elif name == 'audio_tool':
+                    from system_tools.audio_output_selector import AudioOutputSelector
+                    tool['local_run'] = AudioOutputSelector().run
+                # For other system tools, keep as is
+            except ImportError:
+                pass
 
     def add_system_tools(self):
         """Add built-in system tools."""

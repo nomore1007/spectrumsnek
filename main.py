@@ -137,8 +137,46 @@ class RadioToolsLoader:
             self.toggle_web_portal
         ))
 
+    def run_local_tool(self, tool_name):
+        """Run a tool locally for interaction."""
+        try:
+            if tool_name == "rtl_scanner":
+                import rtl_scanner
+                rtl_scanner.run()
+            elif tool_name == "adsb_tool":
+                import adsb_tool
+                adsb_tool.run()
+            elif tool_name == "radio_scanner":
+                import radio_scanner
+                radio_scanner.run()
+            elif tool_name == "demo_scanner":
+                import demo_scanner
+                demo_scanner.run()
+            elif tool_name == "wifi_tool":
+                import wifi_tool
+                wifi_tool.run()
+            elif tool_name == "bluetooth_tool":
+                import bluetooth_tool
+                bluetooth_tool.run()
+            elif tool_name == "audio_tool":
+                from system_tools.audio_output_selector import AudioOutputSelector
+                AudioOutputSelector().run()
+            else:
+                print(f"Local run not available for {tool_name}")
+        except ImportError as e:
+            print(f"Cannot run {tool_name} locally: {e}")
+        except Exception as e:
+            print(f"Error running {tool_name}: {e}")
+
     def start_tool(self, tool_name):
-        """Start a tool via service API."""
+        """Start a tool via service API or locally."""
+        if self.service_url == 'http://127.0.0.1:5000':
+            # Run locally for interaction
+            self.run_local_tool(tool_name)
+            print("Returning to menu in 3 seconds...")
+            time.sleep(3)
+            return
+
         try:
             import requests
             response = requests.post(f"{self.service_url}/api/tools/{tool_name}/start", timeout=10)
@@ -146,10 +184,8 @@ class RadioToolsLoader:
                 print(f"Started {tool_name}")
             else:
                 print(f"Failed to start {tool_name}: {response.text}")
-        except ImportError:
-            print("Service not available, cannot start tool")
         except Exception as e:
-            print(f"Error starting tool: {e}")
+            print(f"Failed to start {tool_name}: {e}")
         print("Returning to menu in 3 seconds...")
         time.sleep(3)
 
