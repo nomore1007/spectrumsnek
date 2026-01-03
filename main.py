@@ -171,7 +171,15 @@ class RadioToolsLoader:
                         pass
                     except Exception:
                         # Other errors, skip silently
-                        pass
+                         pass
+
+        # System tools submenu
+        self.modules.append(ModuleInfo(
+            "🔧 System Tools",
+            "WiFi, Bluetooth, and system utilities",
+            "system_tools",
+            lambda: self.run_local_tool("system_tools")
+        ))
 
         # Web portal toggle (special menu item)
         self.modules.append(ModuleInfo(
