@@ -259,33 +259,39 @@ class SystemMenu:
         print("============")
 
         try:
-            # For now, always assume we're being called from within another curses app
-            # and handle curses manually to avoid endwin() errors
-            curses.endwin()  # Clean up any existing curses state
-            stdscr = curses.initscr()
-            curses.noecho()
-            curses.cbreak()
-            stdscr.keypad(True)
-
+            # Check if curses is already initialized
+            curses_initialized = False
             try:
-                back_to_main = self.run_menu(stdscr)
-            finally:
-                curses.nocbreak()
-                stdscr.keypad(False)
-                curses.echo()
-                curses.endwin()
+                # Test if we can get the current screen (curses is initialized)
+                curses.initscr()
+                curses_initialized = True
+                curses.endwin()  # Clean up our test
+            except curses.error:
+                curses_initialized = False
 
-            if not back_to_main:
-                print("\nSystem tools stopped by user")
+            if curses_initialized:
+                # We're being called from within another curses app
+                # Just run the menu directly without wrapper
+                stdscr = curses.initscr()
+                curses.noecho()
+                curses.cbreak()
+                stdscr.keypad(True)
+
+                try:
+                    back_to_main = self.run_menu(stdscr)
+                finally:
+                    curses.nocbreak()
+                    stdscr.keypad(False)
+                    curses.echo()
+                    curses.endwin()
+            else:
+                # Standalone run - use wrapper
+                back_to_main = curses.wrapper(self.run_menu)
+
         except KeyboardInterrupt:
             print("\nSystem tools stopped by user")
         except Exception as e:
             print(f"Error in system tools menu: {e}")
-            # Fallback to simple wrapper if manual handling fails
-            try:
-                back_to_main = curses.wrapper(self.run_menu)
-            except Exception as e2:
-                print(f"Fallback also failed: {e2}")
 
 if __name__ == "__main__":
     menu = SystemMenu()
