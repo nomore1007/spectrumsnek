@@ -4,14 +4,6 @@ SpectrumSnek Service - Core service for radio tools management
 Provides API for tool control and monitoring
 """
 
-# Eventlet monkey patch must happen before any other imports
-try:
-    import eventlet
-    eventlet.monkey_patch()
-    EVENTLET_AVAILABLE = True
-except ImportError:
-    EVENTLET_AVAILABLE = False
-
 import sys
 import os
 import time
@@ -20,7 +12,6 @@ import json
 import subprocess
 from typing import Dict, List, Any, Optional
 from flask import Flask, request, jsonify
-from flask_socketio import SocketIO, emit
 import psutil
 
 # Import configuration manager
@@ -34,7 +25,7 @@ class SpectrumService:
 
     def __init__(self):
         self.app = Flask(__name__)
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
+        self.socketio = None  # Disabled for compatibility
         self.tools: Dict[str, Any] = {}
         self.running_tools: Dict[str, Any] = {}
         self.config = config_manager
