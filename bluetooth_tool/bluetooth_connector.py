@@ -76,36 +76,48 @@ class BluetoothConnector:
                 self.status_message = f"Scan error: {e}"
                 return []
 
-            # Get list of devices - try multiple approaches
+            # Scan for devices actively
             devices = []
 
-            # First try: direct bluetoothctl devices
+            # Start a scan and collect devices
+            self.status_message = "Scanning for devices... (15 seconds)"
+            try:
+                # Start scan process
+                scan_proc = subprocess.Popen(
+                    ["bluetoothctl", "scan", "on"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+
+                # Wait for scan to run
+                time.sleep(15)
+
+                # Stop scanning
+                subprocess.run(
+                    ["bluetoothctl", "scan", "off"],
+                    capture_output=True, timeout=5
+                )
+
+                scan_proc.terminate()
+                scan_proc.wait(timeout=5)
+
+            except subprocess.TimeoutExpired:
+                self.status_message = "Scan timeout"
+                return []
+            except Exception as e:
+                self.status_message = f"Scan error: {e}"
+                return []
+
+            # Now get the devices that were discovered
             result = subprocess.run(
                 ["bluetoothctl", "devices"],
                 capture_output=True, text=True, timeout=10
             )
 
-            if result.returncode != 0 or not result.stdout.strip():
-                # Second try: use bluetoothctl with --timeout and different approach
-                try:
-                    # Try using bluetoothctl interactively
-                    proc = subprocess.Popen(
-                        ["bluetoothctl"],
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True
-                    )
-                    stdout, stderr = proc.communicate("devices\nquit\n", timeout=10)
-                    result = subprocess.CompletedProcess(
-                        args=["bluetoothctl"],
-                        returncode=proc.returncode,
-                        stdout=stdout,
-                        stderr=stderr
-                    )
-                except Exception as e:
-                    self.status_message = f"Failed to get device list: {e}"
-                    return []
+            if result.returncode != 0:
+                self.status_message = f"Failed to get device list: {result.stderr.strip()}"
+                return []
 
             if result.returncode != 0:
                 self.status_message = f"Failed to get device list: {result.stderr.strip()}"
