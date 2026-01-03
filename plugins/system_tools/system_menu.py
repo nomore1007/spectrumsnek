@@ -56,6 +56,13 @@ class SystemMenu:
             self.show_display_info
         ))
 
+        # Web portal status
+        self.tools.append(SystemTool(
+            "🌐 Web Portal Status",
+            "Check web interface status (always enabled)",
+            self.show_web_portal_status
+        ))
+
         # Update from GitHub
         self.tools.append(SystemTool(
             "⬆️ Update from GitHub",
@@ -135,6 +142,35 @@ class SystemMenu:
 
         except Exception as e:
             print(f"Error getting display info: {e}")
+        finally:
+            print("\nPress Enter to continue...")
+            input()
+
+    def show_web_portal_status(self):
+        """Show web portal status."""
+        try:
+            # Clean up curses before showing text output
+            curses.endwin()
+
+            print("Web Portal Status")
+            print("=================")
+            print("The web interface is always enabled and running.")
+            print("Access it at: http://localhost:5000")
+            print("")
+            print("Available tools:")
+            print("- ADS-B Aircraft Tracker")
+            print("- Traditional Radio Scanner")
+            print("- RTL-SDR Spectrum Analyzer")
+            print("- Demo Spectrum Analyzer")
+            print("- System Tools (this menu)")
+            print("")
+            print("The web interface provides:")
+            print("- Real-time tool control")
+            print("- Status monitoring")
+            print("- Remote access capabilities")
+
+        except Exception as e:
+            print(f"Error showing web portal status: {e}")
         finally:
             print("\nPress Enter to continue...")
             input()

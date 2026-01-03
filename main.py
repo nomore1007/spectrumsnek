@@ -181,14 +181,6 @@ class RadioToolsLoader:
             lambda: self.run_local_tool("system_tools")
         ))
 
-        # Web portal toggle (special menu item)
-        self.modules.append(ModuleInfo(
-            f"Web Portal: {'ON' if self.web_portal_enabled else 'OFF'}",
-            "Toggle web interfaces for all tools",
-            "web_toggle",
-            self.toggle_web_portal
-        ))
-
     def run_local_tool(self, tool_name):
         """Run a tool locally for interaction."""
         try:
