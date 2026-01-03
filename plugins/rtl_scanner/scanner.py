@@ -1085,11 +1085,6 @@ def run(stdscr):
         print(f"Error starting interactive scanner: {e}")
         emergency_cleanup()
         sys.exit(1)
-    finally:
-        try:
-            curses.endwin()
-        except curses.error:
-            pass
 
 def curses_main(stdscr):
     global global_scanner
