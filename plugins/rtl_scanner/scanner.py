@@ -170,23 +170,10 @@ class InteractiveRTLScanner:
                 logger.info("RTL-SDR initialized for interactive mode")
 
         except curses.error:
-            # Curses failed, use text mode
-            self._text_main()
+            # Curses failed, re-raise
+            raise
 
-    def _text_main(self):
-        """Text-based main loop."""
-        print("RTL-SDR Spectrum Analyzer (Text Mode)")
-        print("Press 'm' for modulation menu, 'q' to quit")
-        self.is_running = True
-        try:
-            while self.is_running:
-                self.capture_samples()
-                self._print_spectrum()
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            pass
-        finally:
-            self.is_running = False
+
 
     def _print_spectrum(self):
         """Print spectrum in text mode."""
