@@ -238,24 +238,24 @@ class InteractiveRTLScanner:
             self.stdscr.addstr(0, 0, "Select Modulation Category:", curses.A_BOLD)
             for i, cat in enumerate(self.categories):
                 marker = ">" if i == self.selected_category else " "
-                self.stdscr.addstr(2 + i, 0, f"{marker} {cat}")
+                self.stdscr.addstr(2 + i, 0, "%s %s" % (marker, cat))
 
             # Show options for selected category
             if self.selected_category == 0:  # Analog
                 options = self.analog_modes
-            else:  # Digital
+            elif self.selected_category == 1:  # Digital
                 options = self.digital_modes
             
-            self.stdscr.addstr(5, 0, f"Option: {options[self.selected_option]}")
+            self.stdscr.addstr(5, 0, "Option: %s" % options[self.selected_option])
             self.stdscr.addstr(7, 0, "Use ↑↓ to select category, ←→ to cycle options")
             self.stdscr.addstr(8, 0, "Enter to select, 'b' to go back")
         else:
             # Display frequency with yellow tint and cursor
-            freq_str = f"{self.center_freq/1e6:.6f} MHz"
+            freq_str = "%.6f MHz" % (self.center_freq/1e6)
             self.stdscr.addstr(0, 0, freq_str, curses.color_pair(2) | curses.A_BOLD)
 
             # Display mode
-            mode_str = f"Mode: {self.get_current_mode()}"
+            mode_str = "Mode: %s" % self.get_current_mode()
             self.stdscr.addstr(1, 0, mode_str)
 
             # Add blinking cursor on selected digit
@@ -264,39 +264,7 @@ class InteractiveRTLScanner:
             # Draw spectrum
             self._draw_spectrum()
 
-    def _print_spectrum(self):
-        """Print spectrum or menu in text mode."""
-        if self.in_menu:
-            print("\nSelect Modulation Category:")
-            for i, cat in enumerate(self.categories):
-                marker = ">" if i == self.selected_category else " "
-                print(f"{marker} {cat}")
 
-            if self.selected_category == 0:
-                options = self.analog_modes
-            else:
-                options = self.digital_modes
-            print(f"Option: {options[self.selected_option]}")
-            print("Use ↑↓ to select category, ←→ to cycle options")
-            print("Enter to select, 'b' to go back")
-        else:
-            if not hasattr(self, 'power_spectrum') or len(self.power_spectrum) == 0:
-                return
-
-            print(f"\nCenter: {self.center_freq/1e6:.3f} MHz | Mode: {self.get_current_mode()}")
-
-            max_power = np.max(self.power_spectrum)
-            min_power = np.min(self.power_spectrum)
-            power_range = max_power - min_power
-
-            for y in range(min(10, len(self.power_spectrum))):
-                power = self.power_spectrum[y]
-                normalized = (power - min_power) / power_range if power_range > 0 else 0.5
-                filled_width = int(40 * normalized)
-                bar = '#' * filled_width + '.' * (40 - filled_width)
-                print(f"{y:2d}: {bar}")
-
-            print("Press 'm' for modulation menu, 'b' to go back, Ctrl+C to stop")
 
         # Display current mode
         current_mode = self.get_current_mode()
