@@ -66,34 +66,52 @@ class SystemMenu:
     def run_wifi_selector(self):
         """Launch WiFi selector."""
         try:
+            # Clean up current curses session before launching sub-tool
+            curses.endwin()
             import wifi_tool
             wifi_tool.run()
         except ImportError:
             print("WiFi tool not available")
+        except Exception as e:
+            print(f"WiFi tool error: {e}")
+        finally:
             input("Press Enter to continue...")
 
     def run_bluetooth_connector(self):
         """Launch Bluetooth connector."""
         try:
+            # Clean up current curses session before launching sub-tool
+            curses.endwin()
             import bluetooth_tool
             bluetooth_tool.run()
         except ImportError:
             print("Bluetooth tool not available")
+        except Exception as e:
+            print(f"Bluetooth tool error: {e}")
+        finally:
             input("Press Enter to continue...")
 
     def run_audio_selector(self):
         """Launch Audio output selector."""
         try:
+            # Clean up current curses session before launching sub-tool
+            curses.endwin()
             from .audio_output_selector import AudioOutputSelector
             selector = AudioOutputSelector()
             selector.run()
         except ImportError:
             print("Audio selector not available")
+        except Exception as e:
+            print(f"Audio selector error: {e}")
+        finally:
             input("Press Enter to continue...")
 
     def show_display_info(self):
         """Show TTY display information."""
         try:
+            # Clean up curses before showing text output
+            curses.endwin()
+
             import os
             import curses
 
@@ -118,12 +136,15 @@ class SystemMenu:
         except Exception as e:
             print(f"Error getting display info: {e}")
         finally:
-            print("\nReturning to menu in 3 seconds...")
-            time.sleep(3)
+            print("\nPress Enter to continue...")
+            input()
 
     def update_from_github(self):
         """Update from GitHub repository."""
         try:
+            # Clean up curses before showing text output
+            curses.endwin()
+
             print("Updating from GitHub...")
             print("Running: git pull")
 
@@ -155,8 +176,8 @@ class SystemMenu:
         except Exception as e:
             print(f"❌ Update error: {e}")
         finally:
-            print("\nReturning to menu in 3 seconds...")
-            time.sleep(3)
+            print("\nPress Enter to continue...")
+            input()
 
     def draw_menu(self, stdscr):
         """Draw the system tools menu."""
@@ -220,9 +241,10 @@ class SystemMenu:
                     self.selected_index = min(len(self.tools) - 1, self.selected_index + 1)
                 elif key == ord('\n') or key == ord('\r') or key == curses.KEY_ENTER:
                     tool = self.tools[self.selected_index]
-                    # Run the tool - let it handle curses
+                    # Run the tool - it will handle curses cleanup
                     tool.action()
-                    # Continue in submenu
+                    # After tool finishes, return to exit the submenu
+                    return False
                 elif key == 27:  # ESC
                     return True  # Back
 
