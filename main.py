@@ -105,7 +105,7 @@ class RadioToolsLoader:
         if os.path.exists(plugins_dir):
             for item in os.listdir(plugins_dir):
                 plugin_path = os.path.join(plugins_dir, item)
-                if os.path.isdir(plugin_path) and not item.startswith('__'):
+                if os.path.isdir(plugin_path) and not item.startswith('__') and item != "system_tools":
                     try:
                         # Import the plugin module
                         plugin_module = __import__(f"{plugins_dir}.{item}", fromlist=[item])
