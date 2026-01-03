@@ -204,8 +204,15 @@ class InteractiveRTLScanner:
         freq_str = f"{self.center_freq/1e6:.6f} MHz"
         self.stdscr.addstr(0, 0, freq_str, curses.color_pair(2) | curses.A_BOLD)
 
+        # Display mode
+        mode_str = f"Mode: {self.get_current_mode()}"
+        self.stdscr.addstr(1, 0, mode_str)
+
         # Add blinking cursor on selected digit
         self._draw_frequency_cursor(freq_str)
+
+        # Draw spectrum
+        self._draw_spectrum()
 
     def _print_spectrum(self):
         """Print spectrum in text mode."""
@@ -989,6 +996,8 @@ class InteractiveRTLScanner:
         """Main interactive loop."""
         try:
             # Try curses mode
+            stdscr = curses.initscr()
+            self.stdscr = stdscr
             curses.cbreak()  # Enable cbreak mode
             curses.noecho()  # Don't echo keys
             self.stdscr.keypad(True)  # Enable keypad mode for arrow keys
@@ -1022,9 +1031,9 @@ class InteractiveRTLScanner:
                 # Ensure terminal state is restored
                 self.restore_terminal()
 
-        except curses.error:
+        except Exception as e:
             # Fallback to text mode
-            print("Curses not available, using text mode...")
+            print(f"Curses not available ({e}), using text mode...")
             self.is_running = True
             try:
                 while self.is_running:
