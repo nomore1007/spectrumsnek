@@ -1097,9 +1097,51 @@ def emergency_cleanup():
     if global_scanner:
         global_scanner.close()
 
+def is_remote_session():
+    """Check if running in a remote session (SSH, etc.)"""
+    import os
+    # Check for SSH environment variables
+    ssh_vars = ['SSH_CLIENT', 'SSH_TTY', 'SSH_CONNECTION']
+    return any(os.environ.get(var) for var in ssh_vars)
+
 def main(stdscr=None):
     """Main entry point for RTL scanner."""
-    if stdscr is not None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description='RTL-SDR Spectrum Analyzer')
+    parser.add_argument('--freq', type=float, default=100.0,
+                        help='Center frequency in MHz (default: 100.0)')
+    parser.add_argument('--gain', type=str, default='auto',
+                        help='SDR gain setting (auto or dB value)')
+    parser.add_argument('--text', action='store_true',
+                        help='Run in text mode (console output)')
+    parser.add_argument('--web', action='store_true',
+                        help='Enable web interface')
+    parser.add_argument('--samplerate', type=float, default=2.4,
+                        help='Sample rate in MHz (default: 2.4)')
+
+    args = parser.parse_args()
+
+    # Auto-detect remote sessions and force text mode for better compatibility
+    if is_remote_session() and not args.web and not args.text:
+        print("Remote session detected. Using text mode for better compatibility.")
+        print("Use --web for web interface or --text explicitly for text mode.")
+        args.text = True
+
+    if args.text:
+        # Run in text mode
+        try:
+            print("RTL-SDR Spectrum Analyzer - Text Mode")
+            print("=====================================")
+            print("Text mode is not yet fully implemented.")
+            print("Please use --web for web interface or run locally for interactive mode.")
+            print("Press Enter to exit...")
+            input()
+        except KeyboardInterrupt:
+            print("\nRTL scanner stopped by user")
+        except Exception as e:
+            print(f"Text mode failed: {e}")
+    elif stdscr is not None:
         # Already in curses mode, run directly
         run(stdscr)
     else:
