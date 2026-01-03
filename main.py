@@ -37,13 +37,15 @@ try:
             yield Footer()
 
         def on_option_list_option_selected(self, event):
-
             index = event.option_index
-
             if 0 <= index < len(self.modules):
-
                 self.selected_module = self.modules[index]
+                self.exit()
 
+        def on_key(self, event):
+            if event.key == "q" or event.key == "Q":
+                self.exit()
+            elif event.key == "b" or event.key == "B" or event.key == "escape":
                 self.exit()
 
 except ImportError:
