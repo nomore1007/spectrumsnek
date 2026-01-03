@@ -148,32 +148,213 @@ class RadioToolsLoader:
                         # Import the plugin module
                         plugin_module = __import__(f"{plugins_dir}.{item}", fromlist=[item])
                         info = plugin_module.get_module_info()
+                        # Use short names for cleaner menu display
+                        short_name = self._get_short_name(info["name"])
                         self.modules.append(ModuleInfo(
-                            info["name"],
+                            short_name,
                             info["description"],
                             f"{plugins_dir}.{item}",
                             lambda run_func=plugin_module.run: curses.wrapper(run_func)
                         ))
-                    except ImportError:
-                        # Plugin not available, skip silently
+                    except (ImportError, Exception):
+                        # Plugin not available or other errors, skip silently
                         pass
-                    except Exception:
-                        # Other errors, skip silently
-                        pass
-                    except ImportError:
-                        # Plugin not available, skip silently
-                        pass
-                    except Exception:
-                        # Other errors, skip silently
-                         pass
 
         # System tools submenu
         self.modules.append(ModuleInfo(
-            "🔧 System Tools",
+            "System Tools",
             "WiFi, Bluetooth, and system utilities",
             "system_tools",
             lambda: self.run_local_tool("system_tools")
         ))
+
+    def show_system_tools_submenu(self):
+        """Show system tools as a submenu with arrow key navigation like main menu."""
+        from plugins.system_tools.system_menu import SystemMenu
+
+        # Create system tools menu
+        system_menu = SystemMenu()
+
+        # Add a "Back" option
+        back_option = type('Tool', (), {
+            'name': '⬅️ Back to Main Menu',
+            'description': 'Return to the main SpectrumSnek menu',
+            'action': lambda: None
+        })()
+
+        # Combine tools with back option
+        all_options = system_menu.tools + [back_option]
+
+        # Create a temporary menu interface
+        class SubMenu:
+            def __init__(self, parent, options):
+                self.parent = parent
+                self.options = options
+                self.selected_index = 0
+
+            def draw_menu(self, stdscr):
+                """Draw the submenu interface."""
+                stdscr.clear()
+                height, width = stdscr.getmaxyx()
+
+                # Title
+                title = "🔧 SYSTEM TOOLS SUBMENU"
+                stdscr.addstr(0, (width - len(title)) // 2, title, curses.A_BOLD)
+
+                # Subtitle
+                subtitle = "↑↓ navigate, Enter select, 'q' quit"
+                stdscr.addstr(2, (width - len(subtitle)) // 2, subtitle, curses.A_DIM)
+
+                # Tools list (names only)
+                start_y = 4
+                for i, option in enumerate(self.options):
+                    y = start_y + i  # Clean spacing without extra lines
+                    if y >= height:
+                        break
+
+                    if i == self.selected_index:
+                        # Selected item (highlighted)
+                        stdscr.addstr(y, 4, f"> {option.name}", curses.A_REVERSE | curses.A_BOLD)
+                    else:
+                        # Normal item
+                        stdscr.addstr(y, 4, f"  {option.name}")
+
+                stdscr.refresh()
+
+            def run_menu(self, stdscr):
+                """Run the submenu interface."""
+                curses.curs_set(0)
+
+                while True:
+                    self.draw_menu(stdscr)
+
+                    try:
+                        key = stdscr.getch()
+
+                        if key == ord('q') or key == ord('Q'):
+                            return  # Quit
+                        elif key == curses.KEY_UP:
+                            self.selected_index = max(0, self.selected_index - 1)
+                        elif key == curses.KEY_DOWN:
+                            self.selected_index = min(len(self.options) - 1, self.selected_index + 1)
+                        elif key == ord('\n') or key == ord('\r') or key == curses.KEY_ENTER:
+                            selected_option = self.options[self.selected_index]
+
+                            if selected_option == back_option:
+                                # Back to main menu
+                                return
+                            else:
+                                # Run the selected tool
+                                try:
+                                    # Clear screen for tool output
+                                    curses.endwin()
+                                    print(f"\nRunning: {selected_option.name}")
+                                    print("=" * (len(selected_option.name) + 9))
+
+                                    selected_option.action()
+
+                                    print("\nPress Enter to return to menu...")
+                                    input()
+
+                                    # Restart curses for menu
+                                    stdscr = curses.initscr()
+                                    curses.noecho()
+                                    curses.cbreak()
+                                    stdscr.keypad(True)
+
+                                except Exception as e:
+                                    curses.endwin()
+                                    print(f"Error running {selected_option.name}: {e}")
+                                    print("Press Enter to continue...")
+                                    input()
+                                    stdscr = curses.initscr()
+                                    curses.noecho()
+                                    curses.cbreak()
+                                    stdscr.keypad(True)
+
+                        time.sleep(0.05)
+
+                    except KeyboardInterrupt:
+                        return
+
+        # Create and run the submenu
+        submenu = SubMenu(self, all_options)
+
+        try:
+            curses.wrapper(submenu.run_menu)
+        except (curses.error, Exception) as e:
+            # Fallback to text menu if curses fails
+            print(f"Curses interface failed ({e}), using text menu...")
+            self._show_system_tools_text_fallback(system_menu)
+
+    def _show_system_tools_text_fallback(self, system_menu):
+        """Fallback text menu for system tools with arrow key navigation."""
+        selected = 0
+        all_options = system_menu.tools + [type('Tool', (), {'name': '⬅️ Back to Main Menu', 'description': 'Return to the main SpectrumSnek menu', 'action': lambda: None})()]
+
+        while True:
+            print("\n" + "="*50)
+            print("           🔧 SYSTEM TOOLS SUBMENU")
+            print("="*50)
+            print("↑↓ navigate, Enter select, 'q' quit")
+            print()
+
+            # Show tools with selection indicator (names only, clean spacing)
+            for i, option in enumerate(all_options):
+                marker = ">" if i == selected else " "
+                print(f"  {marker} {option.name}")
+
+            print()
+            print("="*50)
+
+            # Get arrow key input
+            try:
+                key = self.get_key()
+
+                if key == 'q' or key == 'Q':
+                    print("Returning to main menu...")
+                    return
+                elif key == 'up':
+                    selected = (selected - 1) % len(all_options)
+                elif key == 'down':
+                    selected = (selected + 1) % len(all_options)
+                elif key in ['\r', '\n']:
+                    selected_option = all_options[selected]
+                    if selected_option.name == '⬅️ Back to Main Menu':
+                        print("Returning to main menu...")
+                        return
+                    else:
+                        print(f"\nSelected: {selected_option.name}")
+                        print("-" * (len(selected_option.name) + 10))
+                        try:
+                            selected_option.action()
+                            input("\nPress Enter to continue...")
+                        except Exception as e:
+                            print(f"Error running tool: {e}")
+                            input("Press Enter to continue...")
+                        break
+                elif key.isdigit():
+                    # Also support number input for compatibility
+                    idx = int(key) - 1
+                    if 0 <= idx < len(system_menu.tools):
+                        selected_option = system_menu.tools[idx]
+                        print(f"\nSelected: {selected_option.name}")
+                        print("-" * (len(selected_option.name) + 10))
+                        try:
+                            selected_option.action()
+                            input("\nPress Enter to continue...")
+                        except Exception as e:
+                            print(f"Error running tool: {e}")
+                            input("Press Enter to continue...")
+                        break
+                    else:
+                        print("Invalid choice.")
+                else:
+                    print("Use ↑↓ arrows, Enter to select, or 'q' to quit.")
+
+            except (KeyboardInterrupt, EOFError):
+                print("\nReturning to main menu...")
+                return
 
     def run_local_tool(self, tool_name):
         """Run a tool locally for interaction."""
@@ -183,8 +364,11 @@ class RadioToolsLoader:
                 mod = importlib.import_module(f"plugins.{tool_name}")
                 mod.run()
             elif tool_name == "system_tools":
-                from plugins.system_tools.system_menu import SystemMenu
-                SystemMenu().run()
+                # Handle system tools as a submenu within the main menu
+                self.show_system_tools_submenu()
+            elif tool_name == "demo_scanner":
+                from plugins.demo_scanner import run
+                run()
             elif tool_name == "audio_tool":
                 from plugins.system_tools.audio_output_selector import AudioOutputSelector
                 AudioOutputSelector().run()
@@ -215,6 +399,16 @@ class RadioToolsLoader:
             print(f"Failed to start {tool_name}: {e}")
         print("Returning to menu in 3 seconds...")
         time.sleep(3)
+
+    def _get_short_name(self, full_name: str) -> str:
+        """Convert full tool names to short display names for cleaner menu."""
+        name_mapping = {
+            "✈️ ADS-B Aircraft Tracker": "ADS-B",
+            "📻 Traditional Radio Scanner": "Radio Scanner",
+            "🎭 Demo Spectrum Analyzer": "Demo Analyzer",
+            "🐍 RTL-SDR Spectrum Analyzer": "Spectrum Analyzer"
+        }
+        return name_mapping.get(full_name, full_name)
 
     def toggle_web_portal(self):
         """Toggle web portal on/off."""
