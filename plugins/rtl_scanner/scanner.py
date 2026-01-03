@@ -279,7 +279,7 @@ class InteractiveRTLScanner:
                 bar_width = int(self.width * 0.8)  # Use 80% of width
                 filled_width = max(0, min(bar_width, int(bar_width * normalized)))
 
-                bar = "█" * filled_width + "░" * (bar_width - filled_width)
+                bar = "#" * filled_width + "." * (bar_width - filled_width)
                 color = curses.color_pair(1) if normalized > 0.7 else curses.color_pair(0)
 
                 try:
