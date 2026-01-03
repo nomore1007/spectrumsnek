@@ -158,7 +158,7 @@ class RadioToolsLoader:
                             info["name"],
                             info["description"],
                             f"{plugins_dir}.{item}",
-                            plugin_module.run
+                            lambda run_func=plugin_module.run: curses.wrapper(run_func)
                         ))
                     except ImportError:
                         # Plugin not available, skip silently
