@@ -590,7 +590,6 @@ class RadioToolsLoader:
             for i, module in enumerate(self.modules):
                 marker = ">" if i == selected else " "
                 print(f"  {marker} {module.name}")
-                print(f"     {module.description}")
             
             print("\n  ↑↓ navigate, Enter select, 'q' quit")
             print("="*50)
