@@ -259,7 +259,7 @@ class InteractiveRTLScanner:
         try:
             min_freq = np.min(self.freqs) / 1e6
             max_freq = np.max(self.freqs) / 1e6
-            freq_label = ".1f"
+            freq_label = f"{min_freq:.1f} - {max_freq:.1f} MHz"
             self.stdscr.addstr(spectrum_start_y - 1, 0, freq_label)
         except (AttributeError, ValueError):
             pass
