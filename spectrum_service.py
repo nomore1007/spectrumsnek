@@ -182,11 +182,17 @@ class SpectrumService:
                 if 'tmux_session' in running_info:
                     try:
                         subprocess.run(['tmux', 'has-session', '-t', running_info['tmux_session']],
-                                     capture_output=True, check=True, timeout=1)
+                                      capture_output=True, check=True, timeout=1)
                         self.tools[name]['status'] = 'running'
                     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
                         self.tools[name]['status'] = 'stopped'
                         del self.running_tools[name]
+                elif 'process' in running_info:
+                    if running_info['process'].poll() is not None:
+                        self.tools[name]['status'] = 'stopped'
+                        del self.running_tools[name]
+                    else:
+                        self.tools[name]['status'] = 'running'
                 elif 'thread' in running_info:
                     if not running_info['thread'].is_alive():
                         self.tools[name]['status'] = 'stopped'
@@ -245,36 +251,48 @@ class SpectrumService:
                     thread = threading.Thread(target=run_tool, daemon=True)
                     thread.start()
                 else:
-                    # For interactive tools, start in tmux session
-                    if not self._tmux_available():
-                        return jsonify({'error': 'tmux not available for running interactive tools'}), 500
-
+                    # For interactive tools, start in tmux session or subprocess
                     import_path = f"plugins.{tool_name}" if tool_name in ['rtl_scanner', 'adsb_tool', 'radio_scanner'] else f"system_tools.{tool_name}"
-                    cmd = [
-                        'tmux', 'new-session', '-d', '-s', f'spectrum-{tool_name}',
-                        'bash', '-c', f'cd /home/nomore/spectrumsnek && source venv/bin/activate && env TERM=linux python -c "import curses; from {import_path} import run; curses.wrapper(run)"'
-                    ]
+                    cmd = f'cd /home/nomore/spectrumsnek && source venv/bin/activate && env TERM=linux python -c "import curses; from {import_path} import run; curses.wrapper(run)"'
 
-                    try:
-                        subprocess.run(cmd, check=True)
-                        # Wait a bit and check if session exists
-                        import time
-                        time.sleep(1)
-                        result = subprocess.run(['tmux', 'has-session', '-t', f'spectrum-{tool_name}'], capture_output=True)
-                        if result.returncode == 0:
+                    if self._tmux_available():
+                        tmux_cmd = [
+                            'tmux', 'new-session', '-d', '-s', f'spectrum-{tool_name}',
+                            'bash', '-c', cmd
+                        ]
+                        try:
+                            subprocess.run(tmux_cmd, check=True)
+                            # Wait a bit and check if session exists
+                            import time
+                            time.sleep(1)
+                            result = subprocess.run(['tmux', 'has-session', '-t', f'spectrum-{tool_name}'], capture_output=True)
+                            if result.returncode == 0:
+                                self.running_tools[tool_name] = {
+                                    'status': 'running',
+                                    'tmux_session': f'spectrum-{tool_name}',
+                                    'start_time': time.time()
+                                }
+                                self.tools[tool_name]['status'] = 'running'
+                                self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
+                            else:
+                                return jsonify({'error': 'Tool failed to start (session did not persist)'}), 500
+                        except subprocess.CalledProcessError as e:
+                            return jsonify({'error': f'Failed to start tool in tmux: {e}'}), 500
+                        except FileNotFoundError:
+                            return jsonify({'error': 'tmux not available'}), 500
+                    else:
+                        # Fallback: run in subprocess without tmux
+                        try:
+                            proc = subprocess.Popen(['bash', '-c', cmd])
                             self.running_tools[tool_name] = {
                                 'status': 'running',
-                                'tmux_session': f'spectrum-{tool_name}',
+                                'process': proc,
                                 'start_time': time.time()
                             }
                             self.tools[tool_name]['status'] = 'running'
                             self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
-                        else:
-                            return jsonify({'error': 'Tool failed to start (session did not persist)'}), 500
-                    except subprocess.CalledProcessError as e:
-                        return jsonify({'error': f'Failed to start tool in tmux: {e}'}), 500
-                    except FileNotFoundError:
-                        return jsonify({'error': 'tmux not available'}), 500
+                        except Exception as e:
+                            return jsonify({'error': f'Failed to start tool: {e}'}), 500
 
                 return jsonify({'status': 'starting'})
 
@@ -295,6 +313,15 @@ class SpectrumService:
                     subprocess.run(['tmux', 'kill-session', '-t', running_info['tmux_session']], check=True)
                 except subprocess.CalledProcessError:
                     pass  # Session may already be dead
+            elif 'process' in running_info:
+                # Stop subprocess
+                proc = running_info['process']
+                if proc and proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
             else:
                 # Stop thread
                 thread = running_info.get('thread')
