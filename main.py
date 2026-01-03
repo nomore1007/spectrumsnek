@@ -284,9 +284,13 @@ class RadioToolsLoader:
 
         try:
             stdscr = curses.initscr()
+            curses.cbreak()
+            curses.noecho()
             menu_main(stdscr)
         finally:
             try:
+                curses.nocbreak()
+                curses.echo()
                 curses.endwin()
             except curses.error:
                 pass
