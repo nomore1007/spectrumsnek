@@ -133,13 +133,7 @@ class RadioToolsLoader:
                     print(f"⚠ Service connection failed after {max_retries} attempts, using local mode")
                     self.load_local_modules()
 
-        # Web portal toggle (special menu item)
-        self.modules.append(ModuleInfo(
-            f"Web Portal: {'ON' if self.web_portal_enabled else 'OFF'}",
-            "Toggle web interfaces for all tools",
-            "web_toggle",
-            self.toggle_web_portal
-        ))
+
 
     def load_local_modules(self):
         """Fallback: Load available modules locally."""
