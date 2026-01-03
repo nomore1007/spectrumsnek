@@ -282,11 +282,7 @@ class RadioToolsLoader:
                     break
                 self.run_selected_module(selected_module)
 
-        try:
-            curses.wrapper(menu_main)
-        except Exception as e:
-            print(f"Curses menu failed ({e}), falling back to text menu...")
-            self.text_menu_loop()
+        curses.wrapper(menu_main)
 
     def getch(self):
         """Read a single key, handling escape sequences for arrows."""
