@@ -282,7 +282,14 @@ class RadioToolsLoader:
                     break
                 self.run_selected_module(selected_module)
 
-        curses.wrapper(menu_main)
+        try:
+            stdscr = curses.initscr()
+            menu_main(stdscr)
+        finally:
+            try:
+                curses.endwin()
+            except curses.error:
+                pass
 
 def check_dependencies():
     """Check if basic dependencies are available."""

@@ -8,7 +8,11 @@ import curses
 import time
 import threading
 import numpy as np
+import warnings
 from rtlsdr import RtlSdr
+
+# Suppress pkg_resources deprecation warning
+warnings.filterwarnings("ignore", category=UserWarning, message="pkg_resources is deprecated")
 import scipy.signal as signal
 from scipy.signal import windows
 import argparse
@@ -261,24 +265,38 @@ class InteractiveRTLScanner:
             self._draw_spectrum()
 
     def _print_spectrum(self):
-        """Print spectrum in text mode."""
-        if not hasattr(self, 'power_spectrum') or len(self.power_spectrum) == 0:
-            return
+        """Print spectrum or menu in text mode."""
+        if self.in_menu:
+            print("\nSelect Modulation Category:")
+            for i, cat in enumerate(self.categories):
+                marker = ">" if i == self.selected_category else " "
+                print(f"{marker} {cat}")
 
-        print(f"\nCenter: {self.center_freq/1e6:.3f} MHz | Mode: {self.get_current_mode()}")
+            if self.selected_category == 0:
+                options = self.analog_modes
+            else:
+                options = self.digital_modes
+            print(f"Option: {options[self.selected_option]}")
+            print("Use ↑↓ to select category, ←→ to cycle options")
+            print("Enter to select, 'b' to go back")
+        else:
+            if not hasattr(self, 'power_spectrum') or len(self.power_spectrum) == 0:
+                return
 
-        max_power = np.max(self.power_spectrum)
-        min_power = np.min(self.power_spectrum)
-        power_range = max_power - min_power
+            print(f"\nCenter: {self.center_freq/1e6:.3f} MHz | Mode: {self.get_current_mode()}")
 
-        for y in range(min(10, len(self.power_spectrum))):
-            power = self.power_spectrum[y]
-            normalized = (power - min_power) / power_range if power_range > 0 else 0.5
-            filled_width = int(40 * normalized)
-            bar = '#' * filled_width + '.' * (40 - filled_width)
-            print(f"{y:2d}: {bar}")
+            max_power = np.max(self.power_spectrum)
+            min_power = np.min(self.power_spectrum)
+            power_range = max_power - min_power
 
-        print("Press Ctrl+C to stop")
+            for y in range(min(10, len(self.power_spectrum))):
+                power = self.power_spectrum[y]
+                normalized = (power - min_power) / power_range if power_range > 0 else 0.5
+                filled_width = int(40 * normalized)
+                bar = '#' * filled_width + '.' * (40 - filled_width)
+                print(f"{y:2d}: {bar}")
+
+            print("Press 'm' for modulation menu, 'b' to go back, Ctrl+C to stop")
 
         # Display current mode
         current_mode = self.get_current_mode()
@@ -1040,214 +1058,13 @@ class InteractiveRTLScanner:
     def run(self):
         """Main interactive loop."""
         try:
-            # Try curses mode
             stdscr = curses.initscr()
-            self.stdscr = stdscr
-            curses.cbreak()  # Enable cbreak mode
-            curses.noecho()  # Don't echo keys
-            self.stdscr.keypad(True)  # Enable keypad mode for arrow keys
-            self.stdscr.nodelay(True)  # Non-blocking input
-            curses.curs_set(0)  # Hide cursor
-
-            # Initialize curses colors
-            curses.start_color()
-            curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)     # High power
-            curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Center frequency
-            curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)    # DMR info
-
-            # Set running flag
-            self.is_running = True
-
-            # Main loop (single-threaded curses)
-            try:
-                while self.is_running:
-                    try:
-                        self.capture_samples()
-                        self._draw_interface()
-                        time.sleep(0.01)  # Small delay
-
-                        key = self.stdscr.getch()
-                        if key != -1:  # Key pressed
-                            if self.handle_input(key):
-                                break
-                    except KeyboardInterrupt:
-                        break
-            finally:
-                # Ensure terminal state is restored
-                self.restore_terminal()
-
-        except Exception as e:
-            # Fallback to text mode
-            print(f"Curses not available ({e}), using text mode...")
-            self.is_running = True
-            try:
-                while self.is_running:
-                    self.capture_samples()
-                    self._print_spectrum()
-                    time.sleep(0.1)
-            except KeyboardInterrupt:
-                pass
-            finally:
-                self.is_running = False
-
-        # Cleanup
-        self.is_running = False
-        self.running = False
-        time.sleep(0.2)  # Allow threads to finish
-        if self.sdr:
-            self.sdr.close()
-
-    def close(self):
-        """Close the scanner."""
-        self.is_running = False
-        self.running = False
-
-        # Wait for threads to finish
-        if self.capture_thread and self.capture_thread.is_alive():
-            self.capture_thread.join(timeout=1.0)
-        if self.display_thread and self.display_thread.is_alive():
-            self.display_thread.join(timeout=1.0)
-        if self.audio_thread and self.audio_thread.is_alive():
-            self.audio_thread.join(timeout=1.0)
-
-        # Close SDR device with lock
-        with self.sdr_lock:
-            if self.sdr:
-                try:
-                    self.sdr.close()
-                    logger.info("RTL-SDR device closed")
-                except Exception as e:
-                    logger.error(f"Error closing SDR device: {e}")
-
-    def restore_terminal(self):
-        """Restore terminal to normal state."""
-        try:
-            # Try curses cleanup first
-            curses.nocbreak()
-            self.stdscr.keypad(False)
-            curses.echo()
-            curses.endwin()
-        except:
-            pass  # Ignore curses errors
-
-        # Always do ANSI terminal reset as fallback
-        try:
-            # Comprehensive terminal reset
-            print("\033[?25h", end="")  # Show cursor
-            print("\033[0m", end="")    # Reset colors/attributes
-            print("\033[2J", end="")    # Clear screen
-            print("\033[H", end="")     # Move to home position
-            print("\033[J", end="")     # Clear to end of screen
-            sys.stdout.flush()
-        except:
-            pass
-
-def main():
-    parser = argparse.ArgumentParser(description='Interactive RTL-SDR Radio Scanner')
-    parser.add_argument('--freq', type=float, default=100,
-                       help='Initial center frequency in MHz (default: 100)')
-    parser.add_argument('--sample-rate', type=float, default=2.4,
-                       help='Sample rate in MHz (default: 2.4)')
-    parser.add_argument('--gain', type=str, default='auto',
-                       help='Initial gain setting (auto or dB value, default: auto)')
-    parser.add_argument('--web', action='store_true',
-                       help='Run web interface instead of terminal interface')
-    parser.add_argument('--web-host', type=str, default='0.0.0.0',
-                       help='Web server host (default: 0.0.0.0)')
-    parser.add_argument('--web-port', type=int, default=5000,
-                       help='Web server port (default: 5000)')
-
-    args = parser.parse_args()
-
-    # Convert to Hz
-    center_freq = args.freq * 1e6
-    sample_rate = args.sample_rate * 1e6
-
-    def emergency_cleanup():
-        """Emergency cleanup to restore terminal state."""
-        try:
-            curses.endwin()  # Restore terminal
-        except:
-            pass
-
-        # Comprehensive terminal reset
-        try:
-            # Force immediate output
-            sys.stdout.write("\033[?25h")  # Show cursor
-            sys.stdout.write("\033[0m")    # Reset colors/attributes
-            sys.stdout.write("\033[2J")    # Clear screen
-            sys.stdout.write("\033[H")     # Move to home position
-            sys.stdout.write("\033[J")     # Clear to end of screen
-            sys.stdout.write("\033[?1049l")  # Exit alternate screen if used
-            sys.stdout.write("\033[?1l")   # Reset cursor keys
-            sys.stdout.write("\033>")      # Reset numeric keypad
-            sys.stdout.flush()
-
-            # Try system reset as final fallback
-            try:
-                os.system("tput reset >/dev/null 2>&1")
-            except:
-                pass
-        except:
-            # Final fallback - try system reset
-            try:
-                os.system("tput reset >/dev/null 2>&1")
-            except:
-                pass
-
-    # Create scanner instance
-    scanner = None
-
-    def curses_main(stdscr):
-        nonlocal scanner
-        scanner = InteractiveRTLScanner(stdscr, sample_rate, center_freq, args.gain)
-        try:
-            scanner.run()
-        except KeyboardInterrupt:
-            # Handle Ctrl+C gracefully
-            pass
-        except Exception as e:
-            # Restore terminal state first
-            scanner.restore_terminal()
-            print(f"\nError during execution: {e}")
-            print("Terminal state has been restored.")
+            curses_main(stdscr)
         finally:
             try:
-                scanner.close()
-            except:
+                curses.endwin()
+            except curses.error:
                 pass
-
-    # Create scanner instance for both interfaces
-    scanner = None
-
-    if args.web:
-        # Dual interface mode - web interface shares scanner with terminal
-        try:
-            from web_scanner import WebControlInterface
-
-            # Create web control interface that connects to the scanner
-            def run_web_server():
-                try:
-                    web_interface = WebControlInterface(scanner, args.web_host, args.web_port)
-                    web_interface.run()
-                except Exception as e:
-                    print(f"Web interface error: {e}")
-
-            web_thread = threading.Thread(target=run_web_server, daemon=True)
-            web_thread.start()
-
-            print(f"Web control interface starting at http://{args.web_host}:{args.web_port}")
-            print("Terminal interface will start simultaneously...")
-            time.sleep(1)  # Give web server time to start
-
-        except ImportError as e:
-            print(f"Web interface not available: {e}")
-            print("Install required packages: pip install flask flask-socketio eventlet")
-            print("Falling back to terminal interface only...")
-
-    # Always run terminal interface
-    try:
-        curses.wrapper(curses_main)
     except KeyboardInterrupt:
         print("\nInteractive scanner stopped by user")
         emergency_cleanup()
