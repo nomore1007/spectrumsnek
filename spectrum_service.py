@@ -464,8 +464,17 @@ class SpectrumService:
             return
 
         try:
-            print("Starting with Flask development server...")
-            self.app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
+            # Try eventlet server for WebSocket support
+            try:
+                import eventlet
+                eventlet.monkey_patch()
+                print("Starting with eventlet server (WebSocket enabled)...")
+                import eventlet.wsgi
+                eventlet.wsgi.server(eventlet.listen((host, port)), self.app)
+            except ImportError:
+                print("Eventlet not available, using Flask development server...")
+                self.socketio = None  # Disable WebSocket features
+                self.app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
         except OSError as e:
             if e.errno == 98:  # Address already in use
                 print(f"ERROR: Port {port} is already in use!")
