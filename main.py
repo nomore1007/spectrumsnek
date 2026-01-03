@@ -319,13 +319,18 @@ class RadioToolsLoader:
     def run(self):
         """Main run loop."""
         if TEXTUAL_AVAILABLE:
-            while True:
-                app = SpectrumMenu(self.modules)
-                app.run()
-                if app.selected_module:
-                    self.run_selected_module(app.selected_module)
-                else:
-                    break
+            try:
+                while True:
+                    app = SpectrumMenu(self.modules)
+                    app.run()
+                    if app.selected_module:
+                        self.run_selected_module(app.selected_module)
+                    else:
+                        break
+            except Exception:
+                # Textual failed, fall back to text menu
+                print("Textual interface failed, falling back to text menu...")
+                self.text_menu_loop()
         else:
             self.text_menu_loop()
 
@@ -353,34 +358,34 @@ class RadioToolsLoader:
 
     def text_menu_loop(self):
         """Text-based menu loop for when curses fails."""
-        selected = 0
         while True:
             print("\n" + "="*50)
             print("Radio Tools Loader")
             print("="*50)
             print("Available tools:")
-            
+
             for i, module in enumerate(self.modules):
-                marker = ">" if i == selected else " "
-                print(f"  {marker} {module.name}")
+                print(f"  {i+1}. {module.name}")
                 print(f"     {module.description}")
-            
-            print("\n  ↑↓ navigate, Enter select, 'q' quit")
+
+            print("\n  Enter number to select tool, 'q' to quit")
             print("="*50)
-            
+
             try:
-                key = self.getch()
-                
-                if key == 'q' or key == 'Q':
+                choice = input("Choice: ").strip()
+
+                if choice.lower() == 'q':
                     break
-                elif key == 'up':
-                    selected = (selected - 1) % len(self.modules)
-                elif key == 'down':
-                    selected = (selected + 1) % len(self.modules)
-                elif key == '\r' or key == '\n':  # Enter
-                    selected_module = self.modules[selected]
-                    self.run_selected_module_text(selected_module)
-                    
+                elif choice.isdigit():
+                    idx = int(choice) - 1
+                    if 0 <= idx < len(self.modules):
+                        selected_module = self.modules[idx]
+                        self.run_selected_module_text(selected_module)
+                    else:
+                        print("Invalid choice.")
+                else:
+                    print("Invalid input. Enter a number or 'q'.")
+
             except KeyboardInterrupt:
                 print("\nExiting...")
                 break
@@ -507,8 +512,8 @@ def main():
             print("\nRadio Tools Loader stopped by user")
         except Exception as e:
             print(f"\nError in interactive menu: {e}")
-            print("Try running with a different terminal or check TERM variable")
-            sys.exit(1)
+            print("Falling back to text-based menu...")
+            loader.text_menu_loop()
 
 if __name__ == "__main__":
     main()

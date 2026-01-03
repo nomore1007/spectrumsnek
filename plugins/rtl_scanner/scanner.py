@@ -9,10 +9,10 @@ import time
 import threading
 import numpy as np
 import warnings
-from rtlsdr import RtlSdr
 
-# Suppress pkg_resources deprecation warning
-warnings.filterwarnings("ignore", category=UserWarning, message="pkg_resources is deprecated")
+# Suppress pkg_resources deprecation warning before importing rtlsdr
+warnings.filterwarnings("ignore", message=".*pkg_resources.*deprecated.*")
+from rtlsdr import RtlSdr
 import scipy.signal as signal
 from scipy.signal import windows
 import argparse
@@ -26,6 +26,8 @@ import signal
 # Configure logging (will be suppressed in curses mode)
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+global_scanner = None  # Global reference for cleanup
 
 class InteractiveRTLScanner:
     def __init__(self, stdscr, sample_rate=1e6, center_freq=88e6, gain='auto'):
@@ -131,6 +133,19 @@ class InteractiveRTLScanner:
         self.running = True
         self.is_running = True
 
+    def close(self):
+        """Close the SDR device."""
+        if self.sdr:
+            try:
+                self.sdr.close()
+                self.sdr = None
+            except Exception:
+                pass
+
+    def __del__(self):
+        """Ensure SDR is closed on object destruction."""
+        self.close()
+
         # Menu system
         self.menu_selection = 0
         self.selectable_menu_items = list(range(7))  # All 7 menu items are selectable
@@ -168,10 +183,10 @@ class InteractiveRTLScanner:
                     self.sdr.gain = self.gain
 
                 logger.info("RTL-SDR initialized for interactive mode")
-
-        except curses.error:
-            # Curses failed, re-raise
-            raise
+            except Exception as e:
+                logger.error(f"Failed to initialize SDR: {e}")
+                self.sdr = None
+                raise
 
 
 
@@ -1059,16 +1074,11 @@ class InteractiveRTLScanner:
         current_mode = self.get_current_mode()
         logger.info(f"Audio output started for {current_mode} demodulation")
 
-    def run(self):
-        """Main interactive loop."""
-        try:
-            stdscr = curses.initscr()
-            curses_main(stdscr)
-        finally:
-            try:
-                curses.endwin()
-            except curses.error:
-                pass
+def run():
+    """Main interactive loop."""
+    try:
+        stdscr = curses.initscr()
+        curses_main(stdscr)
     except KeyboardInterrupt:
         print("\nInteractive scanner stopped by user")
         emergency_cleanup()
@@ -1076,6 +1086,25 @@ class InteractiveRTLScanner:
         print(f"Error starting interactive scanner: {e}")
         emergency_cleanup()
         sys.exit(1)
+    finally:
+        try:
+            curses.endwin()
+        except curses.error:
+            pass
+
+def curses_main(stdscr):
+    global global_scanner
+    scanner = InteractiveRTLScanner(stdscr)
+    global_scanner = scanner
+    scanner.run_menu(stdscr)
+
+def emergency_cleanup():
+    global global_scanner
+    if global_scanner:
+        global_scanner.close()
+
+def main():
+    curses.wrapper(run)
 
 if __name__ == "__main__":
     main()

@@ -675,6 +675,58 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+**Textual Menu Fails in SSH / "Inappropriate ioctl for device"**
+```bash
+# Symptom: Interactive menu shows "Error in interactive menu: (25, 'Inappropriate ioctl for device')"
+# Cause: Textual requires proper terminal capabilities not available in SSH
+
+# Solution: The system automatically falls back to text-based menu
+# Use number input instead of arrow keys
+./run_spectrum.sh  # Shows numbered menu options
+# Enter the number of the tool to launch
+
+# For full curses support, use on Pi console/HDMI
+# SSH works with text menu or web interface
+```
+
+**RTL-SDR PLL Not Locked Warning**
+```bash
+# Symptom: "[R82XX] PLL not locked!" during spectrum capture
+# Cause: Tuner unable to lock to frequency (poor signal, antenna issues)
+
+# Solution: Check antenna connection and positioning
+# Try different frequencies or gain settings
+# Use powered USB hub if power issues suspected
+# Run dmesg | grep usb to check for USB errors
+```
+
+**Tools Crash on Hardware Errors (USB Overflows, Segfaults)**
+```bash
+# Symptom: Tools start then immediately crash or show errors
+# Cause: Hardware/driver issues with RTL-SDR
+
+# Solution: Ensure stable USB power and connection
+# Check antenna and try different USB ports
+# Verify RTL-SDR drivers: lsusb | grep RTL
+# Test with short duration: ./run_scanner.sh --freq 100 --mode spectrum --duration 1
+# Update USB configuration in /boot/cmdline.txt if needed
+```
+
+**Service Not Connecting in Local Mode**
+```bash
+# Symptom: Menu shows "using local mode" instead of connecting to service
+# Cause: Service not running or network issues
+
+# Solution: Start service manually
+python spectrum_service.py &
+
+# Check service logs for errors
+tail -f /var/log/spectrum-service.log  # If using systemd
+
+# Test API directly
+curl http://localhost:5000/api/status
+```
+
 **Web Interface Not Working**
 ```bash
 # Check if ports are available

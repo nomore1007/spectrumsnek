@@ -9,10 +9,18 @@ import time
 import threading
 import curses
 import json
+import warnings
+
+# Suppress deprecated pkg_resources warning from rtlsdr
+warnings.filterwarnings("ignore", message="pkg_resources is deprecated")
 import numpy as np
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import math
+import warnings
+
+# Suppress deprecated pkg_resources warning from rtlsdr
+warnings.filterwarnings("ignore", message=".*pkg_resources.*deprecated.*")
 
 try:
     import rtlsdr
