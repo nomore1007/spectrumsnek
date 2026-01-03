@@ -157,40 +157,12 @@
 
     <script>
         const SERVICE_URL = `http://${window.location.host}`;
-        let socket;
 
-        // Initialize Socket.IO connection
-        function initWebSocket() {
-            socket = io(SERVICE_URL);
-
-            socket.on('connect', function() {
-                console.log('Connected to SpectrumSnek service');
-                document.getElementById('service-status').textContent = 'Connected to service';
-            });
-
-            socket.on('tool_update', function(data) {
-                updateToolStatus(data.tool, data.status);
-            });
-
-            socket.on('system_update', function(data) {
-                updateSystemStats(data);
-            });
-
-            socket.on('service_status', function(data) {
-                updateServiceStatus(data);
-            });
-
-            socket.on('disconnect', function() {
-                console.log('Disconnected from service');
-                document.getElementById('service-status').textContent = 'Disconnected from service';
-                // Try to reconnect after 5 seconds
-                setTimeout(initWebSocket, 5000);
-            });
-
-            socket.on('connect_error', function(error) {
-                console.error('Socket.IO connection error:', error);
-                document.getElementById('service-status').textContent = 'Connection error';
-            });
+        // Initialize periodic updates instead of WebSocket
+        function initUpdates() {
+            console.log('Starting periodic updates (no WebSocket)');
+            // Refresh tools every 5 seconds
+            setInterval(loadTools, 5000);
         }
 
         // Load tools from API
@@ -344,6 +316,9 @@
 
                 if (!response.ok) {
                     alert(`Error: ${result.error}`);
+                } else {
+                    // Refresh tools after successful operation
+                    setTimeout(loadTools, 1000);
                 }
             } catch (error) {
                 console.error('Error toggling tool:', error);
@@ -353,7 +328,7 @@
 
         // Initialize when page loads
         window.onload = function() {
-            initWebSocket();
+            initUpdates();
             loadTools();
         };
     </script>
