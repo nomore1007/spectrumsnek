@@ -169,9 +169,58 @@ class InteractiveRTLScanner:
 
                 logger.info("RTL-SDR initialized for interactive mode")
 
-            except Exception as e:
-                logger.error(f"Failed to initialize RTL-SDR: {e}")
-                raise
+        except curses.error:
+            # Curses failed, use text mode
+            self._text_main()
+
+    def _text_main(self):
+        """Text-based main loop."""
+        print("RTL-SDR Spectrum Analyzer (Text Mode)")
+        print("Press 'm' for modulation menu, 'q' to quit")
+        self.is_running = True
+        try:
+            while self.is_running:
+                self.capture_samples()
+                self._print_spectrum()
+                time.sleep(0.1)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.is_running = False
+
+    def _print_spectrum(self):
+        """Print spectrum in text mode."""
+        if self.in_menu:
+            print("\nSelect Modulation Category:")
+            for i, cat in enumerate(self.categories):
+                marker = ">" if i == self.selected_category else " "
+                print("%s %s" % (marker, cat))
+
+            if self.selected_category == 0:
+                options = self.analog_modes
+            else:
+                options = self.digital_modes
+            print("Option: %s" % options[self.selected_option])
+            print("Use ↑↓ to select category, ←→ to cycle options")
+            print("Enter to select, 'b' to go back")
+        else:
+            if not hasattr(self, 'power_spectrum') or len(self.power_spectrum) == 0:
+                return
+
+            print("\nCenter: %.3f MHz | Mode: %s" % (self.center_freq/1e6, self.get_current_mode()))
+
+            max_power = np.max(self.power_spectrum)
+            min_power = np.min(self.power_spectrum)
+            power_range = max_power - min_power
+
+            for y in range(min(10, len(self.power_spectrum))):
+                power = self.power_spectrum[y]
+                normalized = (power - min_power) / power_range if power_range > 0 else 0.5
+                filled_width = int(40 * normalized)
+                bar = '#' * filled_width + '.' * (40 - filled_width)
+                print("%2d: %s" % (y, bar))
+
+            print("Press 'm' for modulation menu, 'q' to quit")
 
     def start_capture(self):
         """Start the data capture thread."""
