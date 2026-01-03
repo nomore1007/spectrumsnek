@@ -188,8 +188,11 @@ class RadioToolsLoader:
                 import importlib
                 mod = importlib.import_module(f"plugins.{tool_name}")
                 mod.run()
+            elif tool_name == "system_tools":
+                from plugins.system_tools.system_menu import SystemMenu
+                SystemMenu().run()
             elif tool_name == "audio_tool":
-                from system_tools.audio_output_selector import AudioOutputSelector
+                from plugins.system_tools.audio_output_selector import AudioOutputSelector
                 AudioOutputSelector().run()
             else:
                 print(f"Local run not available for {tool_name}")
