@@ -140,24 +140,10 @@ class RadioToolsLoader:
     def run_local_tool(self, tool_name):
         """Run a tool locally for interaction."""
         try:
-            if tool_name == "rtl_scanner":
-                import rtl_scanner
-                rtl_scanner.run()
-            elif tool_name == "adsb_tool":
-                import adsb_tool
-                adsb_tool.run()
-            elif tool_name == "radio_scanner":
-                import radio_scanner
-                radio_scanner.run()
-            elif tool_name == "demo_scanner":
-                import demo_scanner
-                demo_scanner.run()
-            elif tool_name == "wifi_tool":
-                import wifi_tool
-                wifi_tool.run()
-            elif tool_name == "bluetooth_tool":
-                import bluetooth_tool
-                bluetooth_tool.run()
+            if tool_name in ["rtl_scanner", "adsb_tool", "radio_scanner", "demo_scanner", "wifi_tool", "bluetooth_tool"]:
+                import importlib
+                mod = importlib.import_module(f"plugins.{tool_name}")
+                mod.run()
             elif tool_name == "audio_tool":
                 from system_tools.audio_output_selector import AudioOutputSelector
                 AudioOutputSelector().run()
