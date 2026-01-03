@@ -365,6 +365,43 @@ EOF
     else
         print_warning "Failed to reload udev rules"
     fi
+
+    # Configure USB power management to prevent overflows
+    print_info "Configuring USB power management..."
+    if [ -f /boot/cmdline.txt ]; then
+        # Raspberry Pi - add usbcore parameters
+        if ! grep -q "usbcore.autosuspend" /boot/cmdline.txt; then
+            $SUDO_CMD sed -i 's/$/ usbcore.autosuspend=-1 usbcore.usbfs_memory_mb=256/' /boot/cmdline.txt
+            print_status "USB power management configured in /boot/cmdline.txt"
+            print_info "Note: Changes will take effect after reboot"
+        else
+            print_status "USB power management already configured"
+        fi
+    fi
+
+    # Create systemd service to disable USB autosuspend
+    USB_SERVICE_FILE="/etc/systemd/system/disable-usb-autosuspend.service"
+    if [ ! -f "$USB_SERVICE_FILE" ]; then
+        cat > /tmp/disable-usb-autosuspend.service << 'EOF'
+[Unit]
+Description=Disable USB autosuspend to prevent RTL-SDR overflows
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "echo -1 > /sys/module/usbcore/parameters/autosuspend"
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        $SUDO_CMD mv /tmp/disable-usb-autosuspend.service $USB_SERVICE_FILE
+        $SUDO_CMD systemctl daemon-reload
+        $SUDO_CMD systemctl enable disable-usb-autosuspend.service
+        $SUDO_CMD systemctl start disable-usb-autosuspend.service
+        print_status "USB autosuspend disabled via systemd service"
+    else
+        print_status "USB autosuspend service already exists"
+    fi
 }
 
 # Function to setup architecture-specific services
