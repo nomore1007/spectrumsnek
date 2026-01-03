@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s -
 logger = logging.getLogger(__name__)
 
 class InteractiveRTLScanner:
-    def __init__(self, stdscr, sample_rate=2.4e6, center_freq=100e6, gain='auto'):
+    def __init__(self, stdscr, sample_rate=2.4e6, center_freq=88e6, gain='auto'):
         self.stdscr = stdscr
         self.sample_rate = sample_rate
         self.center_freq = center_freq
