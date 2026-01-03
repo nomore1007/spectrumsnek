@@ -67,11 +67,8 @@ class SpectrumService:
         # Set local run functions for interactive tools
         for name, tool in self.tools.items():
             try:
-                if name in ['rtl_scanner', 'adsb_tool']:
+                if name in ['rtl_scanner', 'adsb_tool', 'radio_scanner']:
                     local_module = __import__(f'plugins.{name}.{name}', fromlist=['run'])
-                    tool['local_run'] = local_module.run
-                elif name in ['radio_scanner', 'demo_scanner']:
-                    local_module = __import__(f'system_tools.{name}.{name}', fromlist=['run'])
                     tool['local_run'] = local_module.run
                 elif name == 'wifi_tool':
                     import wifi_tool
@@ -128,34 +125,6 @@ class SpectrumService:
                 'module': None,
                 'status': 'stopped',
                 'run_func': lambda: AudioOutputSelector().run()
-            }
-            print(f"Loaded system tool: {info['name']}")
-        except:
-            pass
-
-        # Demo scanner
-        try:
-            from system_tools.demo_scanner import get_module_info, run
-            info = get_module_info()
-            self.tools['demo_scanner'] = {
-                'info': info,
-                'module': None,
-                'status': 'stopped',
-                'run_func': run
-            }
-            print(f"Loaded system tool: {info['name']}")
-        except:
-            pass
-
-        # Radio scanner
-        try:
-            from system_tools.radio_scanner import get_module_info, run
-            info = get_module_info()
-            self.tools['radio_scanner'] = {
-                'info': info,
-                'module': None,
-                'status': 'stopped',
-                'run_func': run
             }
             print(f"Loaded system tool: {info['name']}")
         except:
