@@ -71,13 +71,12 @@ class SpectrumService:
                 if name in ['rtl_scanner', 'adsb_tool', 'radio_scanner']:
                     local_module = __import__(f'plugins.{name}', fromlist=['run'])
                     tool['local_run'] = local_module.run
-                elif name == 'wifi_tool':
-                    import wifi_tool
-                    tool['local_run'] = wifi_tool.run
-                elif name == 'bluetooth_tool':
-                    import bluetooth_tool
-                    tool['local_run'] = bluetooth_tool.run
-                elif name == 'audio_tool':
+                elif name == 'system_tools':
+                    from plugins.system_tools.system_menu import SystemMenu
+                    tool['local_run'] = lambda: SystemMenu().run()
+                elif name == 'demo_scanner':
+                    from plugins.demo_scanner import run
+                    tool['local_run'] = run
                     from plugins.system_tools.audio_output_selector import AudioOutputSelector
                     tool['local_run'] = AudioOutputSelector().run
                 # For other system tools, keep as is
@@ -86,78 +85,26 @@ class SpectrumService:
 
     def add_system_tools(self):
         """Add built-in system tools."""
-        # WiFi tool
+        # System Tools submenu
         try:
-            import wifi_tool
-            info = wifi_tool.get_module_info()
-            self.tools['wifi_tool'] = {
-                'info': info,
-                'module': wifi_tool,
-                'status': 'stopped'
-            }
-            print(f"Loaded system tool: {info['name']}")
-        except:
-            pass
-
-        # Bluetooth tool
-        try:
-            import bluetooth_tool
-            info = bluetooth_tool.get_module_info()
-            self.tools['bluetooth_tool'] = {
-                'info': info,
-                'module': bluetooth_tool,
-                'status': 'stopped'
-            }
-            print(f"Loaded system tool: {info['name']}")
-        except:
-            pass
-
-        # WiFi tool
-        self.tools['wifi_tool'] = {
-            'info': {
-                'name': 'WiFi Network Selector',
-                'description': 'Select and connect to WiFi networks',
-                'version': '1.0.0',
-                'author': 'SpectrumSnek'
-            },
-            'module': None,
-            'status': 'stopped',
-            'run_func': lambda: print("WiFi tool: Feature not implemented yet")
-        }
-        print(f"Loaded system tool: {self.tools['wifi_tool']['info']['name']}")
-
-        # Bluetooth tool
-        self.tools['bluetooth_tool'] = {
-            'info': {
-                'name': 'Bluetooth Device Connector',
-                'description': 'Connect to Bluetooth devices',
-                'version': '1.0.0',
-                'author': 'SpectrumSnek'
-            },
-            'module': None,
-            'status': 'stopped',
-            'run_func': lambda: print("Bluetooth tool: Feature not implemented yet")
-        }
-        print(f"Loaded system tool: {self.tools['bluetooth_tool']['info']['name']}")
-
-        # Audio tool
-        try:
-            from plugins.system_tools.audio_output_selector import AudioOutputSelector
+            from plugins.system_tools.system_menu import SystemMenu
             info = {
-                'name': 'Audio Output Selector',
-                'description': 'Select and test audio output devices',
+                'name': '🔧 System Tools',
+                'description': 'WiFi, Bluetooth, and system utilities',
                 'version': '1.0.0',
                 'author': 'SpectrumSnek'
             }
-            self.tools['audio_tool'] = {
+            self.tools['system_tools'] = {
                 'info': info,
                 'module': None,
                 'status': 'stopped',
-                'run_func': lambda: AudioOutputSelector().run()
+                'run_func': lambda: SystemMenu().run()
             }
             print(f"Loaded system tool: {info['name']}")
-        except:
-            pass
+        except ImportError as e:
+            print(f"Failed to load system tools menu: {e}")
+        except Exception as e:
+            print(f"Error loading system tools: {e}")
 
     def setup_routes(self):
         """Setup Flask routes."""
