@@ -1097,8 +1097,14 @@ def emergency_cleanup():
     if global_scanner:
         global_scanner.close()
 
-def main():
-    curses.wrapper(run)
+def main(stdscr=None):
+    """Main entry point for RTL scanner."""
+    if stdscr is not None:
+        # Already in curses mode, run directly
+        run(stdscr)
+    else:
+        # Not in curses mode, use wrapper
+        curses.wrapper(run)
 
 if __name__ == "__main__":
     main()

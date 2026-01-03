@@ -23,7 +23,7 @@ def get_module_info():
         ]
     }
 
-def run(*args, **kwargs):
+def run(stdscr=None, *args, **kwargs):
     """Run the RTL-SDR scanner module."""
     from .scanner import main
-    main()
+    main(stdscr)
