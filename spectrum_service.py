@@ -257,15 +257,24 @@ class SpectrumService:
 
                     try:
                         subprocess.run(cmd, check=True)
-                        self.running_tools[tool_name] = {
-                            'status': 'running',
-                            'tmux_session': f'spectrum-{tool_name}',
-                            'start_time': time.time()
-                        }
-                        self.tools[tool_name]['status'] = 'running'
-                        self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
+                        # Wait a bit and check if session exists
+                        import time
+                        time.sleep(1)
+                        result = subprocess.run(['tmux', 'has-session', '-t', f'spectrum-{tool_name}'], capture_output=True)
+                        if result.returncode == 0:
+                            self.running_tools[tool_name] = {
+                                'status': 'running',
+                                'tmux_session': f'spectrum-{tool_name}',
+                                'start_time': time.time()
+                            }
+                            self.tools[tool_name]['status'] = 'running'
+                            self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
+                        else:
+                            return jsonify({'error': 'Tool failed to start (session did not persist)'}), 500
                     except subprocess.CalledProcessError as e:
                         return jsonify({'error': f'Failed to start tool in tmux: {e}'}), 500
+                    except FileNotFoundError:
+                        return jsonify({'error': 'tmux not available'}), 500
 
                 return jsonify({'status': 'starting'})
 
