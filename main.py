@@ -287,6 +287,9 @@ class RadioToolsLoader:
             curses.cbreak()
             curses.noecho()
             menu_main(stdscr)
+        except Exception as e:
+            print(f"Curses menu failed ({e}), falling back to text menu...")
+            self.text_menu_loop()
         finally:
             try:
                 curses.nocbreak()
@@ -294,6 +297,81 @@ class RadioToolsLoader:
                 curses.endwin()
             except curses.error:
                 pass
+
+    def getch(self):
+        """Read a single key, handling escape sequences for arrows."""
+        import sys
+        import tty
+        import termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+            if ch == '\x1b':
+                ch2 = sys.stdin.read(1)
+                if ch2 == '[':
+                    ch3 = sys.stdin.read(1)
+                    if ch3 == 'A': return 'up'
+                    elif ch3 == 'B': return 'down'
+                    elif ch3 == 'C': return 'right'
+                    elif ch3 == 'D': return 'left'
+            return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+    def text_menu_loop(self):
+        """Text-based menu loop for when curses fails."""
+        selected = 0
+        while True:
+            print("\n" + "="*50)
+            print("Radio Tools Loader")
+            print("="*50)
+            print("Available tools:")
+            
+            for i, module in enumerate(self.modules):
+                marker = ">" if i == selected else " "
+                print(f"  {marker} {module.name}")
+                print(f"     {module.description}")
+            
+            print("\n  ↑↓ navigate, Enter select, 'q' quit")
+            print("="*50)
+            
+            try:
+                key = self.getch()
+                
+                if key == 'q' or key == 'Q':
+                    break
+                elif key == 'up':
+                    selected = (selected - 1) % len(self.modules)
+                elif key == 'down':
+                    selected = (selected + 1) % len(self.modules)
+                elif key == '\r' or key == '\n':  # Enter
+                    selected_module = self.modules[selected]
+                    self.run_selected_module_text(selected_module)
+                    
+            except KeyboardInterrupt:
+                print("\nExiting...")
+                break
+            except EOFError:
+                print("\nExiting...")
+                break
+
+    def run_selected_module_text(self, module: ModuleInfo):
+        """Run the selected module in text mode."""
+        print(f"\nStarting {module.name}...")
+        print(f"Description: {module.description}")
+        print("Press Ctrl+C to stop\n")
+
+        try:
+            module.run_function()
+        except KeyboardInterrupt:
+            print(f"\n{module.name} stopped by user")
+        except Exception as e:
+            print(f"Error running {module.name}: {e}")
+        finally:
+            print(f"\nReturning to Radio Tools Loader")
+            input("Press Enter to continue...")
 
 def check_dependencies():
     """Check if basic dependencies are available."""
