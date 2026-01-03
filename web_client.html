@@ -146,8 +146,12 @@
             </div>
         </div>
 
+        <div id="running-tools-container">
+            <!-- Running tools will be displayed here -->
+        </div>
+
         <div id="tools-container">
-            <!-- Tools will be loaded here -->
+            <!-- All tools will be loaded here -->
         </div>
     </div>
 
@@ -195,14 +199,34 @@
                 const response = await fetch(`${SERVICE_URL}/api/tools`);
                 const data = await response.json();
 
+                const runningContainer = document.getElementById('running-tools-container');
                 const container = document.getElementById('tools-container');
+                runningContainer.innerHTML = '';
                 container.innerHTML = '';
 
+                let runningCount = 0;
                 for (const [toolName, toolData] of Object.entries(data.tools)) {
-                    createToolCard(toolName, toolData);
+                    if (toolData.status === 'running') {
+                        runningContainer.appendChild(createToolCard(toolName, toolData, true));
+                        runningCount++;
+                    } else {
+                        container.appendChild(createToolCard(toolName, toolData, false));
+                    }
                 }
 
-                document.getElementById('service-status').textContent = `Service running - ${Object.keys(data.tools).length} tools loaded`;
+                let statusText = `Service running - ${Object.keys(data.tools).length} tools loaded`;
+                if (runningCount > 0) {
+                    statusText += ` (${runningCount} running)`;
+                }
+                document.getElementById('service-status').textContent = statusText;
+
+                // Update running tools header
+                if (runningCount > 0) {
+                    const header = document.createElement('h2');
+                    header.textContent = 'Running Tools';
+                    header.style.color = '#00ff00';
+                    runningContainer.insertBefore(header, runningContainer.firstChild);
+                }
             } catch (error) {
                 console.error('Error loading tools:', error);
                 document.getElementById('service-status').textContent = 'Failed to load tools';
@@ -235,6 +259,9 @@
 
         // Update tool status display
         function updateToolStatus(toolName, status) {
+            const card = document.getElementById(`tool-${toolName}`);
+            if (!card) return;
+
             const statusElement = document.getElementById(`status-${toolName}`);
             const buttonElement = document.getElementById(`btn-${toolName}`);
 
@@ -242,6 +269,35 @@
                 statusElement.className = `tool-status status-${status}`;
                 statusElement.textContent = status.toUpperCase();
                 buttonElement.textContent = status === 'running' ? 'Stop' : 'Start';
+
+                // Move card to appropriate container
+                const runningContainer = document.getElementById('running-tools-container');
+                const container = document.getElementById('tools-container');
+
+                if (status === 'running') {
+                    // Move to running container
+                    if (!runningContainer.contains(card)) {
+                        // Add header if not present
+                        if (!runningContainer.querySelector('h2')) {
+                            const header = document.createElement('h2');
+                            header.textContent = 'Running Tools';
+                            header.style.color = '#00ff00';
+                            runningContainer.appendChild(header);
+                        }
+                        runningContainer.appendChild(card);
+                    }
+                } else {
+                    // Move to main container
+                    if (!container.contains(card)) {
+                        container.appendChild(card);
+                    }
+                    // Remove header if no running tools
+                    const runningCards = runningContainer.querySelectorAll('.tool-card');
+                    if (runningCards.length === 0) {
+                        const header = runningContainer.querySelector('h2');
+                        if (header) header.remove();
+                    }
+                }
             }
         }
 
