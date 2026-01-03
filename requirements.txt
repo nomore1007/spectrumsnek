@@ -8,3 +8,4 @@ eventlet==0.40.4
 sounddevice==0.5.1
 requests==2.31.0
 psutil==6.1.0
+textual==0.79.1

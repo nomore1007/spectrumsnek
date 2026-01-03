@@ -6,7 +6,49 @@ Main menu system for selecting and running various radio-related tools.
 
 import sys
 import os
+import time
 import curses
+try:
+
+    from textual.app import App, ComposeResult
+
+    from textual.widgets import ListView, ListItem, Header, Footer
+
+    TEXTUAL_AVAILABLE = True
+
+    class SpectrumMenu(App):
+
+        def __init__(self, modules):
+
+            super().__init__()
+
+            self.modules = modules
+
+            self.selected_module = None
+
+        def compose(self) -> ComposeResult:
+
+            yield Header("SpectrumSnek Tools")
+
+            list_items = [ListItem(f"{module.name}\n{module.description}") for module in self.modules]
+
+            yield ListView(*list_items)
+
+            yield Footer()
+
+        def on_list_view_selected(self, event):
+
+            index = event.item_index
+
+            if 0 <= index < len(self.modules):
+
+                self.selected_module = self.modules[index]
+
+                self.exit()
+
+except ImportError:
+
+    TEXTUAL_AVAILABLE = False
 import time
 from typing import List, Dict, Any
 
@@ -275,28 +317,16 @@ class RadioToolsLoader:
 
     def run(self):
         """Main run loop."""
-        def menu_main(stdscr):
+        if TEXTUAL_AVAILABLE:
             while True:
-                selected_module = self.run_menu(stdscr)
-                if selected_module is None:
+                app = SpectrumMenu(self.modules)
+                app.run()
+                if app.selected_module:
+                    self.run_selected_module(app.selected_module)
+                else:
                     break
-                self.run_selected_module(selected_module)
-
-        try:
-            stdscr = curses.initscr()
-            curses.cbreak()
-            curses.noecho()
-            menu_main(stdscr)
-        except Exception as e:
-            print(f"Curses menu failed ({e}), falling back to text menu...")
+        else:
             self.text_menu_loop()
-        finally:
-            try:
-                curses.nocbreak()
-                curses.echo()
-                curses.endwin()
-            except curses.error:
-                pass
 
     def getch(self):
         """Read a single key, handling escape sequences for arrows."""
