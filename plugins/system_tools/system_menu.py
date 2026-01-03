@@ -237,7 +237,34 @@ class SystemMenu:
         print("============")
 
         try:
-            back_to_main = curses.wrapper(self.run_menu)
+            # Check if curses is already initialized
+            try:
+                # Try to get current screen - if it works, curses is initialized
+                stdscr = curses.initscr()
+                curses_initialized = True
+                curses.endwin()  # Clean up our test init
+            except curses.error:
+                curses_initialized = False
+
+            if curses_initialized:
+                # Curses was already initialized, we're being called from within another curses app
+                # We can't use wrapper, so we need to handle curses manually
+                stdscr = curses.initscr()
+                curses.noecho()
+                curses.cbreak()
+                stdscr.keypad(True)
+
+                try:
+                    back_to_main = self.run_menu(stdscr)
+                finally:
+                    curses.nocbreak()
+                    stdscr.keypad(False)
+                    curses.echo()
+                    curses.endwin()
+            else:
+                # Normal standalone run
+                back_to_main = curses.wrapper(self.run_menu)
+
             if not back_to_main:
                 print("\nSystem tools stopped by user")
         except KeyboardInterrupt:

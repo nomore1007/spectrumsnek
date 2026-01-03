@@ -13,10 +13,11 @@ from typing import List, Dict, Any, Optional
 
 class BluetoothDevice:
     """Represents a Bluetooth device."""
-    def __init__(self, mac: str, name: str, paired: bool = False):
+    def __init__(self, mac: str, name: str, paired: bool = False, connected: bool = False):
         self.mac = mac
         self.name = name or f"[{mac}]"
         self.paired = paired
+        self.connected = connected
 
 class BluetoothConnector:
     """Bluetooth device connector with curses interface."""
@@ -27,20 +28,107 @@ class BluetoothConnector:
         self.status_message = ""
 
     def scan_devices(self) -> List[BluetoothDevice]:
-        """Scan for available Bluetooth devices using hcitool."""
+        """Scan for available Bluetooth devices using bluetoothctl."""
         try:
-            output = ""  # Initialize output variable
+            # Check if Bluetooth is available
+            try:
+                result = subprocess.run(
+                    ["bluetoothctl", "show"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode != 0:
+                    self.status_message = "Bluetooth controller not available"
+                    return []
+            except FileNotFoundError:
+                self.status_message = "bluetoothctl not found. Install with: sudo apt install bluez"
+                return []
+            except Exception as e:
+                self.status_message = f"Bluetooth check error: {e}"
+                return []
 
-            # Check if Bluetooth is available using bluetoothctl
-            self.status_message = "Checking Bluetooth adapter..."
-            show_result = subprocess.run(
-                ["bluetoothctl", "show"],
-                capture_output=True, text=True, timeout=5
+            # Start scanning with bluetoothctl
+            self.status_message = "Scanning for devices... (10 seconds)"
+            try:
+                # Start scan
+                scan_proc = subprocess.Popen(
+                    ["bluetoothctl", "scan", "on"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+
+                # Let it scan for 10 seconds
+                time.sleep(10)
+
+                # Stop scanning
+                subprocess.run(
+                    ["bluetoothctl", "scan", "off"],
+                    capture_output=True, timeout=5
+                )
+
+                scan_proc.terminate()
+                scan_proc.wait(timeout=5)
+
+            except subprocess.TimeoutExpired:
+                self.status_message = "Scan timeout"
+                return []
+            except Exception as e:
+                self.status_message = f"Scan error: {e}"
+                return []
+
+            # Get list of devices
+            result = subprocess.run(
+                ["bluetoothctl", "devices"],
+                capture_output=True, text=True, timeout=10
             )
 
-            if show_result.returncode != 0:
-                self.status_message = f"Bluetooth controller not available: {show_result.stderr.strip()}"
+            if result.returncode != 0:
+                self.status_message = f"Failed to get device list: {result.stderr.strip()}"
                 return []
+
+            devices = []
+
+            for line in result.stdout.strip().split('\n'):
+                if not line.strip():
+                    continue
+
+                # Parse: Device XX:XX:XX:XX:XX:XX Name
+                parts = line.strip().split(' ', 2)
+                if len(parts) >= 3 and parts[0] == "Device":
+                    mac = parts[1].strip()
+                    name = parts[2].strip() if len(parts) > 2 else ""
+
+                    # Validate MAC address format
+                    if re.match(r'^([0-9A-F]{2}:){5}[0-9A-F]{2}$', mac, re.IGNORECASE):
+                        # Check if paired using bluetoothctl info
+                        paired = False
+                        connected = False
+                        try:
+                            info_result = subprocess.run(
+                                ["bluetoothctl", "info", mac],
+                                capture_output=True, text=True, timeout=3
+                            )
+                            if info_result.returncode == 0:
+                                paired = "Paired: yes" in info_result.stdout
+                                connected = "Connected: yes" in info_result.stdout
+                        except:
+                            pass
+
+                        devices.append(BluetoothDevice(mac, name, paired=paired, connected=connected))
+
+            if not devices:
+                self.status_message = "No devices found. Make sure Bluetooth is on and devices are discoverable."
+            else:
+                self.status_message = f"Found {len(devices)} device(s)"
+
+            return devices
+
+        except subprocess.TimeoutExpired:
+            self.status_message = "Scan timeout - try again"
+            return []
+        except Exception as e:
+            self.status_message = f"Scan error: {e}"
+            return []
 
             adapter_info = show_result.stdout.strip()
             if "Powered: no" in adapter_info:
@@ -98,7 +186,7 @@ class BluetoothConnector:
                     )
                     paired = "Paired: yes" in paired_result.stdout
 
-                    devices.append(BluetoothDevice(mac, name, paired=paired))
+                    devices.append(BluetoothDevice(mac, name, paired=paired, connected=False))
 
             if not devices:
                 self.status_message = f"No devices found. Devices output: {output[:200]}"
@@ -167,7 +255,7 @@ class BluetoothConnector:
                     )
                     paired = "Paired: yes" in paired_result.stdout
 
-                    devices.append(BluetoothDevice(mac, name, paired=paired))
+                    devices.append(BluetoothDevice(mac, name, paired=paired, connected=False))
 
             if not devices:
                 self.status_message = f"No devices found. Check devices are discoverable. Output: {result.stdout.strip()[:100]}"
@@ -230,7 +318,7 @@ class BluetoothConnector:
                         except:
                             pass
 
-                        devices.append(BluetoothDevice(mac, name, paired=paired))
+                        devices.append(BluetoothDevice(mac, name, paired=paired, connected=False))
 
             if not devices:
                 self.status_message = "No devices found. Make sure devices are discoverable."
