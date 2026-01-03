@@ -176,6 +176,22 @@ class SpectrumService:
         @self.app.route('/api/tools', methods=['GET'])
         def get_tools():
             """Get list of available tools."""
+            # Update status of running tools
+            for name in list(self.running_tools.keys()):
+                running_info = self.running_tools[name]
+                if 'tmux_session' in running_info:
+                    try:
+                        subprocess.run(['tmux', 'has-session', '-t', running_info['tmux_session']],
+                                     capture_output=True, check=True, timeout=1)
+                        self.tools[name]['status'] = 'running'
+                    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                        self.tools[name]['status'] = 'stopped'
+                        del self.running_tools[name]
+                elif 'thread' in running_info:
+                    if not running_info['thread'].is_alive():
+                        self.tools[name]['status'] = 'stopped'
+                        del self.running_tools[name]
+
             return jsonify({
                 'tools': {
                     name: {
