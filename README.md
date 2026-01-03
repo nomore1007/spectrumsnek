@@ -1032,13 +1032,20 @@ python radio_scanner.py --freq 162.55 --mode record --duration 60
 
 ### Interactive Mode Controls
 
-The interface is designed for **limited input devices** with arrow keys, select button, and menu button.
+**Important:** The interface is designed for **limited input devices** and supports only these 6 keys:
+- `m` (menu)
+- `b` (back)
+- `↑` (up arrow)
+- `↓` (down arrow)
+- `←` (left arrow)
+- `→` (right arrow)
 
 **Main Interface (Frequency Control):**
 - `↑/↓` : Increase/decrease the selected frequency digit
 - `←/→` : Move cursor to select different digits (100MHz → 10MHz → 1MHz → 100kHz → 10kHz → 1kHz → 100Hz → 10Hz → 1Hz)
 - **Blinking cursor** shows which digit is currently selected on the frequency display
-- `'m'` : Open settings menu
+- `'m'` : Open modulation menu
+- `'b'` : Back to main menu
 - `'q'` : Quit
 
 **Settings Menu (Compact Design):**
