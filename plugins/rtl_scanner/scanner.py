@@ -968,11 +968,20 @@ class InteractiveRTLScanner:
     def run(self):
         """Main interactive loop."""
         # Initialize curses
-        curses.cbreak()  # Enable cbreak mode
-        curses.noecho()  # Don't echo keys
+        try:
+            curses.cbreak()  # Enable cbreak mode
+        except curses.error:
+            pass
+        try:
+            curses.noecho()  # Don't echo keys
+        except curses.error:
+            pass
         self.stdscr.keypad(True)  # Enable keypad mode for arrow keys
         self.stdscr.nodelay(True)  # Non-blocking input
-        curses.curs_set(0)  # Hide cursor
+        try:
+            curses.curs_set(0)  # Hide cursor
+        except curses.error:
+            pass
 
         # Initialize curses colors
         curses.start_color()
