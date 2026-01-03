@@ -51,12 +51,41 @@ class InteractiveRTLScanner:
 
         # Display settings
         self.height, self.width = stdscr.getmaxyx()
-        self.spectrum_height = self.height - 10  # Leave space for controls
+        self.spectrum_height = 20  # Leave space for controls
 
         # Spectrum display settings
         self.spectrum_width_options = ['narrow', 'normal', 'wide', 'full']
         self.spectrum_width_index = 1  # Default to 'normal'
         self.zoom_factor = 1.0  # Zoom factor for spectrum width
+
+        # Menu settings
+        self.in_menu = False
+        self.categories = ['Analog', 'Digital']
+        self.analog_modes = ['FM Narrow', 'FM Normal', 'SSB', 'AM', 'Stereo FM']
+        self.digital_modes = ['DMR']
+        self.selected_category = 0
+        self.selected_option = 0
+
+        # Mode settings
+        self.mode = 'FM'
+        self.mode_map = {
+            'FM': 'FM Normal',
+            'FM_NARROW': 'FM Narrow',
+            'SSB': 'SSB',
+            'AM': 'AM',
+            'STEREO_FM': 'Stereo FM',
+            'DMR': 'DMR'
+        }
+
+    def set_mode(self, mode_str):
+        """Set the demodulation mode from display string."""
+        for k, v in self.mode_map.items():
+            if v == mode_str:
+                self.mode = k
+                break
+
+    def get_current_mode(self):
+        return self.mode_map.get(self.mode, self.mode)
 
         # PPM drift correction
         self.ppm_drift = 0  # Parts per million frequency correction
@@ -200,19 +229,36 @@ class InteractiveRTLScanner:
         """Draw the interactive interface."""
         self.stdscr.clear()
 
-        # Display frequency with yellow tint and cursor
-        freq_str = f"{self.center_freq/1e6:.6f} MHz"
-        self.stdscr.addstr(0, 0, freq_str, curses.color_pair(2) | curses.A_BOLD)
+        if self.in_menu:
+            # Draw modulation menu
+            self.stdscr.addstr(0, 0, "Select Modulation Category:", curses.A_BOLD)
+            for i, cat in enumerate(self.categories):
+                marker = ">" if i == self.selected_category else " "
+                self.stdscr.addstr(2 + i, 0, f"{marker} {cat}")
 
-        # Display mode
-        mode_str = f"Mode: {self.get_current_mode()}"
-        self.stdscr.addstr(1, 0, mode_str)
+            # Show options for selected category
+            if self.selected_category == 0:  # Analog
+                options = self.analog_modes
+            else:  # Digital
+                options = self.digital_modes
+            
+            self.stdscr.addstr(5, 0, f"Option: {options[self.selected_option]}")
+            self.stdscr.addstr(7, 0, "Use ↑↓ to select category, ←→ to cycle options")
+            self.stdscr.addstr(8, 0, "Enter to select, 'b' to go back")
+        else:
+            # Display frequency with yellow tint and cursor
+            freq_str = f"{self.center_freq/1e6:.6f} MHz"
+            self.stdscr.addstr(0, 0, freq_str, curses.color_pair(2) | curses.A_BOLD)
 
-        # Add blinking cursor on selected digit
-        self._draw_frequency_cursor(freq_str)
+            # Display mode
+            mode_str = f"Mode: {self.get_current_mode()}"
+            self.stdscr.addstr(1, 0, mode_str)
 
-        # Draw spectrum
-        self._draw_spectrum()
+            # Add blinking cursor on selected digit
+            self._draw_frequency_cursor(freq_str)
+
+            # Draw spectrum
+            self._draw_spectrum()
 
     def _print_spectrum(self):
         """Print spectrum in text mode."""
@@ -604,41 +650,40 @@ class InteractiveRTLScanner:
             return True
 
         elif key == ord('m') or key == ord('M'):
-            self.show_menu = not self.show_menu
-            if self.show_menu:
-                self.menu_selection = 0  # Reset menu selection
+            self.in_menu = True
+
+        elif key == ord('b') or key == ord('B'):
+            return True  # Back to launcher
 
         # Handle menu navigation when menu is open
-        if self.show_menu:
-            # Handle escape sequences first (for arrow keys)
-            if key == 27:  # ESC - could be plain ESC or start of escape sequence
-                self.stdscr.nodelay(True)
-                ch1 = self.stdscr.getch()
-                if ch1 == -1:  # No more characters, plain ESC
-                    self.show_menu = False  # Close menu
-                elif ch1 == 91:  # '[' - arrow key sequence
-                    ch2 = self.stdscr.getch()
-                    if ch2 == 65:  # 'A' - Up arrow - navigate menu
-                        self.menu_selection = max(0, self.menu_selection - 1)
-                    elif ch2 == 66:  # 'B' - Down arrow - navigate menu
-                        self.menu_selection = min(len(self.selectable_menu_items) - 1, self.menu_selection + 1)
-                    elif ch2 == 68:  # 'D' - Left arrow - change option value
-                        self._change_menu_option(-1)
-                    elif ch2 == 67:  # 'C' - Right arrow - change option value
-                        self._change_menu_option(1)
-                self.stdscr.nodelay(False)
-
-            # Handle direct curses key codes
-            elif key == curses.KEY_UP:
-                self.menu_selection = max(0, self.menu_selection - 1)
+        if self.in_menu:
+            # Handle arrow keys and navigation
+            if key == curses.KEY_UP:
+                self.selected_category = (self.selected_category - 1) % len(self.categories)
+                self.selected_option = 0
             elif key == curses.KEY_DOWN:
-                self.menu_selection = min(len(self.selectable_menu_items) - 1, self.menu_selection + 1)
+                self.selected_category = (self.selected_category + 1) % len(self.categories)
+                self.selected_option = 0
             elif key == curses.KEY_LEFT:
-                self._change_menu_option(-1)
+                if self.selected_category == 0:
+                    self.selected_option = (self.selected_option - 1) % len(self.analog_modes)
+                else:
+                    self.selected_option = (self.selected_option - 1) % len(self.digital_modes)
             elif key == curses.KEY_RIGHT:
-                self._change_menu_option(1)
-            elif key == ord(' ') or key == 10 or key == 13:  # Space, Enter, Return
-                self._execute_menu_selection()
+                if self.selected_category == 0:
+                    self.selected_option = (self.selected_option + 1) % len(self.analog_modes)
+                else:
+                    self.selected_option = (self.selected_option + 1) % len(self.digital_modes)
+            elif key == ord('\n') or key == curses.KEY_ENTER:
+                # Select the option
+                if self.selected_category == 0:
+                    mode = self.analog_modes[self.selected_option]
+                else:
+                    mode = self.digital_modes[self.selected_option]
+                self.set_mode(mode)
+                self.in_menu = False
+            elif key == ord('b') or key == ord('B') or key == 27:  # ESC
+                self.in_menu = False
 
         else:
             # Handle escape sequences first (for arrow keys)
