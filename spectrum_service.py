@@ -80,8 +80,7 @@ class SpectrumService:
                     local_module = __import__(f'plugins.{name}', fromlist=['run'])
                     tool['local_run'] = local_module.run
                 elif name == 'system_tools':
-                    from plugins.system_tools.system_menu import SystemMenu
-                    tool['local_run'] = lambda: SystemMenu().run()
+                    tool['local_run'] = lambda: os.system('python system_tools_launcher.py')
                 elif name == 'demo_scanner':
                     from plugins.demo_scanner import run
                     tool['local_run'] = run
@@ -105,8 +104,7 @@ class SpectrumService:
             self.tools['system_tools'] = {
                 'info': info,
                 'module': None,
-                'status': 'stopped',
-                'run_func': lambda: SystemMenu().run()
+                'status': 'stopped'
             }
             print(f"Loaded system tool: {info['name']}")
         except ImportError as e:
@@ -187,8 +185,11 @@ class SpectrumService:
                     thread.start()
                 else:
                     # For interactive tools, start in tmux session or subprocess
-                    import_path = f"plugins.{tool_name}" if tool_name in ['rtl_scanner', 'adsb_tool', 'radio_scanner'] else f"system_tools.{tool_name}"
-                    cmd = f'cd /home/nomore/spectrumsnek && source venv/bin/activate && env TERM=linux python -c "import curses; from {import_path} import run; curses.wrapper(run)"'
+                    if tool_name == 'system_tools':
+                        cmd = f'cd /home/nomore/spectrumsnek && source venv/bin/activate && python system_tools_launcher.py'
+                    else:
+                        import_path = f"plugins.{tool_name}"
+                        cmd = f'cd /home/nomore/spectrumsnek && source venv/bin/activate && env TERM=linux python -c "import curses; from {import_path} import run; curses.wrapper(run)"'
 
                     if self._tmux_available():
                         tmux_cmd = [
