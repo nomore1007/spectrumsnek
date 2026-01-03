@@ -207,10 +207,10 @@
                 let runningCount = 0;
                 for (const [toolName, toolData] of Object.entries(data.tools)) {
                     if (toolData.status === 'running') {
-                        runningContainer.appendChild(createToolCard(toolName, toolData, true));
+                        runningContainer.appendChild(createToolCard(toolName, toolData));
                         runningCount++;
                     } else {
-                        container.appendChild(createToolCard(toolName, toolData, false));
+                        container.appendChild(createToolCard(toolName, toolData));
                     }
                 }
 
@@ -236,8 +236,6 @@
 
         // Create a tool card element
         function createToolCard(toolName, toolData) {
-            const container = document.getElementById('tools-container');
-
             const card = document.createElement('div');
             card.className = 'tool-card';
             card.id = `tool-${toolName}`;
@@ -254,7 +252,7 @@
                 </button>
             `;
 
-            container.appendChild(card);
+            return card;
         }
 
         // Update tool status display
