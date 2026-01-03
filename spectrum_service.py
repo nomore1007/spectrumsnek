@@ -184,7 +184,7 @@ class SpectrumService:
                         subprocess.run(['tmux', 'has-session', '-t', running_info['tmux_session']],
                                      capture_output=True, check=True, timeout=1)
                         self.tools[name]['status'] = 'running'
-                    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
                         self.tools[name]['status'] = 'stopped'
                         del self.running_tools[name]
                 elif 'thread' in running_info:
