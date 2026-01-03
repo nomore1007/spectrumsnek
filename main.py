@@ -288,8 +288,31 @@ class RadioToolsLoader:
             print(f"Curses menu failed ({e}), falling back to text menu...")
             self.text_menu_loop()
 
+    def getch(self):
+        """Read a single key, handling escape sequences for arrows."""
+        import sys
+        import tty
+        import termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+            if ch == '\x1b':
+                ch2 = sys.stdin.read(1)
+                if ch2 == '[':
+                    ch3 = sys.stdin.read(1)
+                    if ch3 == 'A': return 'up'
+                    elif ch3 == 'B': return 'down'
+                    elif ch3 == 'C': return 'right'
+                    elif ch3 == 'D': return 'left'
+            return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
     def text_menu_loop(self):
         """Text-based menu loop for when curses fails."""
+        selected = 0
         while True:
             print("\n" + "="*50)
             print("Radio Tools Loader")
@@ -297,27 +320,25 @@ class RadioToolsLoader:
             print("Available tools:")
             
             for i, module in enumerate(self.modules):
-                print(f"  {i+1}. {module.name}")
+                marker = ">" if i == selected else " "
+                print(f"  {marker} {module.name}")
                 print(f"     {module.description}")
             
-            print("\n  q. Quit")
+            print("\n  ↑↓ navigate, Enter select, 'q' quit")
             print("="*50)
             
             try:
-                choice = input("Select tool (number or q): ").strip().lower()
+                key = self.getch()
                 
-                if choice == 'q':
+                if key == 'q' or key == 'Q':
                     break
-                
-                try:
-                    index = int(choice) - 1
-                    if 0 <= index < len(self.modules):
-                        selected_module = self.modules[index]
-                        self.run_selected_module_text(selected_module)
-                    else:
-                        print("Invalid selection.")
-                except ValueError:
-                    print("Invalid input. Enter a number or 'q'.")
+                elif key == 'up':
+                    selected = (selected - 1) % len(self.modules)
+                elif key == 'down':
+                    selected = (selected + 1) % len(self.modules)
+                elif key == '\r' or key == '\n':  # Enter
+                    selected_module = self.modules[selected]
+                    self.run_selected_module_text(selected_module)
                     
             except KeyboardInterrupt:
                 print("\nExiting...")
