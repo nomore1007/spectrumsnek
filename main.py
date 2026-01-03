@@ -315,7 +315,7 @@ class RadioToolsLoader:
             print(f"Error running {module.name}: {e}")
         finally:
             print(f"\nReturning to Radio Tools Loader")
-            time.sleep(2)
+            input("Press Enter to continue...")
 
     def run(self):
         """Main run loop."""
