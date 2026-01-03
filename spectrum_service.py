@@ -111,6 +111,34 @@ class SpectrumService:
         except:
             pass
 
+        # WiFi tool
+        self.tools['wifi_tool'] = {
+            'info': {
+                'name': 'WiFi Network Selector',
+                'description': 'Select and connect to WiFi networks',
+                'version': '1.0.0',
+                'author': 'SpectrumSnek'
+            },
+            'module': None,
+            'status': 'stopped',
+            'run_func': lambda: print("WiFi tool: Feature not implemented yet")
+        }
+        print(f"Loaded system tool: {self.tools['wifi_tool']['info']['name']}")
+
+        # Bluetooth tool
+        self.tools['bluetooth_tool'] = {
+            'info': {
+                'name': 'Bluetooth Device Connector',
+                'description': 'Connect to Bluetooth devices',
+                'version': '1.0.0',
+                'author': 'SpectrumSnek'
+            },
+            'module': None,
+            'status': 'stopped',
+            'run_func': lambda: print("Bluetooth tool: Feature not implemented yet")
+        }
+        print(f"Loaded system tool: {self.tools['bluetooth_tool']['info']['name']}")
+
         # Audio tool
         try:
             from system_tools.audio_output_selector import AudioOutputSelector
