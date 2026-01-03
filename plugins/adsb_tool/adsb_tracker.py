@@ -111,16 +111,41 @@ class ADSBTracker:
             print("Initializing SDR", flush=True)
             self.sdr = rtlsdr.RtlSdr()
             print(f"SDR created, center_freq={self.center_freq}", flush=True)
-            self.sdr.center_freq = self.center_freq
-            print(f"Center freq set", flush=True)
-            self.sdr.sample_rate = self.sample_rate
-            print(f"Sample rate set", flush=True)
-            self.sdr.gain = self.gain
-            print(f"Gain set", flush=True)
+
+            # Set parameters with error handling
+            try:
+                self.sdr.center_freq = self.center_freq
+                print(f"Center freq set", flush=True)
+            except Exception as e:
+                print(f"Failed to set center frequency: {e}", flush=True)
+                self.sdr.close()
+                return False
+
+            try:
+                self.sdr.sample_rate = self.sample_rate
+                print(f"Sample rate set", flush=True)
+            except Exception as e:
+                print(f"Failed to set sample rate: {e}", flush=True)
+                self.sdr.close()
+                return False
+
+            try:
+                self.sdr.gain = self.gain
+                print(f"Gain set", flush=True)
+            except Exception as e:
+                print(f"Failed to set gain: {e}", flush=True)
+                self.sdr.close()
+                return False
+
             print(f"RTL-SDR initialized for ADS-B (1090 MHz)", flush=True)
             return True
         except Exception as e:
             print(f"Failed to initialize RTL-SDR: {e}", flush=True)
+            if hasattr(self, 'sdr') and self.sdr:
+                try:
+                    self.sdr.close()
+                except:
+                    pass
             return False
 
     def decode_adsb_message(self, iq_samples: np.ndarray) -> List[Dict]:
@@ -639,14 +664,26 @@ def run_tracking_loop(tracker: ADSBTracker):
     try:
         while tracker.running:
             try:
-                # Read samples from SDR
-                samples = tracker.sdr.read_samples(65536)  # 64K samples
+                # Read samples from SDR with error handling
+                try:
+                    samples = tracker.sdr.read_samples(65536)  # 64K samples
+                except Exception as e:
+                    print(f"SDR read error: {e}, retrying in 1 second", flush=True)
+                    time.sleep(1)
+                    continue
 
                 # Decode ADS-B messages
-                messages = tracker.decode_adsb_message(samples)
+                try:
+                    messages = tracker.decode_adsb_message(samples)
+                except Exception as e:
+                    print(f"ADS-B decode error: {e}, continuing", flush=True)
+                    messages = []
 
                 # Process messages
-                tracker.process_adsb_messages(messages)
+                try:
+                    tracker.process_adsb_messages(messages)
+                except Exception as e:
+                    print(f"Message processing error: {e}, continuing", flush=True)
 
                 # Update statistics
                 tracker.total_messages += len(messages)
