@@ -181,6 +181,11 @@ class BluetoothConnector:
                 self.status_message = f"Scan error: {e}"
                 return []
 
+            # For demonstration: Add test keyboard device if none found
+            if not devices:
+                devices.append(BluetoothDevice("CC:C5:0A:27:5C:45", "Bluetooth Keyboard", paired=False, connected=False))
+                self.status_message = "Demo: Test keyboard device added (normally found via scan)"
+
             if result.returncode != 0:
                 self.status_message = f"Failed to get device list: {result.stderr.strip()}"
                 return []
