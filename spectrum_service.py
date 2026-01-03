@@ -78,7 +78,7 @@ class SpectrumService:
                     import bluetooth_tool
                     tool['local_run'] = bluetooth_tool.run
                 elif name == 'audio_tool':
-                    from system_tools.audio_output_selector import AudioOutputSelector
+                    from plugins.system_tools.audio_output_selector import AudioOutputSelector
                     tool['local_run'] = AudioOutputSelector().run
                 # For other system tools, keep as is
             except ImportError:
@@ -142,7 +142,7 @@ class SpectrumService:
 
         # Audio tool
         try:
-            from system_tools.audio_output_selector import AudioOutputSelector
+            from plugins.system_tools.audio_output_selector import AudioOutputSelector
             info = {
                 'name': 'Audio Output Selector',
                 'description': 'Select and test audio output devices',
@@ -457,7 +457,9 @@ class SpectrumService:
             return
 
         try:
-            self.socketio.run(self.app, host=host, port=port, debug=False)
+            # Use standard Flask server for now (more reliable than eventlet)
+            print("Starting with Flask development server...")
+            self.app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
         except OSError as e:
             if e.errno == 98:  # Address already in use
                 print(f"ERROR: Port {port} is already in use!")
