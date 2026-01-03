@@ -307,7 +307,6 @@ class RadioToolsLoader:
 
         try:
             # Restore terminal for module execution
-            curses.endwin()
             module.run_function()
         except KeyboardInterrupt:
             print(f"\n{module.name} stopped by user")
