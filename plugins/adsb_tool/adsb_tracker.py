@@ -108,14 +108,19 @@ class ADSBTracker:
             raise ImportError("RTL-SDR library not available")
 
         try:
+            print("Initializing SDR", flush=True)
             self.sdr = rtlsdr.RtlSdr()
+            print(f"SDR created, center_freq={self.center_freq}", flush=True)
             self.sdr.center_freq = self.center_freq
+            print(f"Center freq set", flush=True)
             self.sdr.sample_rate = self.sample_rate
+            print(f"Sample rate set", flush=True)
             self.sdr.gain = self.gain
-            print(f"RTL-SDR initialized for ADS-B (1090 MHz)")
+            print(f"Gain set", flush=True)
+            print(f"RTL-SDR initialized for ADS-B (1090 MHz)", flush=True)
             return True
         except Exception as e:
-            print(f"Failed to initialize RTL-SDR: {e}")
+            print(f"Failed to initialize RTL-SDR: {e}", flush=True)
             return False
 
     def decode_adsb_message(self, iq_samples: np.ndarray) -> List[Dict]:
@@ -319,6 +324,51 @@ class ConsoleADSBInterface:
             except Exception as e:
                 # Continue on display errors
                 time.sleep(0.5)
+
+    def run_text(self):
+        """Run the text-based ADS-B interface."""
+        last_cleanup = time.time()
+
+        print("ADS-B Aircraft Tracker - Text Mode")
+        print("Press Ctrl+C or 'q' to quit")
+        print()
+
+        while self.tracker.running:
+            try:
+                stats = self.tracker.get_statistics()
+                print(f"Aircraft: {stats['active_aircraft']}/{stats['total_aircraft']} | Messages: {stats['total_messages']} | Rate: {stats['messages_per_second']:.1f}/sec")
+
+                sorted_aircraft = sorted(self.tracker.aircraft.values(),
+                                        key=lambda x: x.last_update, reverse=True)
+
+                if sorted_aircraft:
+                    print("Recent aircraft:")
+                    for aircraft in sorted_aircraft[:5]:  # Show top 5 recent
+                        info = aircraft.get_display_info()
+                        icao = info['icao'][:6]
+                        callsign = (info['callsign'][:8] if info['callsign'] else '--------')[:8]
+                        alt = f"{info['alt']:.0f}" if info['alt'] else '-----'
+                        speed = f"{info['speed']:.0f}" if info['speed'] else '---'
+                        heading = f"{info['heading']:.0f}" if info['heading'] else '---'
+                        lat = f"{info['lat']:.4f}" if info['lat'] else '--------'
+                        lon = f"{info['lon']:.4f}" if info['lon'] else '--------'
+                        print(f"  {icao} {callsign} {alt}ft {speed}kt {heading}° {lat} {lon}")
+                else:
+                    print("No aircraft detected")
+
+                print()
+
+                # Cleanup occasionally
+                if time.time() - last_cleanup > 60:
+                    self.tracker.cleanup_expired_aircraft()
+                    last_cleanup = time.time()
+
+                time.sleep(5)  # Update every 5 seconds
+
+            except KeyboardInterrupt:
+                break
+
+        print("ADS-B tracking stopped")
 
 class WebADSBInterface:
     """Web interface for ADS-B tracking."""
@@ -625,9 +675,11 @@ def main():
     parser.add_argument('--gain', type=str, default='auto',
                        help='SDR gain setting (auto or dB value)')
     parser.add_argument('--web', action='store_true',
-                       help='Enable web interface')
+                        help='Enable web interface')
+    parser.add_argument('--text', action='store_true',
+                        help='Run in text mode (console output)')
     parser.add_argument('--web-host', type=str, default='0.0.0.0',
-                       help='Web server host')
+                        help='Web server host')
     parser.add_argument('--web-port', type=int, default=5001,
                        help='Web server port')
 
@@ -651,8 +703,19 @@ def main():
             web_interface.run()
         except Exception as e:
             print(f"Web interface failed: {e}")
-            print("Falling back to console interface...")
-            # Fall through to console
+            print("Falling back to text interface...")
+            args.text = True  # Fall through to text
+            # Fall through
+
+    if args.text:
+        # Run text interface
+        try:
+            console = ConsoleADSBInterface(tracker)
+            console.run_text()
+        except Exception as e:
+            print(f"Text interface failed: {e}")
+            print("ADS-B tracking continues in background...")
+            input("Press Enter to stop")
     else:
         # Run console interface
         def console_main(stdscr):

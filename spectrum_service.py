@@ -263,7 +263,6 @@ class SpectrumService:
                         try:
                             subprocess.run(tmux_cmd, check=True)
                             # Wait a bit and check if session exists
-                            import time
                             time.sleep(1)
                             result = subprocess.run(['tmux', 'has-session', '-t', f'spectrum-{tool_name}'], capture_output=True)
                             if result.returncode == 0:
