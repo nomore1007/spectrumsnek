@@ -25,7 +25,6 @@ class SpectrumService:
 
     def __init__(self):
         self.app = Flask(__name__)
-        self.socketio = None  # Disabled for compatibility
         self.tools: Dict[str, Any] = {}
         self.running_tools: Dict[str, Any] = {}
         self.config = config_manager
@@ -159,9 +158,6 @@ class SpectrumService:
                                 'pid': os.getpid()
                             }
                             self.tools[tool_name]['status'] = 'running'
-                            if self.socketio:
-                                self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
-
                             tool_data['run_func']()
                         except Exception as e:
                             print(f"Tool {tool_name} error: {e}")
@@ -169,8 +165,6 @@ class SpectrumService:
                             if tool_name in self.running_tools:
                                 del self.running_tools[tool_name]
                             self.tools[tool_name]['status'] = 'stopped'
-                            if self.socketio:
-                                self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'stopped'})
 
                     thread = threading.Thread(target=run_tool, daemon=True)
                     thread.start()
@@ -198,9 +192,7 @@ class SpectrumService:
                                     'tmux_session': f'spectrum-{tool_name}',
                                     'start_time': time.time()
                                 }
-                                self.tools[tool_name]['status'] = 'running'
-                                if self.socketio:
-                                    self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
+                            self.tools[tool_name]['status'] = 'running'
                             else:
                                 return jsonify({'error': 'Tool failed to start (session did not persist)'}), 500
                         except subprocess.CalledProcessError as e:
@@ -217,8 +209,6 @@ class SpectrumService:
                                 'start_time': time.time()
                             }
                             self.tools[tool_name]['status'] = 'running'
-                            if self.socketio:
-                                self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
                         except Exception as e:
                             return jsonify({'error': f'Failed to start tool: {e}'}), 500
 
@@ -259,8 +249,6 @@ class SpectrumService:
             self.tools[tool_name]['status'] = 'stopped'
             if tool_name in self.running_tools:
                 del self.running_tools[tool_name]
-            if self.socketio:
-                self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'stopped'})
 
             return jsonify({'status': 'stopped'})
 
@@ -351,20 +339,16 @@ class SpectrumService:
         """Send periodic status updates via WebSocket."""
         while True:
             try:
-                # Send system info update
+                # Send system info update (would go to WebSocket clients)
                 system_info = self._get_system_info()
-                if self.socketio:
-                    self.socketio.emit('system_update', system_info)
 
-                # Send service status update
+                # Send service status update (would go to WebSocket clients)
                 service_status = {
                     'status': 'running',
                     'tools_loaded': len(self.tools),
                     'tools_running': len(self.running_tools),
                     'timestamp': time.time()
                 }
-                if self.socketio:
-                    self.socketio.emit('service_status', service_status)
 
             except Exception as e:
                 print(f"Error in periodic updates: {e}")
