@@ -252,7 +252,7 @@ class SpectrumService:
                     import_path = f"plugins.{tool_name}" if tool_name in ['rtl_scanner', 'adsb_tool', 'radio_scanner'] else f"system_tools.{tool_name}"
                     cmd = [
                         'tmux', 'new-session', '-d', '-s', f'spectrum-{tool_name}',
-                        'bash', '-c', f'cd /home/nomore/spectrumsnek && source venv/bin/activate && env TERM=linux python -c "from {import_path} import run; run()"'
+                        'bash', '-c', f'cd /home/nomore/spectrumsnek && source venv/bin/activate && env TERM=linux python -c "import curses; from {import_path} import run; curses.wrapper(run)"'
                     ]
 
                     try:
