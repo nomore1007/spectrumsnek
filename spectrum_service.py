@@ -4,6 +4,14 @@ SpectrumSnek Service - Core service for radio tools management
 Provides API for tool control and monitoring
 """
 
+# Eventlet monkey patch must happen before any other imports
+try:
+    import eventlet
+    eventlet.monkey_patch()
+    EVENTLET_AVAILABLE = True
+except ImportError:
+    EVENTLET_AVAILABLE = False
+
 import sys
 import os
 import time
@@ -411,14 +419,11 @@ class SpectrumService:
             return
 
         try:
-            # Try eventlet server for WebSocket support
-            try:
-                import eventlet
-                eventlet.monkey_patch()
+            if EVENTLET_AVAILABLE:
                 print("Starting with eventlet server (WebSocket enabled)...")
                 import eventlet.wsgi
                 eventlet.wsgi.server(eventlet.listen((host, port)), self.app)
-            except ImportError:
+            else:
                 print("Eventlet not available, using Flask development server...")
                 self.socketio = None  # Disable WebSocket features
                 self.app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
