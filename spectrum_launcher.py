@@ -14,8 +14,8 @@ def run_scanner():
     """Run the RTL-SDR scanner module."""
     # Import and run the scanner
     try:
-        import rtl_scanner
-        rtl_scanner.run()
+        from plugins.rtl_scanner import run
+        run()
     except ImportError as e:
         print(f"Error loading RTL-SDR scanner: {e}")
         print("Make sure all dependencies are installed.")

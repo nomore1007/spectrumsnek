@@ -19,11 +19,11 @@ if [[ "$1" == "--demo" ]]; then
 elif [[ "$1" == "--interactive" ]]; then
     echo "Running RTL-SDR scanner in interactive mode..."
     shift  # Remove --interactive from arguments
-    python rtl_scanner.py "$@"
+    python spectrum_launcher.py "$@"
 # Check for web mode
 elif [[ "$1" == "--web" ]]; then
     echo "Running RTL-SDR scanner in web interface mode..."
-    python rtl_scanner.py "$@"
+    python spectrum_launcher.py "$@"
 else
     # Run the radio scanner with provided arguments
     python radio_scanner.py "$@"
