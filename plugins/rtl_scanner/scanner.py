@@ -207,6 +207,26 @@ class InteractiveRTLScanner:
         # Add blinking cursor on selected digit
         self._draw_frequency_cursor(freq_str)
 
+    def _print_spectrum(self):
+        """Print spectrum in text mode."""
+        if not hasattr(self, 'power_spectrum') or len(self.power_spectrum) == 0:
+            return
+
+        print(f"\nCenter: {self.center_freq/1e6:.3f} MHz | Mode: {self.get_current_mode()}")
+
+        max_power = np.max(self.power_spectrum)
+        min_power = np.min(self.power_spectrum)
+        power_range = max_power - min_power
+
+        for y in range(min(10, len(self.power_spectrum))):
+            power = self.power_spectrum[y]
+            normalized = (power - min_power) / power_range if power_range > 0 else 0.5
+            filled_width = int(40 * normalized)
+            bar = '#' * filled_width + '.' * (40 - filled_width)
+            print(f"{y:2d}: {bar}")
+
+        print("Press Ctrl+C to stop")
+
         # Display current mode
         current_mode = self.get_current_mode()
         mode_info = f"Mode: {current_mode.upper()}"
@@ -967,50 +987,54 @@ class InteractiveRTLScanner:
 
     def run(self):
         """Main interactive loop."""
-        # Initialize curses
         try:
+            # Try curses mode
             curses.cbreak()  # Enable cbreak mode
-        except curses.error:
-            pass
-        try:
             curses.noecho()  # Don't echo keys
-        except curses.error:
-            pass
-        self.stdscr.keypad(True)  # Enable keypad mode for arrow keys
-        self.stdscr.nodelay(True)  # Non-blocking input
-        try:
+            self.stdscr.keypad(True)  # Enable keypad mode for arrow keys
+            self.stdscr.nodelay(True)  # Non-blocking input
             curses.curs_set(0)  # Hide cursor
+
+            # Initialize curses colors
+            curses.start_color()
+            curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)     # High power
+            curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Center frequency
+            curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)    # DMR info
+
+            # Set running flag
+            self.is_running = True
+
+            # Main loop (single-threaded curses)
+            try:
+                while self.is_running:
+                    try:
+                        self.capture_samples()
+                        self._draw_interface()
+                        time.sleep(0.01)  # Small delay
+
+                        key = self.stdscr.getch()
+                        if key != -1:  # Key pressed
+                            if self.handle_input(key):
+                                break
+                    except KeyboardInterrupt:
+                        break
+            finally:
+                # Ensure terminal state is restored
+                self.restore_terminal()
+
         except curses.error:
-            pass
-
-        # Initialize curses colors
-        curses.start_color()
-        curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)     # High power
-        curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Center frequency
-        curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)    # DMR info
-        curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)   # CTCSS info
-
-        # Initialize device
-        self.initialize_device()
-
-        # Start threads
-        self.start_capture()
-        self.start_display()
-
-        # Main input loop
-        try:
-            while self.is_running:
-                try:
-                    key = self.stdscr.getch()
-                    if key != -1:  # Key pressed
-                        if self.handle_input(key):
-                            break
-                    time.sleep(0.01)  # Small delay to prevent high CPU usage
-                except KeyboardInterrupt:
-                    break
-        finally:
-            # Ensure terminal state is restored
-            self.restore_terminal()
+            # Fallback to text mode
+            print("Curses not available, using text mode...")
+            self.is_running = True
+            try:
+                while self.is_running:
+                    self.capture_samples()
+                    self._print_spectrum()
+                    time.sleep(0.1)
+            except KeyboardInterrupt:
+                pass
+            finally:
+                self.is_running = False
 
         # Cleanup
         self.is_running = False
