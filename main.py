@@ -12,7 +12,7 @@ try:
 
     from textual.app import App, ComposeResult
 
-    from textual.widgets import ListView, ListItem, Header, Footer
+    from textual.widgets import OptionList, Header, Footer
 
     TEXTUAL_AVAILABLE = True
 
@@ -30,15 +30,15 @@ try:
 
             yield Header("SpectrumSnek Tools")
 
-            list_items = [ListItem(f"{module.name}\n{module.description}") for module in self.modules]
+            options = [f"{module.name}: {module.description}" for module in self.modules]
 
-            yield ListView(*list_items)
+            yield OptionList(*options)
 
             yield Footer()
 
-        def on_list_view_selected(self, event):
+        def on_option_list_option_selected(self, event):
 
-            index = event.item_index
+            index = event.option_index
 
             if 0 <= index < len(self.modules):
 
