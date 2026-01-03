@@ -279,31 +279,68 @@ class RadioToolsLoader:
             while True:
                 selected_module = self.run_menu(stdscr)
                 if selected_module is None:
-                    break  # Quit
-
+                    break
                 self.run_selected_module(selected_module)
-
-                # Brief pause before returning to menu
-                print("\nPress Enter to return to menu...")
-                try:
-                    input()
-                except:
-                    pass
-
-        if not self.modules:
-            print("No modules available!")
-            print("Make sure RTL-SDR dependencies are installed.")
-            return
 
         try:
             curses.wrapper(menu_main)
-        except KeyboardInterrupt:
-            print("\nRadio Tools Loader stopped by user")
         except Exception as e:
-            if "endwin() returned ERR" not in str(e):
-                print(f"Error in menu system: {e}")
-                print("This may be due to terminal compatibility issues.")
-                print("Try: export TERM=linux")
+            print(f"Curses menu failed ({e}), falling back to text menu...")
+            self.text_menu_loop()
+
+    def text_menu_loop(self):
+        """Text-based menu loop for when curses fails."""
+        while True:
+            print("\n" + "="*50)
+            print("Radio Tools Loader")
+            print("="*50)
+            print("Available tools:")
+            
+            for i, module in enumerate(self.modules):
+                print(f"  {i+1}. {module.name}")
+                print(f"     {module.description}")
+            
+            print("\n  q. Quit")
+            print("="*50)
+            
+            try:
+                choice = input("Select tool (number or q): ").strip().lower()
+                
+                if choice == 'q':
+                    break
+                
+                try:
+                    index = int(choice) - 1
+                    if 0 <= index < len(self.modules):
+                        selected_module = self.modules[index]
+                        self.run_selected_module_text(selected_module)
+                    else:
+                        print("Invalid selection.")
+                except ValueError:
+                    print("Invalid input. Enter a number or 'q'.")
+                    
+            except KeyboardInterrupt:
+                print("\nExiting...")
+                break
+            except EOFError:
+                print("\nExiting...")
+                break
+
+    def run_selected_module_text(self, module: ModuleInfo):
+        """Run the selected module in text mode."""
+        print(f"\nStarting {module.name}...")
+        print(f"Description: {module.description}")
+        print("Press Ctrl+C to stop\n")
+
+        try:
+            module.run_function()
+        except KeyboardInterrupt:
+            print(f"\n{module.name} stopped by user")
+        except Exception as e:
+            print(f"Error running {module.name}: {e}")
+        finally:
+            print(f"\nReturning to Radio Tools Loader")
+            input("Press Enter to continue...")
 
 def check_dependencies():
     """Check if basic dependencies are available."""
