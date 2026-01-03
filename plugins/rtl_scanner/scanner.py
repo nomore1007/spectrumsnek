@@ -1107,6 +1107,7 @@ def is_remote_session():
 def main(stdscr=None):
     """Main entry point for RTL scanner."""
     import argparse
+    import sys
 
     parser = argparse.ArgumentParser(description='RTL-SDR Spectrum Analyzer')
     parser.add_argument('--freq', type=float, default=100.0,
@@ -1120,22 +1121,38 @@ def main(stdscr=None):
     parser.add_argument('--samplerate', type=float, default=2.4,
                         help='Sample rate in MHz (default: 2.4)')
 
-    args = parser.parse_args()
-
-    # Auto-detect remote sessions and force text mode for better compatibility
-    if is_remote_session() and not args.web and not args.text:
-        print("Remote session detected. Using text mode for better compatibility.")
-        print("Use --web for web interface or --text explicitly for text mode.")
-        args.text = True
+    # Check if running with arguments (from command line) or without (from menu)
+    if len(sys.argv) == 1:
+        # No arguments passed (launched from menu)
+        args = parser.parse_args([])  # Parse with no args
+        # Auto-detect remote sessions when launched from menu
+        if is_remote_session():
+            print("Remote session detected. Using text mode for better compatibility.")
+            print("Use --web for web interface when running from command line.")
+            args.text = True
+    else:
+        # Arguments passed (command line usage)
+        args = parser.parse_args()
 
     if args.text:
         # Run in text mode
         try:
             print("RTL-SDR Spectrum Analyzer - Text Mode")
             print("=====================================")
-            print("Text mode is not yet fully implemented.")
-            print("Please use --web for web interface or run locally for interactive mode.")
-            print("Press Enter to exit...")
+            print("Text mode provides basic information.")
+            print("For full interactive features, run locally without SSH.")
+            print("")
+            print("Current status:")
+            print("- Remote session: Detected")
+            print("- Terminal type: Limited (dumb)")
+            print("- Interactive mode: Not available")
+            print("")
+            print("To use the spectrum analyzer:")
+            print("1. Run locally: python -m plugins.rtl_scanner")
+            print("2. Use web interface: python -m plugins.rtl_scanner --web")
+            print("3. Command line: python -m plugins.rtl_scanner --freq 100")
+            print("")
+            print("Press Enter to return to menu...")
             input()
         except KeyboardInterrupt:
             print("\nRTL scanner stopped by user")
