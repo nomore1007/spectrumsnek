@@ -9,6 +9,7 @@ import os
 import time
 import threading
 import json
+import subprocess
 from typing import Dict, List, Any, Optional
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
@@ -200,47 +201,55 @@ class SpectrumService:
                 }), 400
 
             try:
-                # Start tool in background thread
-                def run_tool():
+                tool_data = self.tools[tool_name]
+
+                if 'run_func' in tool_data:
+                    # For simple system tools, run in thread
+                    def run_tool():
+                        try:
+                            start_time = time.time()
+                            self.running_tools[tool_name] = {
+                                'status': 'running',
+                                'thread': threading.current_thread(),
+                                'start_time': start_time,
+                                'pid': os.getpid()
+                            }
+                            self.tools[tool_name]['status'] = 'running'
+                            self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
+
+                            tool_data['run_func']()
+                        except Exception as e:
+                            print(f"Tool {tool_name} error: {e}")
+                        finally:
+                            if tool_name in self.running_tools:
+                                del self.running_tools[tool_name]
+                            self.tools[tool_name]['status'] = 'stopped'
+                            self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'stopped'})
+
+                    thread = threading.Thread(target=run_tool, daemon=True)
+                    thread.start()
+                else:
+                    # For interactive tools, start in tmux session
+                    if not self._tmux_available():
+                        return jsonify({'error': 'tmux not available for running interactive tools'}), 500
+
+                    import_path = f"plugins.{tool_name}" if tool_name in ['rtl_scanner', 'adsb_tool', 'radio_scanner'] else f"system_tools.{tool_name}"
+                    cmd = [
+                        'tmux', 'new-session', '-d', '-s', f'spectrum-{tool_name}',
+                        'python', '-c', f'from {import_path} import run; run()'
+                    ]
+
                     try:
-                        start_time = time.time()
+                        subprocess.run(cmd, check=True)
                         self.running_tools[tool_name] = {
                             'status': 'running',
-                            'thread': threading.current_thread(),
-                            'start_time': start_time,
-                            'pid': os.getpid()  # Process ID
+                            'tmux_session': f'spectrum-{tool_name}',
+                            'start_time': time.time()
                         }
                         self.tools[tool_name]['status'] = 'running'
                         self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'running'})
-
-                        # Run the tool with output suppressed to prevent interference
-                        import sys
-                        tool_data = self.tools[tool_name]
-                        old_stdout = sys.stdout
-                        old_stderr = sys.stderr
-                        sys.stdout = open('/dev/null', 'w')
-                        sys.stderr = open('/dev/null', 'w')
-                        try:
-                            if 'run_func' in tool_data:
-                                tool_data['run_func']()
-                            else:
-                                tool_data['module'].run()
-                        finally:
-                            sys.stdout.close()
-                            sys.stderr.close()
-                            sys.stdout = old_stdout
-                            sys.stderr = old_stderr
-
-                    except Exception as e:
-                        print(f"Tool {tool_name} error: {e}")
-                    finally:
-                        if tool_name in self.running_tools:
-                            del self.running_tools[tool_name]
-                        self.tools[tool_name]['status'] = 'stopped'
-                        self.socketio.emit('tool_update', {'tool': tool_name, 'status': 'stopped'})
-
-                thread = threading.Thread(target=run_tool, daemon=True)
-                thread.start()
+                    except subprocess.CalledProcessError as e:
+                        return jsonify({'error': f'Failed to start tool in tmux: {e}'}), 500
 
                 return jsonify({'status': 'starting'})
 
@@ -253,14 +262,19 @@ class SpectrumService:
             if tool_name not in self.running_tools:
                 return jsonify({'error': 'Tool not running'}), 400
 
-            # Try to terminate the thread gracefully
             running_info = self.running_tools[tool_name]
-            thread = running_info.get('thread')
 
-            if thread and thread.is_alive():
-                # For better thread management, we could set an event
-                # For now, we'll just mark it as stopped and let the thread clean up
-                pass
+            if 'tmux_session' in running_info:
+                # Stop tmux session
+                try:
+                    subprocess.run(['tmux', 'kill-session', '-t', running_info['tmux_session']], check=True)
+                except subprocess.CalledProcessError:
+                    pass  # Session may already be dead
+            else:
+                # Stop thread
+                thread = running_info.get('thread')
+                if thread and thread.is_alive():
+                    pass  # Let thread finish
 
             self.tools[tool_name]['status'] = 'stopped'
             if tool_name in self.running_tools:
@@ -285,12 +299,27 @@ class SpectrumService:
 
             if tool_name in self.running_tools:
                 running_info = self.running_tools[tool_name]
-                thread = running_info.get('thread')
-                status_info.update({
-                    'thread_alive': thread.is_alive() if thread else False,
-                    'start_time': running_info.get('start_time'),
-                    'runtime': time.time() - running_info.get('start_time', time.time())
-                })
+                if 'tmux_session' in running_info:
+                    # Check tmux session
+                    try:
+                        result = subprocess.run(['tmux', 'has-session', '-t', running_info['tmux_session']],
+                                              capture_output=True)
+                        is_alive = result.returncode == 0
+                    except:
+                        is_alive = False
+                    status_info.update({
+                        'session_alive': is_alive,
+                        'tmux_session': running_info['tmux_session'],
+                        'start_time': running_info.get('start_time'),
+                        'runtime': time.time() - running_info.get('start_time', time.time())
+                    })
+                else:
+                    thread = running_info.get('thread')
+                    status_info.update({
+                        'thread_alive': thread.is_alive() if thread else False,
+                        'start_time': running_info.get('start_time'),
+                        'runtime': time.time() - running_info.get('start_time', time.time())
+                    })
 
             return jsonify(status_info)
 
@@ -395,6 +424,14 @@ class SpectrumService:
             else:
                 print(f"ERROR: Failed to start service: {e}")
             raise
+
+    def _tmux_available(self):
+        """Check if tmux is available."""
+        try:
+            subprocess.run(['tmux', '-V'], capture_output=True, check=True)
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return False
 
     def _check_existing_service(self, host, port):
         """Check if service is already running on the specified host/port."""
