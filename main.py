@@ -150,11 +150,21 @@ class RadioToolsLoader:
                         info = plugin_module.get_module_info()
                         # Use short names for cleaner menu display
                         short_name = self._get_short_name(info["name"])
+                        # Check for remote session to avoid curses issues
+                        is_remote = any(os.environ.get(var) for var in ['SSH_CLIENT', 'SSH_TTY', 'SSH_CONNECTION'])
+
+                        if is_remote:
+                            # Remote session - don't wrap with curses
+                            run_function = lambda run_func=plugin_module.run: run_func()
+                        else:
+                            # Local session - wrap with curses
+                            run_function = lambda run_func=plugin_module.run: curses.wrapper(run_func)
+
                         self.modules.append(ModuleInfo(
                             short_name,
                             info["description"],
                             f"{plugins_dir}.{item}",
-                            lambda run_func=plugin_module.run: curses.wrapper(run_func)
+                            run_function
                         ))
                     except (ImportError, Exception):
                         # Plugin not available or other errors, skip silently
