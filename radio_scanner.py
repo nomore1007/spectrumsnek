@@ -43,8 +43,8 @@ class RTLSDRScanner:
             if self.sdr is None:
                 raise RuntimeError("Failed to create RTL-SDR instance")
 
-            self.sdr.sample_rate = self.sample_rate
             self.sdr.center_freq = self.center_freq
+            self.sdr.sample_rate = self.sample_rate
             if self.gain == 'auto':
                 self.sdr.gain = 'auto'
             else:

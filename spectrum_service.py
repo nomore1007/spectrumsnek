@@ -69,7 +69,7 @@ class SpectrumService:
         for name, tool in self.tools.items():
             try:
                 if name in ['rtl_scanner', 'adsb_tool', 'radio_scanner']:
-                    local_module = __import__(f'plugins.{name}.{name}', fromlist=['run'])
+                    local_module = __import__(f'plugins.{name}', fromlist=['run'])
                     tool['local_run'] = local_module.run
                 elif name == 'wifi_tool':
                     import wifi_tool

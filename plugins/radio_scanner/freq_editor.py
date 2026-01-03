@@ -16,7 +16,7 @@ from typing import List, Dict, Optional
 class FrequencyBankEditor:
     """Editor for frequency bank XML files."""
 
-    def __init__(self, banks_dir: str = "radio_scanner/banks"):
+    def __init__(self, banks_dir: str = "plugins/radio_scanner/banks"):
         self.banks_dir = banks_dir
         os.makedirs(banks_dir, exist_ok=True)
 
