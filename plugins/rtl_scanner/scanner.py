@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s -
 logger = logging.getLogger(__name__)
 
 class InteractiveRTLScanner:
-    def __init__(self, stdscr, sample_rate=2.4e6, center_freq=88e6, gain='auto'):
+    def __init__(self, stdscr, sample_rate=1e6, center_freq=88e6, gain='auto'):
         self.stdscr = stdscr
         self.sample_rate = sample_rate
         self.center_freq = center_freq
@@ -44,7 +44,7 @@ class InteractiveRTLScanner:
         self.gain_values = [-10, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
         # Spectrum data
-        self.fft_size = 1024
+        self.fft_size = 512
         self.window = windows.hann(self.fft_size)
         self.freqs = np.fft.fftfreq(self.fft_size, 1/self.sample_rate)
         self.freqs = np.fft.fftshift(self.freqs) + self.center_freq
