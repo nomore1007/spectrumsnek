@@ -328,11 +328,11 @@ class RadioToolsLoader:
                     else:
                         break
             except Exception:
-                # Textual failed, fall back to text menu
-                print("Textual interface failed, falling back to text menu...")
-                self.text_menu_loop()
+                # Textual failed, fall back to curses menu
+                print("Textual interface failed, falling back to curses menu...")
+                curses.wrapper(self.run_curses_menu)
         else:
-            self.text_menu_loop()
+            curses.wrapper(self.run_curses_menu)
 
     def getch(self):
         """Read a single key, handling escape sequences for arrows."""
@@ -392,6 +392,10 @@ class RadioToolsLoader:
             except EOFError:
                 print("\nExiting...")
                 break
+
+    def run_curses_menu(self, stdscr):
+        """Run the curses menu."""
+        self.run_menu(stdscr)
 
     def run_selected_module_text(self, module: ModuleInfo):
         """Run the selected module in text mode."""

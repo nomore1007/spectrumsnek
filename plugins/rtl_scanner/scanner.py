@@ -1074,10 +1074,9 @@ class InteractiveRTLScanner:
         current_mode = self.get_current_mode()
         logger.info(f"Audio output started for {current_mode} demodulation")
 
-def run():
+def run(stdscr):
     """Main interactive loop."""
     try:
-        stdscr = curses.initscr()
         curses_main(stdscr)
     except KeyboardInterrupt:
         print("\nInteractive scanner stopped by user")
