@@ -817,12 +817,16 @@ def signal_handler(signum, frame):
     """Handle signals including segmentation faults."""
     print(f"\nReceived signal {signum} ({signal.Signals(signum).name})", flush=True)
 
-    # Clean up curses if it's initialized
+    # Clean up curses if it's initialized (safe to call even if not initialized)
     try:
         curses.endwin()
         curses.curs_set(1)  # Show cursor
         curses.echo()  # Re-enable echo
-    except:
+    except curses.error:
+        # Curses not initialized or already cleaned up
+        pass
+    except Exception:
+        # Any other curses-related error
         pass
 
     # Print helpful message
@@ -900,9 +904,14 @@ def main():
     # Auto-detect remote sessions and force text mode for better compatibility
     # Skip remote detection if running with --web or --text explicitly
     if not args.web and not args.text:
-        # Only treat as remote if we have SSH_TTY (actual remote session)
-        # SSH_CLIENT alone can be preserved by sudo
-        if 'SSH_TTY' in os.environ:
+        # Only treat as remote if we have SSH_TTY AND we're not running locally with sudo
+        # SSH_CLIENT/SSH_CONNECTION can be preserved by sudo but SSH_TTY indicates actual remote
+        is_remote = 'SSH_TTY' in os.environ
+        # If running as root with SSH vars but no SSH_TTY, it's likely sudo (treat as local)
+        if is_remote and os.geteuid() == 0 and 'SSH_TTY' not in os.environ:
+            is_remote = False
+
+        if is_remote:
             print("Remote session detected. Using text mode for better compatibility.")
             print("Use --web for web interface or --text explicitly for text mode.")
             args.text = True
@@ -912,24 +921,8 @@ def main():
     tracker.center_freq = int(args.freq * 1e6)
     tracker.gain = args.gain
 
-    # Try to initialize SDR first to check hardware availability
-    print("Checking RTL-SDR hardware availability...")
-    if not tracker.initialize_sdr():
-        print("\nADS-B tracking cannot start:")
-        print("- No RTL-SDR device detected")
-        print("- Hardware/driver issues")
-        print("- Permission problems")
-        print("\nTroubleshooting:")
-        print("1. Connect an RTL-SDR dongle")
-        print("2. Check USB connections")
-        print("3. Run as root if permission issues persist")
-        print("4. Try: rtl_test -t")
-        return
-
-    print("✓ RTL-SDR hardware detected and initialized")
+    # Start tracking thread (SDR initialization happens in the thread)
     print("Starting ADS-B tracking...")
-
-    # Start tracking thread
     tracking_thread = threading.Thread(target=run_tracking_loop, args=(tracker,), daemon=True)
     tracking_thread.start()
 
@@ -965,15 +958,23 @@ def main():
                 pass
     else:
         # Run console interface
-        def console_main(stdscr):
-            console = ConsoleADSBInterface(tracker)
-            console.run_console(stdscr)
-
         try:
+            def console_main(stdscr):
+                console = ConsoleADSBInterface(tracker)
+                console.run_console(stdscr)
+
             curses.wrapper(console_main)
         except KeyboardInterrupt:
-            pass
+            print("\nADS-B tracking stopped by user")
         except curses.error as e:
+            print(f"Curses interface failed: {e}")
+            print("Falling back to text interface...")
+            try:
+                console = ConsoleADSBInterface(tracker)
+                console.run_text()
+            except Exception as e2:
+                print(f"Text interface also failed: {e2}")
+        except Exception as e:
             print(f"Curses interface not available ({e})")
             if is_remote_session():
                 print("This is expected in remote SSH sessions.")
