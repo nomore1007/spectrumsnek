@@ -904,12 +904,19 @@ def main():
     # Auto-detect remote sessions and force text mode for better compatibility
     # Skip remote detection if running with --web or --text explicitly
     if not args.web and not args.text:
-        # Only treat as remote if we have SSH_TTY AND we're not running locally with sudo
-        # SSH_CLIENT/SSH_CONNECTION can be preserved by sudo but SSH_TTY indicates actual remote
-        is_remote = 'SSH_TTY' in os.environ
-        # If running as root with SSH vars but no SSH_TTY, it's likely sudo (treat as local)
-        if is_remote and os.geteuid() == 0 and 'SSH_TTY' not in os.environ:
+        # Check if launched from menu (no command line args) vs direct command line
+        import sys
+        launched_from_menu = len(sys.argv) == 1  # No args means launched from menu
+
+        if launched_from_menu:
+            # Launched from menu - assume local session since menu already checked
             is_remote = False
+        else:
+            # Direct command line usage - check for remote session
+            is_remote = 'SSH_TTY' in os.environ
+            # If running as root with SSH vars but no SSH_TTY, it's likely sudo (treat as local)
+            if is_remote and os.geteuid() == 0 and 'SSH_TTY' not in os.environ:
+                is_remote = False
 
         if is_remote:
             print("Remote session detected. Using text mode for better compatibility.")
