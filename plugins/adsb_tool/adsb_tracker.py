@@ -872,8 +872,13 @@ def main():
     # Check if RTL-SDR library is available
     if rtlsdr is None:
         print("ERROR: RTL-SDR library (pyrtlsdr) is not available.")
-        print("Please install it with: pip install pyrtlsdr")
-        print("Or run: ./setup.sh --full")
+        print("This usually means the virtual environment is not activated.")
+        print("")
+        print("Solutions:")
+        print("1. Run SpectrumSnek through the launcher: ./run_spectrum.sh")
+        print("2. Activate venv manually: source venv/bin/activate")
+        print("3. Install pyrtlsdr: pip install pyrtlsdr")
+        print("4. Run setup: ./setup.sh --full")
         return
 
     # Auto-detect remote sessions and force text mode for better compatibility
