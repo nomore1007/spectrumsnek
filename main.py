@@ -151,7 +151,12 @@ class RadioToolsLoader:
                         # Use short names for cleaner menu display
                         short_name = self._get_short_name(info["name"])
                         # Check for remote session to avoid curses issues
-                        is_remote = any(os.environ.get(var) for var in ['SSH_CLIENT', 'SSH_TTY', 'SSH_CONNECTION'])
+                        # Only treat as remote if we have SSH_TTY (actual remote session)
+                        # SSH_CLIENT/SSH_CONNECTION can be preserved by sudo but SSH_TTY indicates actual remote
+                        is_remote = 'SSH_TTY' in os.environ
+                        # If running as root with SSH vars but no SSH_TTY, it's likely sudo (treat as local)
+                        if is_remote and os.geteuid() == 0 and 'SSH_TTY' not in os.environ:
+                            is_remote = False
 
                         if is_remote:
                             # Remote session - don't wrap with curses
