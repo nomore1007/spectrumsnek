@@ -25,6 +25,12 @@ fi
 # Activate virtual environment and run main.py
 source "$VENV_DIR/bin/activate"
 cd "$SCRIPT_DIR"
+
+# Export virtual environment variables explicitly for sudo compatibility
+export PATH="$VENV_DIR/bin:$PATH"
+export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
+export VIRTUAL_ENV="$VENV_DIR"
+
 python main.py "$@"
 
 # Deactivate when done (though this won't be reached in curses mode)
