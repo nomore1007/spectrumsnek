@@ -10,6 +10,8 @@ import threading
 import curses
 import json
 import warnings
+import signal
+import os
 
 # Suppress deprecated pkg_resources warning from rtlsdr
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated")
@@ -105,48 +107,72 @@ class ADSBTracker:
     def initialize_sdr(self):
         """Initialize the RTL-SDR device for ADS-B reception."""
         if rtlsdr is None:
-            raise ImportError("RTL-SDR library not available")
+            print("RTL-SDR library not available - cannot initialize ADS-B tracking", flush=True)
+            return False
 
         try:
-            print("Initializing SDR", flush=True)
-            self.sdr = rtlsdr.RtlSdr()
-            print(f"SDR created, center_freq={self.center_freq}", flush=True)
+            print("Initializing SDR for ADS-B...", flush=True)
 
-            # Set parameters with error handling
+            # Note: Device enumeration will be handled by the creation attempt below
+
+            # Create SDR with timeout protection
             try:
+                self.sdr = rtlsdr.RtlSdr()
+                print("SDR device created successfully", flush=True)
+            except Exception as e:
+                print(f"Failed to create RTL-SDR device: {e}", flush=True)
+                print("This may be due to:", flush=True)
+                print("- No RTL-SDR hardware connected", flush=True)
+                print("- Hardware/driver issues", flush=True)
+                print("- Permission problems (try running as root)", flush=True)
+                return False
+
+            # Set parameters with individual error handling
+            try:
+                print(f"Setting center frequency to {self.center_freq} Hz...", flush=True)
                 self.sdr.center_freq = self.center_freq
-                print(f"Center freq set", flush=True)
+                print("✓ Center frequency set", flush=True)
             except Exception as e:
-                print(f"Failed to set center frequency: {e}", flush=True)
-                self.sdr.close()
+                print(f"✗ Failed to set center frequency: {e}", flush=True)
+                self._safe_close_sdr()
                 return False
 
             try:
+                print(f"Setting sample rate to {self.sample_rate} Hz...", flush=True)
                 self.sdr.sample_rate = self.sample_rate
-                print(f"Sample rate set", flush=True)
+                print("✓ Sample rate set", flush=True)
             except Exception as e:
-                print(f"Failed to set sample rate: {e}", flush=True)
-                self.sdr.close()
+                print(f"✗ Failed to set sample rate: {e}", flush=True)
+                self._safe_close_sdr()
                 return False
 
             try:
+                print(f"Setting gain to {self.gain}...", flush=True)
                 self.sdr.gain = self.gain
-                print(f"Gain set", flush=True)
+                print("✓ Gain set", flush=True)
             except Exception as e:
-                print(f"Failed to set gain: {e}", flush=True)
-                self.sdr.close()
+                print(f"✗ Failed to set gain: {e}", flush=True)
+                self._safe_close_sdr()
                 return False
 
-            print(f"RTL-SDR initialized for ADS-B (1090 MHz)", flush=True)
+            print("✓ RTL-SDR initialized successfully for ADS-B (1090 MHz)", flush=True)
             return True
+
         except Exception as e:
-            print(f"Failed to initialize RTL-SDR: {e}", flush=True)
-            if hasattr(self, 'sdr') and self.sdr:
-                try:
-                    self.sdr.close()
-                except:
-                    pass
+            print(f"✗ Failed to initialize RTL-SDR: {e}", flush=True)
+            self._safe_close_sdr()
             return False
+
+    def _safe_close_sdr(self):
+        """Safely close SDR device."""
+        if hasattr(self, 'sdr') and self.sdr:
+            try:
+                self.sdr.close()
+                print("SDR device closed", flush=True)
+            except Exception as e:
+                print(f"Warning: Error closing SDR: {e}", flush=True)
+            finally:
+                self.sdr = None
 
     def decode_adsb_message(self, iq_samples: np.ndarray) -> List[Dict]:
         """
@@ -156,15 +182,52 @@ class ADSBTracker:
         messages = []
 
         try:
+            # Validate input with comprehensive checks
+            if iq_samples is None:
+                return messages
+            elif len(iq_samples) == 0:
+                return messages
+            elif not isinstance(iq_samples, np.ndarray):
+                print(f"Invalid IQ samples type: {type(iq_samples)}, expected numpy array", flush=True)
+                return messages
+
             # Convert IQ samples to magnitude for basic pulse detection
-            magnitude = np.abs(iq_samples)
+            # This operation can cause segfaults if numpy array is corrupted
+            try:
+                magnitude = np.abs(iq_samples)
+            except (ValueError, TypeError, RuntimeError) as e:
+                print(f"Numpy abs operation failed: {e}", flush=True)
+                return messages
+            except Exception as e:
+                print(f"Unexpected numpy error in abs(): {e}", flush=True)
+                return messages
+
+            # Validate magnitude array
+            if len(magnitude) == 0 or magnitude.size == 0:
+                return messages
 
             # Simple threshold-based pulse detection
             # ADS-B uses PPM (Pulse Position Modulation)
-            threshold = np.mean(magnitude) + 2 * np.std(magnitude)
+            try:
+                # Use nan-safe operations to prevent crashes
+                mean_val = np.nanmean(magnitude)
+                std_val = np.nanstd(magnitude)
 
-            # Find pulse positions (simplified)
-            pulse_positions = np.where(magnitude > threshold)[0]
+                # Check for invalid values
+                if not np.isfinite(mean_val) or not np.isfinite(std_val):
+                    print("Invalid statistical values in magnitude data", flush=True)
+                    return messages
+
+                threshold = mean_val + 2 * std_val
+
+                # Find pulse positions (simplified)
+                pulse_positions = np.where(magnitude > threshold)[0]
+            except (ValueError, RuntimeError, FloatingPointError) as e:
+                print(f"Pulse detection failed: {e}", flush=True)
+                return messages
+            except Exception as e:
+                print(f"Unexpected error in pulse detection: {e}", flush=True)
+                return messages
 
             if len(pulse_positions) >= 8:  # Minimum pulses for ADS-B
                 # Group pulses into potential messages
@@ -185,9 +248,13 @@ class ADSBTracker:
 
                         # Simulate realistic position data (around a typical airport)
                         base_lat, base_lon = 40.6413, -73.7781  # JFK Airport area
-                        lat_offset = (np.random.random() - 0.5) * 0.1
-                        lon_offset = (np.random.random() - 0.5) * 0.1
-                        altitude = 5000 + np.random.randint(-2000, 15000)  # 3000-20000 ft
+                        try:
+                            lat_offset = (np.random.random() - 0.5) * 0.1
+                            lon_offset = (np.random.random() - 0.5) * 0.1
+                            altitude = 5000 + np.random.randint(-2000, 15000)  # 3000-20000 ft
+                        except Exception as e:
+                            print(f"Random number generation failed: {e}", flush=True)
+                            continue
 
                         messages.append({
                             'icao': icao,
@@ -198,7 +265,8 @@ class ADSBTracker:
                         })
 
         except Exception as e:
-            # Silently handle decoding errors
+            # Log but don't crash on decoding errors
+            print(f"ADS-B decoding error: {e}", flush=True)
             pass
 
         return messages
@@ -391,6 +459,10 @@ class ConsoleADSBInterface:
                 time.sleep(5)  # Update every 5 seconds
 
             except KeyboardInterrupt:
+                break
+            except EOFError:
+                # Handle case where input stream is closed (remote disconnect)
+                print("\nInput stream closed, stopping text interface...")
                 break
 
         print("ADS-B tracking stopped")
@@ -664,12 +736,40 @@ def run_tracking_loop(tracker: ADSBTracker):
     try:
         while tracker.running:
             try:
-                # Read samples from SDR with error handling
+                # Check if SDR is still valid
+                if not hasattr(tracker, 'sdr') or tracker.sdr is None:
+                    print("SDR device lost, stopping tracking", flush=True)
+                    break
+
+                # Read samples from SDR with comprehensive error handling
                 try:
+                    # Check if SDR is still accessible
+                    if tracker.sdr is None:
+                        print("SDR device lost, stopping tracking", flush=True)
+                        break
+
                     samples = tracker.sdr.read_samples(65536)  # 64K samples
+                except (OSError, IOError) as e:
+                    print(f"SDR I/O error: {e}, device may be disconnected", flush=True)
+                    tracker._safe_close_sdr()
+                    break
                 except Exception as e:
                     print(f"SDR read error: {e}, retrying in 1 second", flush=True)
                     time.sleep(1)
+                    continue
+
+                # Validate samples with additional checks
+                if samples is None:
+                    print("No samples received from SDR (None)", flush=True)
+                    time.sleep(0.1)
+                    continue
+                elif len(samples) == 0:
+                    print("Empty samples received from SDR", flush=True)
+                    time.sleep(0.1)
+                    continue
+                elif not isinstance(samples, (list, np.ndarray)):
+                    print(f"Invalid sample type: {type(samples)}, expected array", flush=True)
+                    time.sleep(0.1)
                     continue
 
                 # Decode ADS-B messages
@@ -681,36 +781,83 @@ def run_tracking_loop(tracker: ADSBTracker):
 
                 # Process messages
                 try:
-                    tracker.process_adsb_messages(messages)
+                    if messages:  # Only process if we have messages
+                        tracker.process_adsb_messages(messages)
                 except Exception as e:
                     print(f"Message processing error: {e}, continuing", flush=True)
 
                 # Update statistics
-                tracker.total_messages += len(messages)
-                tracker.valid_messages += len([m for m in messages if 'icao' in m])
+                try:
+                    tracker.total_messages += len(messages)
+                    tracker.valid_messages += len([m for m in messages if 'icao' in m])
+                except Exception as e:
+                    print(f"Statistics update error: {e}", flush=True)
 
                 time.sleep(0.1)  # ~10 FPS
 
             except Exception as e:
-                print(f"ADS-B tracking error: {e}")
+                print(f"ADS-B tracking loop error: {e}", flush=True)
                 time.sleep(1)
 
     except KeyboardInterrupt:
-        print("\nADS-B tracking stopped")
+        print("\nADS-B tracking stopped by user", flush=True)
+    except Exception as e:
+        print(f"\nADS-B tracking stopped due to error: {e}", flush=True)
     finally:
+        print("Cleaning up ADS-B tracker...", flush=True)
         tracker.running = False
-        if tracker.sdr:
-            tracker.sdr.close()
+        if hasattr(tracker, 'sdr') and tracker.sdr:
+            try:
+                tracker.sdr.close()
+                print("SDR device closed", flush=True)
+            except Exception as e:
+                print(f"Error closing SDR: {e}", flush=True)
+
+def signal_handler(signum, frame):
+    """Handle signals including segmentation faults."""
+    print(f"\nReceived signal {signum} ({signal.Signals(signum).name})", flush=True)
+
+    # Clean up curses if it's initialized
+    try:
+        curses.endwin()
+        curses.curs_set(1)  # Show cursor
+        curses.echo()  # Re-enable echo
+    except:
+        pass
+
+    # Print helpful message
+    if signum == signal.SIGSEGV:
+        print("Segmentation fault detected. This may be due to:", flush=True)
+        print("- RTL-SDR hardware issues", flush=True)
+        print("- Driver compatibility problems", flush=True)
+        print("- Memory corruption in numpy/rtlsdr", flush=True)
+        print("", flush=True)
+        print("Try running with --text mode or check hardware connections.", flush=True)
+
+    # Exit cleanly
+    sys.exit(1)
+
+def is_remote_session():
+    """Check if running in a remote session (SSH, etc.)"""
+    import os
+    # Check for SSH environment variables
+    ssh_vars = ['SSH_CLIENT', 'SSH_TTY', 'SSH_CONNECTION']
+    return any(os.environ.get(var) for var in ssh_vars)
 
 def main():
     """Main ADS-B tracker function."""
     import argparse
 
+    # Set up signal handlers for graceful error handling
+    signal.signal(signal.SIGSEGV, signal_handler)  # Segmentation fault
+    signal.signal(signal.SIGABRT, signal_handler)  # Abort signal
+    signal.signal(signal.SIGBUS, signal_handler)  # Bus error
+
     parser = argparse.ArgumentParser(description='ADS-B Aircraft Tracker')
     parser.add_argument('--freq', type=float, default=1090,
-                       help='ADS-B frequency in MHz (default: 1090)')
+                        help='ADS-B frequency in MHz (default: 1090)')
     parser.add_argument('--gain', type=str, default='auto',
-                       help='SDR gain setting (auto or dB value)')
+                        help='SDR gain setting (auto or dB value)')
     parser.add_argument('--web', action='store_true',
                         help='Enable web interface')
     parser.add_argument('--text', action='store_true',
@@ -718,20 +865,52 @@ def main():
     parser.add_argument('--web-host', type=str, default='0.0.0.0',
                         help='Web server host')
     parser.add_argument('--web-port', type=int, default=5001,
-                       help='Web server port')
+                        help='Web server port')
 
     args = parser.parse_args()
+
+    # Check if RTL-SDR library is available
+    if rtlsdr is None:
+        print("ERROR: RTL-SDR library (pyrtlsdr) is not available.")
+        print("Please install it with: pip install pyrtlsdr")
+        print("Or run: ./setup.sh --full")
+        return
+
+    # Auto-detect remote sessions and force text mode for better compatibility
+    if is_remote_session() and not args.web and not args.text:
+        print("Remote session detected. Using text mode for better compatibility.")
+        print("Use --web for web interface or --text explicitly for text mode.")
+        args.text = True
 
     # Create tracker
     tracker = ADSBTracker()
     tracker.center_freq = int(args.freq * 1e6)
     tracker.gain = args.gain
 
+    # Try to initialize SDR first to check hardware availability
+    print("Checking RTL-SDR hardware availability...")
+    if not tracker.initialize_sdr():
+        print("\nADS-B tracking cannot start:")
+        print("- No RTL-SDR device detected")
+        print("- Hardware/driver issues")
+        print("- Permission problems")
+        print("\nTroubleshooting:")
+        print("1. Connect an RTL-SDR dongle")
+        print("2. Check USB connections")
+        print("3. Run as root if permission issues persist")
+        print("4. Try: rtl_test -t")
+        return
+
+    print("✓ RTL-SDR hardware detected and initialized")
+    print("Starting ADS-B tracking...")
+
     # Start tracking thread
     tracking_thread = threading.Thread(target=run_tracking_loop, args=(tracker,), daemon=True)
     tracking_thread.start()
 
     time.sleep(2)  # Let tracking start
+
+
 
     if args.web:
         # Run web interface
@@ -742,17 +921,23 @@ def main():
             print(f"Web interface failed: {e}")
             print("Falling back to text interface...")
             args.text = True  # Fall through to text
-            # Fall through
 
     if args.text:
         # Run text interface
         try:
             console = ConsoleADSBInterface(tracker)
             console.run_text()
+        except KeyboardInterrupt:
+            print("\nADS-B tracking stopped by user")
         except Exception as e:
             print(f"Text interface failed: {e}")
             print("ADS-B tracking continues in background...")
-            input("Press Enter to stop")
+            try:
+                input("Press Enter to stop")
+            except EOFError:
+                # Handle case where input is not available (remote session disconnect)
+                print("Input not available, stopping...")
+                pass
     else:
         # Run console interface
         def console_main(stdscr):
@@ -763,6 +948,35 @@ def main():
             curses.wrapper(console_main)
         except KeyboardInterrupt:
             pass
+        except curses.error as e:
+            print(f"Curses interface not available ({e})")
+            if is_remote_session():
+                print("This is expected in remote SSH sessions.")
+            print("Falling back to text mode...")
+            # Fall back to text interface
+            try:
+                console = ConsoleADSBInterface(tracker)
+                console.run_text()
+            except Exception as e2:
+                print(f"Text interface also failed ({e2})")
+                print("ADS-B tracking continues in background...")
+                try:
+                    input("Press Enter to stop")
+                except:
+                    pass  # Handle EOF in remote sessions
+        except Exception as e:
+            print(f"Console interface failed ({e}), falling back to text mode...")
+            # Fall back to text interface
+            try:
+                console = ConsoleADSBInterface(tracker)
+                console.run_text()
+            except Exception as e2:
+                print(f"Text interface also failed ({e2})")
+                print("ADS-B tracking continues in background...")
+                try:
+                    input("Press Enter to stop")
+                except:
+                    pass  # Handle EOF in remote sessions
 
     # Stop tracking
     tracker.running = False
