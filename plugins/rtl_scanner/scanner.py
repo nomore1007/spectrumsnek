@@ -1125,11 +1125,12 @@ def main(stdscr=None):
     if len(sys.argv) == 1:
         # No arguments passed (launched from menu)
         args = parser.parse_args([])  # Parse with no args
-        # Auto-detect remote sessions when launched from menu
-        if is_remote_session():
-            print("Remote session detected. Using text mode for better compatibility.")
-            print("Use --web for web interface when running from command line.")
-            args.text = True
+    # Auto-detect remote sessions when launched from menu
+    # Only treat as remote if we have SSH_TTY (actual remote session)
+    if 'SSH_TTY' in os.environ:
+        print("Remote session detected. Using text mode for better compatibility.")
+        print("Use --web for web interface when running from command line.")
+        args.text = True
     else:
         # Arguments passed (command line usage)
         args = parser.parse_args()

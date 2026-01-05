@@ -840,9 +840,25 @@ def signal_handler(signum, frame):
 def is_remote_session():
     """Check if running in a remote session (SSH, etc.)"""
     import os
-    # Check for SSH environment variables
+    # Check for SSH environment variables, but exclude if running as root (sudo)
+    # since sudo preserves SSH environment variables
     ssh_vars = ['SSH_CLIENT', 'SSH_TTY', 'SSH_CONNECTION']
-    return any(os.environ.get(var) for var in ssh_vars)
+    has_ssh_vars = any(os.environ.get(var) for var in ssh_vars)
+
+    # If running as root but has SSH vars, it's likely sudo preserving environment
+    # Check if we're actually in an interactive terminal (not remote)
+    if has_ssh_vars and os.geteuid() == 0:
+        try:
+            import sys
+            # If stdin/stdout are TTYs and not explicitly remote, treat as local
+            return not (sys.stdin.isatty() and sys.stdout.isatty())
+        except:
+            return True
+    elif has_ssh_vars and 'SSH_TTY' in os.environ:
+        # Has actual SSH TTY, definitely remote
+        return True
+
+    return False
 
 def main():
     """Main ADS-B tracker function."""
@@ -882,10 +898,14 @@ def main():
         return
 
     # Auto-detect remote sessions and force text mode for better compatibility
-    if is_remote_session() and not args.web and not args.text:
-        print("Remote session detected. Using text mode for better compatibility.")
-        print("Use --web for web interface or --text explicitly for text mode.")
-        args.text = True
+    # Skip remote detection if running with --web or --text explicitly
+    if not args.web and not args.text:
+        # Only treat as remote if we have SSH_TTY (actual remote session)
+        # SSH_CLIENT alone can be preserved by sudo
+        if 'SSH_TTY' in os.environ:
+            print("Remote session detected. Using text mode for better compatibility.")
+            print("Use --web for web interface or --text explicitly for text mode.")
+            args.text = True
 
     # Create tracker
     tracker = ADSBTracker()
