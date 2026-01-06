@@ -181,6 +181,7 @@ class ADSBTracker:
         """
         messages = []
 
+        # Outer try-catch to prevent any segfaults from propagating
         try:
             # Validate input with comprehensive checks
             if iq_samples is None:
@@ -194,8 +195,13 @@ class ADSBTracker:
             # Convert IQ samples to magnitude for basic pulse detection
             # This operation can cause segfaults if numpy array is corrupted
             try:
+                # Ensure we have a valid complex array
+                if iq_samples.dtype not in [np.complex64, np.complex128]:
+                    print(f"Unexpected IQ sample dtype: {iq_samples.dtype}, expected complex", flush=True)
+                    return messages
+
                 magnitude = np.abs(iq_samples)
-            except (ValueError, TypeError, RuntimeError) as e:
+            except (ValueError, TypeError, RuntimeError, SystemError) as e:
                 print(f"Numpy abs operation failed: {e}", flush=True)
                 return messages
             except Exception as e:
@@ -204,6 +210,15 @@ class ADSBTracker:
 
             # Validate magnitude array
             if len(magnitude) == 0 or magnitude.size == 0:
+                return messages
+
+            # Additional validation of magnitude array
+            try:
+                if not np.isfinite(magnitude).all():
+                    print("Magnitude array contains NaN or infinite values", flush=True)
+                    return messages
+            except Exception as e:
+                print(f"Magnitude validation failed: {e}", flush=True)
                 return messages
 
             # Simple threshold-based pulse detection
@@ -216,6 +231,11 @@ class ADSBTracker:
                 # Check for invalid values
                 if not np.isfinite(mean_val) or not np.isfinite(std_val):
                     print("Invalid statistical values in magnitude data", flush=True)
+                    return messages
+
+                # Additional safety checks
+                if std_val == 0:
+                    print("Zero standard deviation in magnitude data", flush=True)
                     return messages
 
                 threshold = mean_val + 2 * std_val
@@ -265,7 +285,7 @@ class ADSBTracker:
                         })
 
         except Exception as e:
-            # Log but don't crash on decoding errors
+            # Log but don't crash on decoding errors - catch everything including segfault precursors
             print(f"ADS-B decoding error: {e}", flush=True)
             pass
 
@@ -770,6 +790,24 @@ def run_tracking_loop(tracker: ADSBTracker):
                 elif not isinstance(samples, (list, np.ndarray)):
                     print(f"Invalid sample type: {type(samples)}, expected array", flush=True)
                     time.sleep(0.1)
+                    continue
+
+                # Additional validation for numpy arrays
+                try:
+                    if isinstance(samples, np.ndarray):
+                        # Check for NaN or infinite values that could cause issues
+                        if not np.isfinite(samples).all():
+                            print("SDR samples contain NaN or infinite values, skipping", flush=True)
+                            continue
+                        # Check array shape and dtype
+                        if samples.ndim != 1:
+                            print(f"Invalid SDR sample dimensions: {samples.ndim}, expected 1D", flush=True)
+                            continue
+                        if samples.dtype not in [np.complex64, np.complex128, np.float32, np.float64]:
+                            print(f"Unexpected SDR sample dtype: {samples.dtype}", flush=True)
+                            continue
+                except Exception as e:
+                    print(f"SDR sample validation failed: {e}, skipping", flush=True)
                     continue
 
                 # Decode ADS-B messages
