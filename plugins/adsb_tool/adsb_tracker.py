@@ -941,8 +941,7 @@ def main():
     except IOError:
         print("Warning: Could not create lock file", flush=True)
 
-    # Debug: Show that we're starting
-    print(f"DEBUG: ADS-B main() started with PID {os.getpid()}", flush=True)
+
 
     # Set up signal handlers for graceful error handling
     signal.signal(signal.SIGSEGV, signal_handler)  # Segmentation fault
