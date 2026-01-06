@@ -905,6 +905,10 @@ def is_remote_session():
 def main():
     """Main ADS-B tracker function."""
     import argparse
+    import os
+
+    # Debug: Show that we're starting
+    print(f"DEBUG: ADS-B main() called with PID {os.getpid()}", flush=True)
 
     # Set up signal handlers for graceful error handling
     signal.signal(signal.SIGSEGV, signal_handler)  # Segmentation fault
