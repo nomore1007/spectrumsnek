@@ -867,6 +867,14 @@ def signal_handler(signum, frame):
         # Any other curses-related error
         pass
 
+    # Clean up lock file on crash
+    try:
+        lock_file = '/tmp/adsb_tracker.lock'
+        if os.path.exists(lock_file):
+            os.remove(lock_file)
+    except:
+        pass
+
     # Print helpful message
     if signum == signal.SIGSEGV:
         print("Segmentation fault detected. This may be due to:", flush=True)
@@ -906,9 +914,35 @@ def main():
     """Main ADS-B tracker function."""
     import argparse
     import os
+    import sys
+
+    # Prevent multiple instances by checking for existing process
+    lock_file = '/tmp/adsb_tracker.lock'
+    if os.path.exists(lock_file):
+        try:
+            with open(lock_file, 'r') as f:
+                existing_pid = int(f.read().strip())
+            # Check if process is still running
+            os.kill(existing_pid, 0)
+            print("ADS-B tracker is already running (PID {}). Exiting.".format(existing_pid), flush=True)
+            sys.exit(1)
+        except (OSError, ValueError):
+            # Process not running or invalid PID, remove stale lock
+            try:
+                os.remove(lock_file)
+            except OSError:
+                pass
+
+    # Create lock file
+    try:
+        with open(lock_file, 'w') as f:
+            f.write(str(os.getpid()))
+            f.flush()
+    except IOError:
+        print("Warning: Could not create lock file", flush=True)
 
     # Debug: Show that we're starting
-    print(f"DEBUG: ADS-B main() called with PID {os.getpid()}", flush=True)
+    print(f"DEBUG: ADS-B main() started with PID {os.getpid()}", flush=True)
 
     # Set up signal handlers for graceful error handling
     signal.signal(signal.SIGSEGV, signal_handler)  # Segmentation fault
@@ -1057,6 +1091,14 @@ def main():
     tracker.running = False
     if tracking_thread.is_alive():
         tracking_thread.join(timeout=2)
+
+    # Clean up lock file
+    try:
+        lock_file = '/tmp/adsb_tracker.lock'
+        if os.path.exists(lock_file):
+            os.remove(lock_file)
+    except:
+        pass
 
 if __name__ == "__main__":
     main()
