@@ -680,7 +680,7 @@ def main():
         if module_name == "rtl_scanner" or module_name == "scanner":
             print("Starting RTL-SDR Scanner directly...")
             try:
-                import rtl_scanner
+                import plugins.rtl_scanner as rtl_scanner
                 rtl_scanner.run()
             except ImportError:
                 print("RTL-SDR scanner not available. Run setup.sh first.")
@@ -688,7 +688,7 @@ def main():
         elif module_name == "adsb" or module_name == "adsb_tool":
             print("Starting ADS-B Aircraft Tracker directly...")
             try:
-                import adsb_tool
+                import plugins.adsb_tool as adsb_tool
                 adsb_tool.run()
             except ImportError:
                 print("ADS-B tool not available. Run setup.sh first.")
