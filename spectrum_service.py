@@ -29,6 +29,7 @@ class SpectrumService:
         self.running_tools: Dict[str, Any] = {}
         self.config = config_manager
         self.max_concurrent_tools = self.config.get('service.max_concurrent_tools', 1)
+        self.start_time = time.time()  # Track service start time
         self.load_tools()
 
         # Setup routes
@@ -74,9 +75,7 @@ class SpectrumService:
                 elif name == 'demo_scanner':
                     from plugins.demo_scanner import run
                     tool['local_run'] = run
-                    from plugins.system_tools.audio_output_selector import AudioOutputSelector
-                    tool['local_run'] = AudioOutputSelector().run
-                # For other system tools, keep as is
+                # For other tools, keep as is
             except ImportError:
                 pass
 
@@ -192,7 +191,7 @@ class SpectrumService:
                                     'tmux_session': f'spectrum-{tool_name}',
                                     'start_time': time.time()
                                 }
-                            self.tools[tool_name]['status'] = 'running'
+                                self.tools[tool_name]['status'] = 'running'
                             else:
                                 return jsonify({'error': 'Tool failed to start (session did not persist)'}), 500
                         except subprocess.CalledProcessError as e:
@@ -298,8 +297,32 @@ class SpectrumService:
             return jsonify({
                 'status': 'running',
                 'tools_loaded': len(self.tools),
-                'tools_running': len(self.running_tools)
+                'tools_running': len(self.running_tools),
+                'uptime': time.time() - getattr(self, 'start_time', time.time()),
+                'timestamp': time.time()
             })
+
+        @self.app.route('/api/health', methods=['GET'])
+        def health_check():
+            """Health check endpoint for monitoring."""
+            try:
+                # Check if we can access basic system info
+                system_info = self._get_system_info()
+                if 'error' in system_info:
+                    return jsonify({'status': 'unhealthy', 'error': system_info['error']}), 503
+
+                # Check if tools can be loaded
+                if len(self.tools) == 0:
+                    return jsonify({'status': 'unhealthy', 'error': 'No tools loaded'}), 503
+
+                return jsonify({
+                    'status': 'healthy',
+                    'tools_loaded': len(self.tools),
+                    'tools_running': len(self.running_tools),
+                    'timestamp': time.time()
+                })
+            except Exception as e:
+                return jsonify({'status': 'unhealthy', 'error': str(e)}), 503
 
         @self.app.route('/api/system', methods=['GET'])
         def get_system_info():
@@ -336,9 +359,13 @@ class SpectrumService:
             return {'error': 'Could not get system info'}
 
     def _periodic_status_updates(self):
-        """Send periodic status updates via WebSocket."""
+        """Send periodic status updates and perform health checks."""
+        last_health_check = time.time()
+
         while True:
             try:
+                current_time = time.time()
+
                 # Send system info update (would go to WebSocket clients)
                 system_info = self._get_system_info()
 
@@ -347,13 +374,72 @@ class SpectrumService:
                     'status': 'running',
                     'tools_loaded': len(self.tools),
                     'tools_running': len(self.running_tools),
-                    'timestamp': time.time()
+                    'timestamp': current_time
                 }
+
+                # Perform health checks every 30 seconds
+                if current_time - last_health_check > 30:
+                    self._perform_health_checks()
+                    last_health_check = current_time
 
             except Exception as e:
                 print(f"Error in periodic updates: {e}")
 
             time.sleep(5)  # Update every 5 seconds
+
+    def _perform_health_checks(self):
+        """Perform health checks on running tools and clean up dead processes."""
+        tools_to_remove = []
+
+        for tool_name, running_info in self.running_tools.items():
+            try:
+                is_alive = False
+
+                if 'tmux_session' in running_info:
+                    # Check tmux session
+                    try:
+                        result = subprocess.run(['tmux', 'has-session', '-t', running_info['tmux_session']],
+                                              capture_output=True, timeout=5)
+                        is_alive = result.returncode == 0
+                    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                        is_alive = False
+
+                    if not is_alive:
+                        print(f"Tool {tool_name}: tmux session {running_info['tmux_session']} died, cleaning up")
+                        tools_to_remove.append(tool_name)
+
+                elif 'process' in running_info:
+                    # Check subprocess
+                    proc = running_info['process']
+                    if proc.poll() is not None:
+                        print(f"Tool {tool_name}: process exited with code {proc.returncode}, cleaning up")
+                        tools_to_remove.append(tool_name)
+                    else:
+                        is_alive = True
+
+                elif 'thread' in running_info:
+                    # Check thread
+                    thread = running_info['thread']
+                    if thread and thread.is_alive():
+                        is_alive = True
+                    else:
+                        print(f"Tool {tool_name}: thread died, cleaning up")
+                        tools_to_remove.append(tool_name)
+
+                # Update status if tool is still alive
+                if is_alive and tool_name in self.tools:
+                    self.tools[tool_name]['status'] = 'running'
+
+            except Exception as e:
+                print(f"Error checking health of tool {tool_name}: {e}")
+                tools_to_remove.append(tool_name)
+
+        # Clean up dead tools
+        for tool_name in tools_to_remove:
+            if tool_name in self.running_tools:
+                del self.running_tools[tool_name]
+            if tool_name in self.tools:
+                self.tools[tool_name]['status'] = 'stopped'
 
     def run(self, host=None, port=None):
         """Run the service."""
@@ -363,6 +449,7 @@ class SpectrumService:
             port = self.config.get('service.port', 5000)
 
         print(f"Starting SpectrumSnek Service on {host}:{port}")
+        print(f"Service started at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         # Check for existing service first
         if self._check_existing_service(host, port):
@@ -372,8 +459,24 @@ class SpectrumService:
             print("Use './service_manager.sh stop' to stop the service first")
             return
 
+        # Set up signal handlers for graceful shutdown
+        def signal_handler(signum, frame):
+            print(f"\nReceived signal {signum}, shutting down gracefully...")
+            self._graceful_shutdown()
+            import sys
+            sys.exit(0)
+
+        import signal
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+
         try:
             print("Starting with Flask development server...")
+            print("Health check available at: http://127.0.0.1:5000/api/health")
+            print("API endpoints available at: http://127.0.0.1:5000/api/")
+            print("Press Ctrl+C to stop the service")
+            print("-" * 50)
+
             self.app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
         except OSError as e:
             if e.errno == 98:  # Address already in use
@@ -392,6 +495,53 @@ class SpectrumService:
             else:
                 print(f"ERROR: Failed to start service: {e}")
             raise
+        except Exception as e:
+            print(f"ERROR: Unexpected error starting service: {e}")
+            raise
+
+    def _graceful_shutdown(self):
+        """Perform graceful shutdown of running tools."""
+        print("Performing graceful shutdown...")
+
+        # Stop all running tools
+        tools_to_stop = list(self.running_tools.keys())
+        for tool_name in tools_to_stop:
+            try:
+                print(f"Stopping tool: {tool_name}")
+                self._stop_tool_internal(tool_name)
+            except Exception as e:
+                print(f"Error stopping tool {tool_name}: {e}")
+
+        print("Shutdown complete")
+
+    def _stop_tool_internal(self, tool_name):
+        """Internal method to stop a tool (used during shutdown)."""
+        if tool_name not in self.running_tools:
+            return
+
+        running_info = self.running_tools[tool_name]
+
+        if 'tmux_session' in running_info:
+            # Stop tmux session
+            try:
+                subprocess.run(['tmux', 'kill-session', '-t', running_info['tmux_session']],
+                             check=True, timeout=5)
+            except subprocess.CalledProcessError:
+                pass  # Session may already be dead
+        elif 'process' in running_info:
+            # Stop subprocess
+            proc = running_info['process']
+            if proc and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+        # Threads will be cleaned up automatically as daemon threads
+
+        self.tools[tool_name]['status'] = 'stopped'
+        if tool_name in self.running_tools:
+            del self.running_tools[tool_name]
 
     def _tmux_available(self):
         """Check if tmux is available."""

@@ -531,7 +531,18 @@ class WebRTLScanner:
 
             try:
                 # Capture samples
-                samples = self.sdr.read_samples(self.fft_size)
+                try:
+                    samples = self.sdr.read_samples(self.fft_size)
+                except (IOError, OSError, Exception) as e:
+                    logger.error(f"Failed to read samples from SDR: {e}")
+                    # Try to reinitialize device
+                    try:
+                        self.initialize_device()
+                        samples = self.sdr.read_samples(self.fft_size)
+                    except Exception:
+                        logger.error("Failed to reinitialize SDR device")
+                        self.is_running = False
+                        return
 
                 # Compute FFT for spectrum display
                 windowed_samples = samples * self.window

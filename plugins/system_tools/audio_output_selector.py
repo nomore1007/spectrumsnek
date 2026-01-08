@@ -6,10 +6,24 @@ Curses-based interface for selecting audio output devices, including Bluetooth.
 """
 
 import curses
-import pyaudio
 import subprocess
 import time
 from typing import List, Dict, Any, Optional
+
+# Try to import audio libraries
+try:
+    import sounddevice as sd
+    SOUNDDEVICE_AVAILABLE = True
+except ImportError:
+    sd = None
+    SOUNDDEVICE_AVAILABLE = False
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    np = None
+    NUMPY_AVAILABLE = False
 
 class AudioDevice:
     """Represents an audio device."""
@@ -30,6 +44,10 @@ class AudioOutputSelector:
 
     def scan_devices(self) -> List[AudioDevice]:
         """Scan for available audio output devices."""
+        if not SOUNDDEVICE_AVAILABLE:
+            self.status_message = "sounddevice library not available"
+            return []
+
         try:
             devices_info = sd.query_devices()
             devices = []
@@ -41,6 +59,7 @@ class AudioOutputSelector:
                     is_bt = 'blue' in name.lower() or 'bluetooth' in name.lower()
                     devices.append(AudioDevice(i, name, max_out, is_bt))
 
+            self.status_message = f"Found {len(devices)} audio output devices"
             return devices
 
         except Exception as e:
@@ -49,6 +68,9 @@ class AudioOutputSelector:
 
     def get_current_default(self) -> Optional[AudioDevice]:
         """Get the current default output device."""
+        if not SOUNDDEVICE_AVAILABLE:
+            return None
+
         try:
             default_idx = sd.default.device[1]  # [input, output]
             for device in self.devices:
@@ -61,20 +83,25 @@ class AudioOutputSelector:
     def set_default_device(self, device: AudioDevice) -> bool:
         """Set the default audio output device."""
         try:
-            # Note: pyaudio doesn't directly set system default
-            # This would require system-specific commands
-            # For now, just show instructions
-            self.status_message = f"To set {device.name} as default, use system audio settings"
-            return True
+            # Try to set default using sounddevice (works for the current session)
+            if SOUNDDEVICE_AVAILABLE:
+                sd.default.device[1] = device.index
+                self.status_message = f"Set {device.name} as default for this session"
+                return True
+            else:
+                self.status_message = "Cannot set default device - sounddevice not available"
+                return False
         except Exception as e:
             self.status_message = f"Error setting device: {e}"
             return False
 
     def test_audio_device(self, device: AudioDevice) -> bool:
         """Test audio output on the selected device."""
-        try:
-            import numpy as np
+        if not SOUNDDEVICE_AVAILABLE or not NUMPY_AVAILABLE:
+            self.status_message = "Audio testing requires sounddevice and numpy"
+            return False
 
+        try:
             # Generate a short test tone
             duration = 0.5
             frequency = 440  # A4 note
@@ -194,11 +221,18 @@ class AudioOutputSelector:
         print("Audio Output Selector")
         print("====================")
 
-        # Check if sounddevice is available
-        try:
-            import sounddevice
-        except ImportError:
-            print("sounddevice not found. Please install with: pip install sounddevice")
+        # Check dependencies
+        missing_deps = []
+        if not SOUNDDEVICE_AVAILABLE:
+            missing_deps.append("sounddevice (pip install sounddevice)")
+        if not NUMPY_AVAILABLE:
+            missing_deps.append("numpy (pip install numpy)")
+
+        if missing_deps:
+            print("Missing required dependencies:")
+            for dep in missing_deps:
+                print(f"  - {dep}")
+            print("\nInstall with: pip install sounddevice numpy")
             return
 
         try:

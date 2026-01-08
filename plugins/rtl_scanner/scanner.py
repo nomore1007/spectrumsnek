@@ -83,16 +83,6 @@ class InteractiveRTLScanner:
             'DMR': 'DMR'
         }
 
-    def set_mode(self, mode_str):
-        """Set the demodulation mode from display string."""
-        for k, v in self.mode_map.items():
-            if v == mode_str:
-                self.mode = k
-                break
-
-    def get_current_mode(self):
-        return self.mode_map.get(self.mode, self.mode)
-
         # PPM drift correction
         self.ppm_drift = 0  # Parts per million frequency correction
 
@@ -128,10 +118,32 @@ class InteractiveRTLScanner:
 
         # Threading and synchronization
         self.capture_thread = None
-        self.display_thread = None
-        self.sdr_lock = threading.Lock()  # Protect SDR device access
-        self.running = True
-        self.is_running = True
+        self.sdr_lock = threading.Lock()
+        self.audio_lock = threading.Lock()
+
+        # Audio output
+        self.audio_enabled = False
+        self.audio_output = None
+
+        # Web interface
+        self.web_enabled = False
+        self.web_host = 'localhost'
+        self.web_port = 5000
+        self.web_clients = []
+
+        # Menu navigation
+        self.menu_row = 0
+        self.menu_col = 0
+        self.selectable_menu_items = list(range(7))  # All 7 menu items are selectable
+
+        self.audio_thread = None
+
+    def set_mode(self, mode_str):
+        """Set the demodulation mode from display string."""
+        for k, v in self.mode_map.items():
+            if v == mode_str:
+                self.mode = k
+                break
 
     def close(self):
         """Close the SDR device."""
@@ -252,7 +264,18 @@ class InteractiveRTLScanner:
 
             try:
                 # Capture samples
-                samples = self.sdr.read_samples(self.fft_size)
+                try:
+                    samples = self.sdr.read_samples(self.fft_size)
+                except (IOError, OSError, Exception) as e:
+                    logger.error(f"Failed to read samples from SDR: {e}")
+                    # Try to reinitialize device
+                    try:
+                        self.initialize_device()
+                        samples = self.sdr.read_samples(self.fft_size)
+                    except Exception:
+                        logger.error("Failed to reinitialize SDR device")
+                        self.is_running = False
+                        return
 
                 # Compute FFT for spectrum display
                 windowed_samples = samples * self.window
