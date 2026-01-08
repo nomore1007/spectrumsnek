@@ -8,49 +8,7 @@ import sys
 import os
 import time
 import curses
-try:
-
-    from textual.app import App, ComposeResult
-
-    from textual.widgets import OptionList, Header, Footer
-
-    TEXTUAL_AVAILABLE = True
-
-    class SpectrumMenu(App):
-
-        def __init__(self, modules):
-
-            super().__init__()
-
-            self.modules = modules
-
-            self.selected_module = None
-
-        def compose(self) -> ComposeResult:
-
-            yield Header("SpectrumSnek Tools")
-
-            options = [f"{module.name}: {module.description}" for module in self.modules]
-
-            yield OptionList(*options)
-
-            yield Footer()
-
-        def on_option_list_option_selected(self, event):
-            index = event.option_index
-            if 0 <= index < len(self.modules):
-                self.selected_module = self.modules[index]
-                self.exit()
-
-        def on_key(self, event):
-            if event.key == "q" or event.key == "Q":
-                self.exit()
-            elif event.key == "b" or event.key == "B" or event.key == "escape":
-                self.exit()
-
-except ImportError:
-
-    TEXTUAL_AVAILABLE = False
+TEXTUAL_AVAILABLE = False
 import time
 from typing import List, Dict, Any
 
@@ -159,8 +117,8 @@ class RadioToolsLoader:
                             is_remote = False
 
                         if is_remote:
-                            # Remote session - don't wrap with curses
-                            run_function = lambda run_func=plugin_module.run: run_func()
+                            # Remote session - don't wrap with curses, pass text mode hint
+                            run_function = lambda run_func=plugin_module.run: run_func("--text")
                         else:
                             # Local session - wrap with curses
                             run_function = lambda run_func=plugin_module.run: curses.wrapper(run_func)
@@ -524,21 +482,7 @@ class RadioToolsLoader:
 
     def run(self):
         """Main run loop."""
-        if TEXTUAL_AVAILABLE:
-            try:
-                while True:
-                    app = SpectrumMenu(self.modules)
-                    app.run()
-                    if app.selected_module:
-                        self.run_selected_module(app.selected_module)
-                    else:
-                        break
-            except Exception:
-                # Textual failed, fall back to curses menu
-                print("Textual interface failed, falling back to curses menu...")
-                curses.wrapper(self.run_curses_menu)
-        else:
-            curses.wrapper(self.run_curses_menu)
+        curses.wrapper(self.run_curses_menu)
 
     def getch(self):
         """Read a single key, handling escape sequences for arrows."""
