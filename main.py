@@ -676,12 +676,15 @@ def main():
     if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):
         # Direct module execution (legacy)
         module_name = sys.argv[1]
+        # Remove module_name from unknown args
+        if unknown and unknown[0] == module_name:
+            unknown = unknown[1:]
 
         if module_name == "rtl_scanner" or module_name == "scanner":
             print("Starting RTL-SDR Scanner directly...")
             try:
                 import plugins.rtl_scanner as rtl_scanner
-                rtl_scanner.run()
+                rtl_scanner.run(*unknown)
             except ImportError:
                 print("RTL-SDR scanner not available. Run setup.sh first.")
                 sys.exit(1)
@@ -689,7 +692,7 @@ def main():
             print("Starting ADS-B Aircraft Tracker directly...")
             try:
                 import plugins.adsb_tool as adsb_tool
-                adsb_tool.run()
+                adsb_tool.run(*unknown)
             except ImportError:
                 print("ADS-B tool not available. Run setup.sh first.")
                 sys.exit(1)

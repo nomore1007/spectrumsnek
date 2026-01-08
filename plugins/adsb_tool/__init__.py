@@ -26,4 +26,4 @@ def get_module_info():
 def run(*args, **kwargs):
     """Run the ADS-B tool module."""
     from .adsb_tracker import main
-    main()
+    main(args)

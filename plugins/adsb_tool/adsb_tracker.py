@@ -901,7 +901,7 @@ def is_remote_session():
 
     return False
 
-def main():
+def main(args=None):
     """Main ADS-B tracker function."""
     import argparse
     import os
@@ -953,7 +953,7 @@ def main():
     parser.add_argument('--web-port', type=int, default=5001,
                         help='Web server port')
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     # Check if RTL-SDR library is available
     if rtlsdr is None:
