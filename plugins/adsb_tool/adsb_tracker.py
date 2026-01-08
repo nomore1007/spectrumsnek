@@ -97,7 +97,7 @@ class ADSBTracker:
         self.running = False
         self.center_freq = 1090000000  # 1090 MHz (ADS-B frequency)
         self.sample_rate = 2000000  # 2 MHz sample rate
-        self.gain = 'auto'
+        self.gain = 40  # Manual gain for better sensitivity
 
         # ADS-B message statistics
         self.total_messages = 0
@@ -238,7 +238,7 @@ class ADSBTracker:
                     print("Zero standard deviation in magnitude data", flush=True)
                     return messages
 
-                threshold = mean_val + 2 * std_val
+                threshold = mean_val + 1 * std_val  # Lower threshold for ADS-B detection
 
                 # Find pulse positions (simplified)
                 pulse_positions = np.where(magnitude > threshold)[0]
@@ -249,40 +249,31 @@ class ADSBTracker:
                 print(f"Unexpected error in pulse detection: {e}", flush=True)
                 return messages
 
-            if len(pulse_positions) >= 8:  # Minimum pulses for ADS-B
-                # Group pulses into potential messages
-                # This is highly simplified - real ADS-B decoding requires:
-                # 1. Preamble detection (8μs pattern)
-                # 2. Manchester decoding
-                # 3. CRC checking
-                # 4. Message parsing
+            # Simulate aircraft detection for demo purposes
+            # In reality, this would parse actual ADS-B messages
+            # For now, always show some simulated aircraft to test the interface
+            icao_addresses = ['ABC123', 'DEF456', 'GHI789', 'JKL012', 'MNO567', 'PQR890']
 
-                # Simulate aircraft detection for demo purposes
-                # In reality, this would parse actual ADS-B messages
-                icao_addresses = ['ABC123', 'DEF456', 'GHI789', 'JKL012']
+            for i, icao in enumerate(icao_addresses):
+                # Simulate realistic position data (around a typical airport)
+                base_lat, base_lon = 40.6413, -73.7781  # JFK Airport area
+                try:
+                    lat_offset = (np.random.random() - 0.5) * 0.1
+                    lon_offset = (np.random.random() - 0.5) * 0.1
+                    altitude = 5000 + np.random.randint(-2000, 15000)  # 3000-20000 ft
+                    callsign = f"DEMO{i+1:02d}"
+                except Exception as e:
+                    print(f"Random number generation failed: {e}", flush=True)
+                    continue
 
-                for i, pos in enumerate(pulse_positions[:len(icao_addresses)]):
-                    if i < len(icao_addresses):
-                        # Simulate different aircraft
-                        icao = icao_addresses[i % len(icao_addresses)]
-
-                        # Simulate realistic position data (around a typical airport)
-                        base_lat, base_lon = 40.6413, -73.7781  # JFK Airport area
-                        try:
-                            lat_offset = (np.random.random() - 0.5) * 0.1
-                            lon_offset = (np.random.random() - 0.5) * 0.1
-                            altitude = 5000 + np.random.randint(-2000, 15000)  # 3000-20000 ft
-                        except Exception as e:
-                            print(f"Random number generation failed: {e}", flush=True)
-                            continue
-
-                        messages.append({
-                            'icao': icao,
-                            'lat': base_lat + lat_offset,
-                            'lon': base_lon + lon_offset,
-                            'alt': altitude,
-                            'timestamp': datetime.now()
-                        })
+                messages.append({
+                    'icao': icao,
+                    'lat': base_lat + lat_offset,
+                    'lon': base_lon + lon_offset,
+                    'alt': altitude,
+                    'callsign': callsign,
+                    'timestamp': datetime.now()
+                })
 
         except Exception as e:
             # Log but don't crash on decoding errors - catch everything including segfault precursors
@@ -951,7 +942,7 @@ def main():
     parser = argparse.ArgumentParser(description='ADS-B Aircraft Tracker')
     parser.add_argument('--freq', type=float, default=1090,
                         help='ADS-B frequency in MHz (default: 1090)')
-    parser.add_argument('--gain', type=str, default='auto',
+    parser.add_argument('--gain', type=str, default='40',
                         help='SDR gain setting (auto or dB value)')
     parser.add_argument('--web', action='store_true',
                         help='Enable web interface')
@@ -1001,7 +992,10 @@ def main():
     # Create tracker
     tracker = ADSBTracker()
     tracker.center_freq = int(args.freq * 1e6)
-    tracker.gain = args.gain
+    if args.gain == 'auto':
+        tracker.gain = 'auto'
+    else:
+        tracker.gain = int(args.gain)
 
     # Start tracking thread (SDR initialization happens in the thread)
     print("Starting ADS-B tracking...")

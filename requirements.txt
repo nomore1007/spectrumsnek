@@ -1,6 +1,6 @@
 pyrtlsdr==0.3.0
-numpy==2.4.0
-scipy==1.16.3
+numpy<2.0.0,>=1.21.0
+scipy<2.0.0,>=1.7.0
 setuptools<81
 flask==3.1.2
 flask-socketio==5.6.0
@@ -9,3 +9,4 @@ sounddevice==0.5.1
 requests==2.31.0
 psutil==6.1.0
 textual==0.79.1
+pymodes==2.8
