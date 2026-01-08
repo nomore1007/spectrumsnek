@@ -117,11 +117,11 @@ class RadioToolsLoader:
                             is_remote = False
 
                         if is_remote:
-                            # Remote session - don't wrap with curses, pass text mode hint
+                            # Remote session - run in text mode
                             run_function = lambda run_func=plugin_module.run: run_func("--text")
                         else:
-                            # Local session - wrap with curses
-                            run_function = lambda run_func=plugin_module.run: curses.wrapper(run_func)
+                            # Local session - run normally, let the tool handle its own interface
+                            run_function = lambda run_func=plugin_module.run: run_func()
 
                         self.modules.append(ModuleInfo(
                             short_name,
