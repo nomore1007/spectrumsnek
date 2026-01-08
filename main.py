@@ -116,12 +116,8 @@ class RadioToolsLoader:
                         if is_remote and os.geteuid() == 0 and 'SSH_TTY' not in os.environ:
                             is_remote = False
 
-                        if is_remote:
-                            # Remote session - run in text mode
-                            run_function = lambda run_func=plugin_module.run: run_func("--text")
-                        else:
-                            # Local session - run normally, let the tool handle its own interface
-                            run_function = lambda run_func=plugin_module.run: run_func()
+                        # Always run in text mode to avoid curses compatibility issues
+                        run_function = lambda run_func=plugin_module.run: run_func("--text")
 
                         self.modules.append(ModuleInfo(
                             short_name,
