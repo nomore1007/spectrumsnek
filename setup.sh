@@ -84,7 +84,7 @@ install_system_deps() {
         # Debian/Ubuntu/Raspberry Pi OS
         OS="debian"
         RTLSDR_PKG="rtl-sdr"
-        PYTHON_DEV_PKG="python3-dev python3-all-dev python3-pip python3-numpy python3-scipy"
+        PYTHON_DEV_PKG="python3-dev python3-all-dev python3.13-dev python3-pip python3-numpy python3-scipy"
         PULSEAUDIO_PKG="pulseaudio pulseaudio-module-bluetooth alsa-utils"
         BLUEZ_PKG="bluez"
         BLUEZ_TOOLS_PKG="bluez-tools"
