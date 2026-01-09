@@ -596,7 +596,10 @@ class RadioToolsLoader:
             print(f"Error running {module.name}: {e}")
         finally:
             print(f"\nReturning to Radio Tools Loader")
-            input("Press Enter to continue...")
+            try:
+                input("Press Enter to continue...")
+            except (EOFError, KeyboardInterrupt):
+                pass  # Allow graceful exit in remote sessions
 
 def check_dependencies():
     """Check if basic dependencies are available."""
