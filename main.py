@@ -504,6 +504,9 @@ class RadioToolsLoader:
 
     def get_key(self):
         """Get a key press, supporting arrow keys if possible."""
+        if not sys.stdin.isatty():
+            print("Non-interactive session detected, exiting menu...")
+            return 'q'
         try:
             import sys
             import tty
@@ -530,8 +533,11 @@ class RadioToolsLoader:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old)
         except:
             # Fallback to input for number selection
-            choice = input("Choice: ").strip()
-            return choice
+            try:
+                choice = input("Choice: ").strip()
+                return choice
+            except (EOFError, KeyboardInterrupt):
+                return 'q'
 
     def text_menu_loop(self):
         """Text-based menu loop with arrow key support."""
