@@ -5,10 +5,15 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
 
-# Check if virtual environment exists
+# Check if virtual environment exists, auto-setup if needed
 if [ ! -d "$VENV_DIR" ]; then
-    echo "Virtual environment not found. Please run ./setup.sh first."
-    exit 1
+    echo "Virtual environment not found. Running automatic setup..."
+    if [ -f "./setup.sh" ]; then
+        ./setup.sh --auto
+    else
+        echo "Setup script not found. Please ensure setup.sh exists."
+        exit 1
+    fi
 fi
 
 # Handle special commands
