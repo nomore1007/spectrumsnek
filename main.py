@@ -508,7 +508,6 @@ class RadioToolsLoader:
             print("Non-interactive session detected, exiting menu...")
             return 'q'
         try:
-            import sys
             import tty
             import termios
             fd = sys.stdin.fileno()
