@@ -96,7 +96,7 @@ class ADSBTracker:
         self.sdr = None
         self.running = False
         self.center_freq = 1090000000  # 1090 MHz (ADS-B frequency)
-        self.sample_rate = 2000000  # 2 MHz sample rate
+        self.sample_rate = 2400000  # 2.4 MHz sample rate (matches dump1090)
         self.gain = 40  # Manual gain for better sensitivity
 
         # ADS-B message statistics
@@ -248,7 +248,7 @@ class ADSBTracker:
                     print("Zero standard deviation in magnitude data", flush=True)
                     return messages
 
-                threshold = mean_val + 0.5 * std_val  # Even lower threshold
+                threshold = mean_val + 0.1 * std_val  # Very low threshold for signal detection
 
                 # Find pulse positions (simplified)
                 pulse_positions = np.where(magnitude > threshold)[0]
@@ -956,7 +956,7 @@ def main(args=None):
     parser = argparse.ArgumentParser(description='ADS-B Aircraft Tracker')
     parser.add_argument('--freq', type=float, default=1090,
                         help='ADS-B frequency in MHz (default: 1090)')
-    parser.add_argument('--gain', type=str, default='auto',
+    parser.add_argument('--gain', type=str, default='40',
                         help='SDR gain setting (auto or dB value)')
     parser.add_argument('--web', action='store_true',
                         help='Enable web interface')
