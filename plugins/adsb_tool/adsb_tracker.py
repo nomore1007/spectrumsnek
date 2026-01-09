@@ -248,7 +248,7 @@ class ADSBTracker:
                     print("Zero standard deviation in magnitude data", flush=True)
                     return messages
 
-                threshold = mean_val + 0.1 * std_val  # Very low threshold for signal detection
+                threshold = mean_val + 1.0 * std_val  # Standard threshold for signal detection
 
                 # Find pulse positions (simplified)
                 pulse_positions = np.where(magnitude > threshold)[0]
@@ -956,7 +956,7 @@ def main(args=None):
     parser = argparse.ArgumentParser(description='ADS-B Aircraft Tracker')
     parser.add_argument('--freq', type=float, default=1090,
                         help='ADS-B frequency in MHz (default: 1090)')
-    parser.add_argument('--gain', type=str, default='40',
+    parser.add_argument('--gain', type=str, default='auto',
                         help='SDR gain setting (auto or dB value)')
     parser.add_argument('--web', action='store_true',
                         help='Enable web interface')
