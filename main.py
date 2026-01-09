@@ -701,15 +701,13 @@ def main():
             print("Available modules: rtl_scanner, adsb_tool, demo")
             sys.exit(1)
     else:
-        # Interactive menu
+        # Interactive menu - skip curses, use text menu directly
         try:
-            loader.run()
+            loader.text_menu_loop()
         except KeyboardInterrupt:
             print("\nRadio Tools Loader stopped by user")
         except Exception as e:
-            print(f"\nError in interactive menu: {e}")
-            print("Falling back to text-based menu...")
-            loader.text_menu_loop()
+            print(f"\nError in text menu: {e}")
 
 if __name__ == "__main__":
     main()
