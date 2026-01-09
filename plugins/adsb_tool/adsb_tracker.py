@@ -435,6 +435,7 @@ class ConsoleADSBInterface:
 
         print("ADS-B Aircraft Tracker - Text Mode")
         print("Press Ctrl+C or 'q' to quit")
+        print("DEBUG: Entering text mode loop...")
         print()
 
         while self.tracker.running:
@@ -954,42 +955,8 @@ def main(args=None):
                         help='Web server port')
 
     args = parser.parse_args(args)
+    print("DEBUG: ADS-B tool arguments parsed, initializing...")
 
-    # Check if RTL-SDR library is available
-    if rtlsdr is None:
-        print("ERROR: RTL-SDR library (pyrtlsdr) is not available.")
-        print("This usually means the virtual environment is not activated.")
-        print("")
-        print("Solutions:")
-        print("1. Run SpectrumSnek through the launcher: ./run_spectrum.sh")
-        print("2. Activate venv manually: source venv/bin/activate")
-        print("3. Install pyrtlsdr: pip install pyrtlsdr")
-        print("4. Run setup: ./setup.sh --full")
-        return
-
-    # Auto-detect remote sessions and force text mode for better compatibility
-    # Skip remote detection if running with --web or --text explicitly
-    if not args.web and not args.text:
-        # Check if launched from menu (no command line args) vs direct command line
-        import sys
-        launched_from_menu = len(sys.argv) == 1  # No args means launched from menu
-
-        if launched_from_menu:
-            # Launched from menu - assume local session since menu already checked
-            is_remote = False
-        else:
-            # Direct command line usage - check for remote session
-            is_remote = 'SSH_TTY' in os.environ
-            # If running as root with SSH vars but no SSH_TTY, it's likely sudo (treat as local)
-            if is_remote and os.geteuid() == 0 and 'SSH_TTY' not in os.environ:
-                is_remote = False
-
-        if is_remote:
-            print("Remote session detected. Using text mode for better compatibility.")
-            print("Use --web for web interface or --text explicitly for text mode.")
-            args.text = True
-
-    # Create tracker
     tracker = ADSBTracker()
     tracker.center_freq = int(args.freq * 1e6)
     if args.gain == 'auto':
@@ -999,6 +966,7 @@ def main(args=None):
 
     # Start tracking thread (SDR initialization happens in the thread)
     print("Starting ADS-B tracking...")
+    print("DEBUG: Starting tracking thread...")
     tracking_thread = threading.Thread(target=run_tracking_loop, args=(tracker,), daemon=True)
     tracking_thread.start()
 

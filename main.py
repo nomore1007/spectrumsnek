@@ -587,6 +587,7 @@ class RadioToolsLoader:
         print(f"\nStarting {module.name}...")
         print(f"Description: {module.description}")
         print("Press Ctrl+C to stop\n")
+        print("DEBUG: About to execute tool function...")
 
         try:
             module.run_function()
