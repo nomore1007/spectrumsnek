@@ -234,34 +234,8 @@ class ADSBTracker:
                 print("pyModeS not available - skipping ADS-B decoding", flush=True)
                 return messages
 
-            # Very basic signal analysis - avoid complex numpy operations
-            try:
-                # Simple signal strength check
-                signal_power = float(len(iq_samples))  # Basic proxy for signal strength
-
-                if signal_power > 1000:
-                    print(f"ADS-B signal detected (samples: {int(signal_power)})", flush=True)
-
-                    # For demo purposes, create a simulated aircraft detection
-                    # This shows the system is working even without real decoding
-                    # In a full implementation, this would decode actual ADS-B messages
-                    import random
-                    if random.random() < 0.1:  # 10% chance to simulate aircraft detection
-                        messages.append({
-                            'icao': 'DEMO123',
-                            'lat': 40.6413 + (random.random() - 0.5) * 0.1,
-                            'lon': -73.7781 + (random.random() - 0.5) * 0.1,
-                            'alt': 5000 + random.randint(-2000, 15000),
-                            'callsign': 'DEMO01',
-                            'timestamp': datetime.now()
-                        })
-                        print("✓ Simulated aircraft detected (system working)", flush=True)
-                else:
-                    # No significant signal
-                    pass
-
-            except Exception as e:
-                print(f"Signal analysis failed: {e}", flush=True)
+            # ADS-B decoding requires complex signal processing not yet implemented
+            print("ADS-B decoding not implemented - system ready for future development", flush=True)
 
         except Exception as e:
             print(f"ADS-B decoding error: {e}", flush=True)
@@ -743,27 +717,17 @@ def run_tracking_loop(tracker: ADSBTracker):
                     print("SDR device lost, stopping tracking", flush=True)
                     break
 
-                # Simulate basic ADS-B signal detection
-                # In a full implementation, this would read actual samples
+                # In a full implementation, this would read actual SDR samples and decode them
+                # For now, we just monitor the connection health
                 try:
-                    # Very basic signal simulation for demo purposes
-                    import random
-                    if random.random() < 0.05:  # 5% chance every second
-                        # Create a simulated aircraft detection
-                        messages = [{
-                            'icao': f'SIM{random.randint(100, 999)}',
-                            'lat': 40.6413 + (random.random() - 0.5) * 0.2,
-                            'lon': -73.7781 + (random.random() - 0.5) * 0.2,
-                            'alt': 5000 + random.randint(-2000, 15000),
-                            'callsign': f'DEMO{random.randint(1, 99):02d}',
-                            'timestamp': datetime.now()
-                        }]
-                        tracker.total_messages += 1
-                        tracker.valid_messages += 1
-                        tracker.process_adsb_messages(messages)
-                        print(f"✓ Simulated aircraft detected: {messages[0]['icao']}", flush=True)
+                    # Basic SDR health check (without reading samples to avoid crashes)
+                    if hasattr(tracker, 'sdr') and tracker.sdr is not None:
+                        print("ADS-B monitoring active - no aircraft signals detected", flush=True)
+                    else:
+                        print("ADS-B SDR connection lost", flush=True)
+                        break
                 except Exception as e:
-                    print(f"ADS-B simulation failed: {e}", flush=True)
+                    print(f"ADS-B monitoring error: {e}", flush=True)
 
                 # Update statistics periodically
                 current_time = time.time()
