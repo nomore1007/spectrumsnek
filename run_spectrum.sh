@@ -71,7 +71,7 @@ check_python_dependencies() {
 # Check system dependencies
 if ! check_system_dependencies; then
     if [ -f "./setup.sh" ]; then
-        ./setup.sh --auto
+        ./setup.sh --console
     else
         echo "Setup script not found. Please ensure setup.sh exists."
         exit 1
@@ -82,7 +82,7 @@ fi
 if [ ! -d "$VENV_DIR" ]; then
     echo "Virtual environment not found. Running automatic setup..."
     if [ -f "./setup.sh" ]; then
-        ./setup.sh --auto
+        ./setup.sh --console
     else
         echo "Setup script not found. Please ensure setup.sh exists."
         exit 1
@@ -93,7 +93,7 @@ fi
 if ! check_python_dependencies; then
     echo "Python dependencies missing. Running automatic setup..."
     if [ -f "./setup.sh" ]; then
-        ./setup.sh --auto
+        ./setup.sh --console
     else
         echo "Setup script not found. Please ensure setup.sh exists."
         exit 1
