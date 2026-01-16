@@ -257,9 +257,15 @@ class ADSBTracker:
 
                 # Attempt real ADS-B decoding if pulses detected
                 if len(pulse_positions) >= 8:  # Minimum pulses for potential ADS-B
-                    print(f"Attempting to decode {len(pulse_positions)//8} potential ADS-B messages", flush=True)
-                    # This is a placeholder - real implementation would require proper ADS-B demodulation
-                    # For now, we just note that pyModeS is available for future implementation
+                    print(f"pyModeS available but real ADS-B decoding not yet implemented", flush=True)
+                    print(f"Detected {len(pulse_positions)} signal pulses - real decoding requires PPM demodulation", flush=True)
+                    # TODO: Implement proper ADS-B PPM demodulation and message extraction
+                    # This would require:
+                    # 1. PPM (Pulse Position Modulation) demodulation
+                    # 2. Manchester decoding to extract 112-bit ADS-B messages
+                    # 3. CRC checking and message validation
+                    # 4. pyModeS decoding of position, velocity, etc.
+                    return messages  # Don't fall back to simulation when pyModeS is available
                 else:
                     print("No significant pulses detected for ADS-B decoding", flush=True)
                 # For now, fall through to simulation since full implementation is complex
