@@ -44,7 +44,6 @@ class ADSBService:
                 '--net-json-port', '8081',  # JSON port for aircraft data
                 '--quiet',            # Reduce console output
                 '--fix',              # Enable CRC checking
-                '--no-modeac',        # Disable Mode A/C
                 '--metric',           # Use metric units
                 '--max-range', '200' # Maximum range in nautical miles
             ]
