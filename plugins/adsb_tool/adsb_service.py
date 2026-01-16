@@ -36,9 +36,10 @@ class ADSBService:
             # Stop any existing readsb processes
             self._stop_existing_readsb()
 
-            # Start readsb with networking enabled
+            # Start readsb with RTL-SDR device and networking enabled
             cmd = [
                 'readsb',
+                '--device-type', 'rtlsdr',  # Specify RTL-SDR device type
                 '--net',              # Enable networking
                 '--net-api-port', '8080',  # API port for data access
                 '--net-json-port', '8081',  # JSON port for aircraft data
