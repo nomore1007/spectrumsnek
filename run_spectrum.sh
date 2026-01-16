@@ -30,6 +30,8 @@ fi
 cd "$SCRIPT_DIR"
 
 # Use system Python in containerized environments (skip venv)
+# Add user site-packages to path for pyModeS
+export PYTHONPATH="$HOME/.local/lib/python3.12/site-packages:$PYTHONPATH"
 python3 main.py "$@"
 
 # Deactivate when done (though this won't be reached in curses mode)
