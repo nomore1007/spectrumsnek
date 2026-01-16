@@ -14,9 +14,7 @@ check_system_dependencies() {
         missing_packages="$missing_packages python3"
     fi
 
-    if ! command -v pip3 &> /dev/null && ! command -v pip &> /dev/null; then
-        missing_packages="$missing_packages python3-pip"
-    fi
+    # Skip pip check - it's available via python3 -m pip if needed
 
     if ! dpkg -l | grep -q rtl-sdr; then
         missing_packages="$missing_packages rtl-sdr"
