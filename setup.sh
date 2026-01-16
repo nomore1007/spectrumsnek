@@ -85,7 +85,7 @@ install_system_deps() {
         OS="debian"
         RTLSDR_PKG="rtl-sdr"
         PYTHON_DEV_PKG="python3-dev python3-all-dev python3.13-dev python3-pip python3-numpy python3-scipy"
-        DUMP1090_PKG="dump1090-fa"
+        ADSB_PKG="readsb"
         PULSEAUDIO_PKG="pulseaudio pulseaudio-module-bluetooth alsa-utils"
         BLUEZ_PKG="bluez"
         BLUEZ_TOOLS_PKG="bluez-tools"
@@ -127,7 +127,7 @@ install_system_deps() {
             case $OS in
                 debian)
                     $SUDO_CMD apt-get update
-                    $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG $DUMP1090_PKG
+                    $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG $ADSB_PKG
                     ;;
                 redhat)
                     $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG

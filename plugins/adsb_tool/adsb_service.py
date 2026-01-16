@@ -24,31 +24,33 @@ class ADSBService:
         self.last_update = time.time()
 
     def start_service(self) -> bool:
-        """Start the dump1090-fa service."""
+        """Start the readsb ADS-B service."""
         try:
-            print("Starting dump1090-fa ADS-B service...", flush=True)
+            print("Starting readsb ADS-B service...", flush=True)
 
-            # Check if dump1090-fa is installed
-            if not self._check_dump1090():
-                print("dump1090-fa not found. Please run setup.sh to install it.", flush=True)
+            # Check if readsb is installed
+            if not self._check_readsb():
+                print("readsb not found. Please install it: sudo apt install readsb", flush=True)
                 return False
 
-            # Stop any existing dump1090 processes
-            self._stop_existing_dump1090()
+            # Stop any existing readsb processes
+            self._stop_existing_readsb()
 
-            # Start dump1090-fa with net-only mode (no web interface conflicts)
+            # Start readsb with networking enabled
             cmd = [
-                'dump1090-fa',
-                '--net',           # Enable networking
-                '--net-http-port', '8080',  # HTTP port for data
-                '--quiet',         # Reduce console output
-                '--fix',           # Enable CRC checking
-                '--no-modeac',     # Disable Mode A/C
-                '--metric'         # Use metric units
+                'readsb',
+                '--net',              # Enable networking
+                '--net-api-port', '8080',  # API port for data access
+                '--net-json-port', '8081',  # JSON port for aircraft data
+                '--quiet',            # Reduce console output
+                '--fix',              # Enable CRC checking
+                '--no-modeac',        # Disable Mode A/C
+                '--metric',           # Use metric units
+                '--max-range', '200' # Maximum range in nautical miles
             ]
 
             print(f"Running: {' '.join(cmd)}", flush=True)
-            self.dump1090_process = subprocess.Popen(
+            self.readsb_process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -59,8 +61,8 @@ class ADSBService:
             time.sleep(3)
 
             # Check if process is still running
-            if self.dump1090_process.poll() is None:
-                print("✓ dump1090-fa service started successfully", flush=True)
+            if self.readsb_process.poll() is None:
+                print("✓ readsb service started successfully", flush=True)
                 print("📡 ADS-B receiver active on 1090 MHz", flush=True)
                 self.running = True
 
@@ -69,8 +71,8 @@ class ADSBService:
 
                 return True
             else:
-                stdout, stderr = self.dump1090_process.communicate()
-                print(f"✗ dump1090-fa failed to start", flush=True)
+                stdout, stderr = self.readsb_process.communicate()
+                print(f"✗ readsb failed to start", flush=True)
                 if stderr:
                     print(f"Error: {stderr.decode()}", flush=True)
                 return False
@@ -80,28 +82,28 @@ class ADSBService:
             return False
 
     def stop_service(self):
-        """Stop the dump1090-fa service."""
-        print("Stopping dump1090-fa ADS-B service...", flush=True)
+        """Stop the readsb service."""
+        print("Stopping readsb ADS-B service...", flush=True)
 
-        if self.dump1090_process:
+        if self.readsb_process:
             try:
                 # Send SIGTERM to the process group
-                os.killpg(os.getpgid(self.dump1090_process.pid), signal.SIGTERM)
+                os.killpg(os.getpgid(self.readsb_process.pid), signal.SIGTERM)
 
                 # Wait for clean shutdown
                 try:
-                    self.dump1090_process.wait(timeout=5)
-                    print("✓ dump1090-fa service stopped cleanly", flush=True)
+                    self.readsb_process.wait(timeout=5)
+                    print("✓ readsb service stopped cleanly", flush=True)
                 except subprocess.TimeoutExpired:
                     # Force kill if it doesn't respond
-                    os.killpg(os.getpgid(self.dump1090_process.pid), signal.SIGKILL)
-                    print("✓ dump1090-fa service force-stopped", flush=True)
+                    os.killpg(os.getpgid(self.readsb_process.pid), signal.SIGKILL)
+                    print("✓ readsb service force-stopped", flush=True)
 
             except Exception as e:
-                print(f"Warning: Error stopping dump1090-fa: {e}", flush=True)
+                print(f"Warning: Error stopping readsb: {e}", flush=True)
 
         self.running = False
-        self.dump1090_process = None
+        self.readsb_process = None
 
     def get_status(self) -> Dict:
         """Get service status and aircraft data."""
@@ -113,37 +115,37 @@ class ADSBService:
             'uptime': time.time() - self.last_update if self.running else 0
         }
 
-        if self.dump1090_process:
-            status['pid'] = self.dump1090_process.pid
-            status['process_alive'] = self.dump1090_process.poll() is None
+        if self.readsb_process:
+            status['pid'] = self.readsb_process.pid
+            status['process_alive'] = self.readsb_process.poll() is None
 
         return status
 
-    def _check_dump1090(self) -> bool:
-        """Check if dump1090-fa is installed."""
+    def _check_readsb(self) -> bool:
+        """Check if readsb is installed."""
         try:
-            result = subprocess.run(['which', 'dump1090-fa'],
+            result = subprocess.run(['which', 'readsb'],
                                   capture_output=True, text=True)
             return result.returncode == 0
         except Exception:
             return False
 
-    def _stop_existing_dump1090(self):
-        """Stop any existing dump1090 processes."""
+    def _stop_existing_readsb(self):
+        """Stop any existing readsb processes."""
         try:
-            # Kill any existing dump1090 processes
-            subprocess.run(['pkill', '-f', 'dump1090-fa'],
+            # Kill any existing readsb processes
+            subprocess.run(['pkill', '-f', 'readsb'],
                          capture_output=True)
             time.sleep(1)  # Wait for cleanup
         except Exception:
             pass
 
     def _collect_aircraft_data(self):
-        """Collect aircraft data from dump1090 HTTP interface."""
+        """Collect aircraft data from readsb API interface."""
         while self.running:
             try:
-                # Fetch aircraft data from dump1090's HTTP interface
-                response = requests.get('http://localhost:8080/data/aircraft.json',
+                # Fetch aircraft data from readsb's API interface
+                response = requests.get('http://localhost:8080/aircraft.json',
                                       timeout=2)
 
                 if response.status_code == 200:
@@ -181,7 +183,7 @@ class ADSBService:
                     pass
 
             except requests.RequestException:
-                # dump1090 HTTP interface not available
+                # readsb API interface not available
                 pass
             except Exception as e:
                 print(f"Error collecting aircraft data: {e}", flush=True)
