@@ -9,12 +9,12 @@ VENV_DIR="$SCRIPT_DIR/venv"
 check_system_dependencies() {
     local missing_packages=""
 
-    # Check for required packages
+    # Check for required commands/packages
     if ! command -v python3 &> /dev/null; then
         missing_packages="$missing_packages python3"
     fi
 
-    if ! command -v pip3 &> /dev/null; then
+    if ! command -v pip3 &> /dev/null && ! command -v pip &> /dev/null; then
         missing_packages="$missing_packages python3-pip"
     fi
 
@@ -22,7 +22,8 @@ check_system_dependencies() {
         missing_packages="$missing_packages rtl-sdr"
     fi
 
-    if ! dpkg -l | grep -q python3-dev; then
+    # Check for Python dev headers (more flexible check)
+    if ! dpkg -l | grep -q "python3.*dev" && ! dpkg -l | grep -q "python3.*headers"; then
         missing_packages="$missing_packages python3-dev"
     fi
 
