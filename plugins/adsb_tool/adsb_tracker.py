@@ -196,7 +196,6 @@ class ADSBTracker:
             try:
                 import pyModeS as pymodes
                 print("pyModeS available - attempting real ADS-B decoding", flush=True)
-                print(f"pyModeS version: {pymodes.__version__}", flush=True)
                 # For now, fall through to simulation since full implementation is complex
             except ImportError as e:
                 print(f"pyModeS not available - no ADS-B decoding possible: {e}", flush=True)
