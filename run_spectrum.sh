@@ -36,6 +36,9 @@ export PATH="$VENV_DIR/bin:$PATH"
 export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
 export VIRTUAL_ENV="$VENV_DIR"
 
+# Ensure pyModeS is installed
+pip install pymodes==2.8 --quiet
+
 python main.py "$@"
 
 # Deactivate when done (though this won't be reached in curses mode)

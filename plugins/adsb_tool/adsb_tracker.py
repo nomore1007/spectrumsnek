@@ -195,20 +195,12 @@ class ADSBTracker:
             # Try real ADS-B decoding with pyModeS if available
             try:
                 import pymodes
-                # If pyModeS is available, attempt real decoding
-                # This is a placeholder - real implementation would require proper demodulation
                 print("pyModeS available - attempting real ADS-B decoding", flush=True)
+                print(f"pyModeS version: {pymodes.__version__}", flush=True)
                 # For now, fall through to simulation since full implementation is complex
-            except ImportError:
-                print("pyModeS not available - using simulation mode", flush=True)
-
-            # Convert IQ samples to magnitude for basic pulse detection
-            # This operation can cause segfaults if numpy array is corrupted
-            try:
-                # Ensure we have a valid complex array
-                if iq_samples.dtype not in [np.complex64, np.complex128]:
-                    print(f"Unexpected IQ sample dtype: {iq_samples.dtype}, expected complex", flush=True)
-                    return messages
+            except ImportError as e:
+                print(f"pyModeS not available - no ADS-B decoding possible: {e}", flush=True)
+                return messages
 
                 magnitude = np.abs(iq_samples)
             except (ValueError, TypeError, RuntimeError, SystemError) as e:
