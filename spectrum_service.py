@@ -64,12 +64,19 @@ class SpectrumService:
         # Add system tools
         self.add_system_tools()
 
+        # Add ADS-B service
+        self.add_adsb_service()
+
         # Set local run functions for interactive tools
         for name, tool in self.tools.items():
             try:
-                if name in ['rtl_scanner', 'adsb_tool', 'radio_scanner']:
+                if name in ['rtl_scanner', 'radio_scanner']:
                     local_module = __import__(f'plugins.{name}', fromlist=['run'])
                     tool['local_run'] = local_module.run
+                elif name == 'adsb_tool':
+                    # ADS-B tool now uses service instead of direct execution
+                    from plugins.adsb_tool.adsb_service import run_adsb_service
+                    tool['local_run'] = lambda: run_adsb_service('--text')
                 elif name == 'system_tools':
                     tool['local_run'] = lambda: os.system('python system_tools_launcher.py')
                 elif name == 'demo_scanner':
@@ -78,6 +85,27 @@ class SpectrumService:
                 # For other tools, keep as is
             except ImportError:
                 pass
+
+    def add_adsb_service(self):
+        """Add ADS-B service for aircraft tracking."""
+        try:
+            from plugins.adsb_tool.adsb_service import ADSBService
+            self.adsb_service = ADSBService()
+
+            # Add ADS-B service as a special tool
+            self.tools['adsb_service'] = {
+                'info': {
+                    'name': '📡 ADS-B Service',
+                    'description': 'Real-time aircraft tracking using dump1090-fa',
+                    'version': '1.0.0',
+                    'category': 'radio'
+                },
+                'service': self.adsb_service,
+                'status': 'stopped'
+            }
+            print("Loaded ADS-B service")
+        except ImportError as e:
+            print(f"Failed to load ADS-B service: {e}")
 
     def add_system_tools(self):
         """Add built-in system tools."""
@@ -291,72 +319,82 @@ class SpectrumService:
 
             return jsonify(status_info)
 
-        @self.app.route('/api/status', methods=['GET'])
-        def get_status():
-            """Get service status."""
-            return jsonify({
-                'status': 'running',
-                'tools_loaded': len(self.tools),
-                'tools_running': len(self.running_tools),
-                'uptime': time.time() - getattr(self, 'start_time', time.time()),
-                'timestamp': time.time()
-            })
-
-        @self.app.route('/api/health', methods=['GET'])
-        def health_check():
-            """Health check endpoint for monitoring."""
+        @self.app.route('/api/adsb/start', methods=['POST'])
+        def start_adsb_service():
+            """Start the ADS-B service."""
             try:
-                # Check if we can access basic system info
-                system_info = self._get_system_info()
-                if 'error' in system_info:
-                    return jsonify({'status': 'unhealthy', 'error': system_info['error']}), 503
+                if hasattr(self, 'adsb_service') and self.adsb_service.start_service():
+                    self.tools['adsb_service']['status'] = 'running'
+                    return jsonify({'status': 'started', 'message': 'ADS-B service started successfully'})
+                else:
+                    return jsonify({'error': 'Failed to start ADS-B service'}), 500
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
 
-                # Check if tools can be loaded
-                if len(self.tools) == 0:
-                    return jsonify({'status': 'unhealthy', 'error': 'No tools loaded'}), 503
+        @self.app.route('/api/adsb/stop', methods=['POST'])
+        def stop_adsb_service():
+            """Stop the ADS-B service."""
+            try:
+                if hasattr(self, 'adsb_service'):
+                    self.adsb_service.stop_service()
+                    self.tools['adsb_service']['status'] = 'stopped'
+                    return jsonify({'status': 'stopped', 'message': 'ADS-B service stopped'})
+                else:
+                    return jsonify({'error': 'ADS-B service not available'}), 500
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/adsb/status', methods=['GET'])
+        def get_adsb_status():
+            """Get ADS-B service status and aircraft data."""
+            try:
+                if hasattr(self, 'adsb_service'):
+                    status = self.adsb_service.get_status()
+                    return jsonify(status)
+                else:
+                    return jsonify({'error': 'ADS-B service not available'}), 500
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/adsb/aircraft', methods=['GET'])
+        def get_adsb_aircraft():
+            """Get current aircraft data."""
+            try:
+                if hasattr(self, 'adsb_service'):
+                    status = self.adsb_service.get_status()
+                    return jsonify({
+                        'aircraft_count': status['aircraft_count'],
+                        'aircraft': status['aircraft']
+                    })
+                else:
+                    return jsonify({'aircraft_count': 0, 'aircraft': []})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/system/status', methods=['GET'])
+        def get_system_status():
+            """Get system status information."""
+            try:
+                cpu_percent = psutil.cpu_percent(interval=1)
+                memory = psutil.virtual_memory()
+                disk = psutil.disk_usage('/')
 
                 return jsonify({
-                    'status': 'healthy',
-                    'tools_loaded': len(self.tools),
-                    'tools_running': len(self.running_tools),
-                    'timestamp': time.time()
+                    'cpu_percent': cpu_percent,
+                    'memory': {
+                        'total': memory.total,
+                        'available': memory.available,
+                        'percent': memory.percent
+                    },
+                    'disk': {
+                        'total': disk.total,
+                        'free': disk.free,
+                        'percent': disk.percent
+                    },
+                    'uptime': time.time() - self.start_time
                 })
             except Exception as e:
-                return jsonify({'status': 'unhealthy', 'error': str(e)}), 503
-
-        @self.app.route('/api/system', methods=['GET'])
-        def get_system_info():
-            """Get system information."""
-            return jsonify(self._get_system_info())
-
-        @self.app.route('/api/config', methods=['GET'])
-        def get_config():
-            """Get current configuration."""
-            return jsonify(self.config.config)
-
-        @self.app.route('/api/config', methods=['POST'])
-        def update_config():
-            """Update configuration."""
-            try:
-                updates = request.get_json()
-                for key_path, value in updates.items():
-                    self.config.set(key_path, value)
-                return jsonify({'status': 'updated'})
-            except Exception as e:
-                return jsonify({'error': str(e)}), 400
-
-    def _get_system_info(self) -> Dict[str, Any]:
-        """Get current system information."""
-        try:
-            return {
-                'cpu_percent': psutil.cpu_percent(interval=1),
-                'memory_percent': psutil.virtual_memory().percent,
-                'disk_usage': psutil.disk_usage('/').percent,
-                'network_connections': len(psutil.net_connections()),
-                'uptime': time.time() - psutil.boot_time()
-            }
-        except:
-            return {'error': 'Could not get system info'}
+                return jsonify({'error': str(e)}), 500
 
     def _periodic_status_updates(self):
         """Send periodic status updates and perform health checks."""

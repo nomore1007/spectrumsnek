@@ -24,6 +24,6 @@ def get_module_info():
     }
 
 def run(*args, **kwargs):
-    """Run the ADS-B tool module."""
-    from .adsb_tracker import main
-    main(args)
+    """Run the ADS-B tool module using dump1090 service."""
+    from .adsb_service import run_adsb_service
+    run_adsb_service(*args)

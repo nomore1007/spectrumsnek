@@ -85,6 +85,7 @@ install_system_deps() {
         OS="debian"
         RTLSDR_PKG="rtl-sdr"
         PYTHON_DEV_PKG="python3-dev python3-all-dev python3.13-dev python3-pip python3-numpy python3-scipy"
+        DUMP1090_PKG="dump1090-fa"
         PULSEAUDIO_PKG="pulseaudio pulseaudio-module-bluetooth alsa-utils"
         BLUEZ_PKG="bluez"
         BLUEZ_TOOLS_PKG="bluez-tools"
@@ -123,18 +124,18 @@ install_system_deps() {
         print_info "Installing RTL-SDR drivers..."
         SUDO_CMD=$(get_sudo)
 
-        case $OS in
-            debian)
-                $SUDO_CMD apt-get update
-                $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
-                ;;
-            redhat)
-                $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
-                ;;
-            arch)
-                $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
-                ;;
-        esac
+            case $OS in
+                debian)
+                    $SUDO_CMD apt-get update
+                    $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG $DUMP1090_PKG
+                    ;;
+                redhat)
+                    $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
+                    ;;
+                arch)
+                    $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
+                    ;;
+            esac
 
         # Verify tmux installation
         if command -v tmux &> /dev/null; then
