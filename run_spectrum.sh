@@ -27,26 +27,10 @@ if [ "$1" = "--reinstall-deps" ]; then
     exit 0
 fi
 
-# Activate virtual environment and run main.py
-if [ -f "$VENV_DIR/bin/activate" ]; then
-    source "$VENV_DIR/bin/activate"
-else
-    echo "Virtual environment activation script not found. Recreating venv..."
-    python3 -m venv "$VENV_DIR" --clear
-    source "$VENV_DIR/bin/activate"
-fi
-
 cd "$SCRIPT_DIR"
 
-# Export virtual environment variables explicitly for sudo compatibility
-export PATH="$VENV_DIR/bin:$PATH"
-export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
-export VIRTUAL_ENV="$VENV_DIR"
-
-# Ensure pyModeS is installed
-pip install pymodes==2.8 --quiet
-
-python main.py "$@"
+# Use system Python in containerized environments (skip venv)
+python3 main.py "$@"
 
 # Deactivate when done (though this won't be reached in curses mode)
 deactivate
