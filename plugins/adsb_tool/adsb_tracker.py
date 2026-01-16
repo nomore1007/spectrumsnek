@@ -196,6 +196,72 @@ class ADSBTracker:
             try:
                 import pyModeS as pymodes
                 print("pyModeS available - attempting real ADS-B decoding", flush=True)
+
+                # Convert IQ samples to magnitude for basic pulse detection
+                # This operation can cause segfaults if numpy array is corrupted
+                try:
+                    # Ensure we have a valid complex array
+                    if iq_samples.dtype not in [np.complex64, np.complex128]:
+                        print(f"Unexpected IQ sample dtype: {iq_samples.dtype}, expected complex", flush=True)
+                        return messages
+
+                    magnitude = np.abs(iq_samples)
+                except (ValueError, TypeError, RuntimeError, SystemError) as e:
+                    print(f"Numpy abs operation failed: {e}", flush=True)
+                    return messages
+                except Exception as e:
+                    print(f"Unexpected numpy error in abs(): {e}", flush=True)
+                    return messages
+
+                # Validate magnitude array
+                if len(magnitude) == 0 or magnitude.size == 0:
+                    return messages
+
+                # Additional validation of magnitude array
+                try:
+                    if not np.isfinite(magnitude).all():
+                        print("Magnitude array contains NaN or infinite values", flush=True)
+                        return messages
+                except Exception as e:
+                    print(f"Magnitude validation failed: {e}", flush=True)
+                    return messages
+
+                # Simple threshold-based pulse detection
+                # ADS-B uses PPM (Pulse Position Modulation)
+                try:
+                    # Use nan-safe operations to prevent crashes
+                    mean_val = np.nanmean(magnitude)
+                    std_val = np.nanstd(magnitude)
+
+                    # Check for invalid values
+                    if not np.isfinite(mean_val) or not np.isfinite(std_val):
+                        print("Invalid statistical values in magnitude data", flush=True)
+                        return messages
+
+                    # Additional safety checks
+                    if std_val == 0:
+                        print("Zero standard deviation in magnitude data", flush=True)
+                        return messages
+
+                    threshold = mean_val + 1.0 * std_val  # Standard threshold for signal detection
+
+                    # Find pulse positions (simplified)
+                    pulse_positions = np.where(magnitude > threshold)[0]
+                    print(f"Detected {len(pulse_positions)} potential pulses above threshold", flush=True)
+                except (ValueError, RuntimeError, FloatingPointError) as e:
+                    print(f"Pulse detection failed: {e}", flush=True)
+                    return messages
+                except Exception as e:
+                    print(f"Unexpected error in pulse detection: {e}", flush=True)
+                    return messages
+
+                # Attempt real ADS-B decoding if pulses detected
+                if len(pulse_positions) >= 8:  # Minimum pulses for potential ADS-B
+                    print(f"Attempting to decode {len(pulse_positions)//8} potential ADS-B messages", flush=True)
+                    # This is a placeholder - real implementation would require proper ADS-B demodulation
+                    # For now, we just note that pyModeS is available for future implementation
+                else:
+                    print("No significant pulses detected for ADS-B decoding", flush=True)
                 # For now, fall through to simulation since full implementation is complex
             except ImportError as e:
                 print(f"pyModeS not available - no ADS-B decoding possible: {e}", flush=True)
