@@ -103,6 +103,7 @@ class ADSBTracker:
         self.total_messages = 0
         self.valid_messages = 0
         self.start_time = datetime.now()
+        self.last_stats_update = time.time()
 
     def initialize_sdr(self):
         """Initialize the RTL-SDR device for ADS-B reception."""
