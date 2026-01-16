@@ -29,11 +29,22 @@ fi
 
 cd "$SCRIPT_DIR"
 
-# Use system Python in containerized environments (skip venv)
-# Add user site-packages to path for pyModeS
-USER_SITE=$(python3 -c "import site; print(site.getusersitepackages())")
-export PYTHONPATH="$USER_SITE:$PYTHONPATH"
-python3 main.py "$@"
+# Activate virtual environment and run main.py
+if [ -f "$VENV_DIR/bin/activate" ]; then
+    source "$VENV_DIR/bin/activate"
+else
+    echo "Virtual environment activation script not found. Recreating venv..."
+    python3 -m venv "$VENV_DIR" --clear
+    source "$VENV_DIR/bin/activate"
+    pip install -r requirements.txt --break-system-packages
+fi
+
+# Export virtual environment variables explicitly for sudo compatibility
+export PATH="$VENV_DIR/bin:$PATH"
+export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
+export VIRTUAL_ENV="$VENV_DIR"
+
+python main.py "$@"
 
 # Deactivate when done (though this won't be reached in curses mode)
 deactivate
