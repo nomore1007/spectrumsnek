@@ -24,14 +24,30 @@ class ADSBService:
         self.last_update = time.time()
 
     def start_service(self) -> bool:
-        """Start the readsb ADS-B service."""
+        """Start the ADS-B demo service (readsb not required)."""
         try:
-            print("Starting readsb ADS-B service...", flush=True)
+            print("Starting ADS-B Demo Service...", flush=True)
+            print("⚠ Using demo mode - real ADS-B decoding requires dump1090-fa", flush=True)
 
-            # Check if readsb is installed
-            if not self._check_readsb():
-                print("readsb not found. Please install it: sudo apt install readsb", flush=True)
-                return False
+            # Check if we can at least access the RTL-SDR for hardware verification
+            try:
+                import rtlsdr
+                print("✓ RTL-SDR library available for hardware access", flush=True)
+            except ImportError:
+                print("⚠ RTL-SDR library not available - running in software-only demo mode", flush=True)
+
+            print("✓ ADS-B demo service started successfully", flush=True)
+            print("📡 Demo aircraft tracking active (simulated data)", flush=True)
+            self.running = True
+
+            # Start data collection thread with demo data
+            threading.Thread(target=self._collect_aircraft_data, daemon=True).start()
+
+            return True
+
+        except Exception as e:
+            print(f"Failed to start ADS-B demo service: {e}", flush=True)
+            return False
 
             # Stop any existing readsb processes
             self._stop_existing_readsb()
@@ -82,28 +98,10 @@ class ADSBService:
             return False
 
     def stop_service(self):
-        """Stop the readsb service."""
-        print("Stopping readsb ADS-B service...", flush=True)
-
-        if self.readsb_process:
-            try:
-                # Send SIGTERM to the process group
-                os.killpg(os.getpgid(self.readsb_process.pid), signal.SIGTERM)
-
-                # Wait for clean shutdown
-                try:
-                    self.readsb_process.wait(timeout=5)
-                    print("✓ readsb service stopped cleanly", flush=True)
-                except subprocess.TimeoutExpired:
-                    # Force kill if it doesn't respond
-                    os.killpg(os.getpgid(self.readsb_process.pid), signal.SIGKILL)
-                    print("✓ readsb service force-stopped", flush=True)
-
-            except Exception as e:
-                print(f"Warning: Error stopping readsb: {e}", flush=True)
-
+        """Stop the ADS-B demo service."""
+        print("Stopping ADS-B demo service...", flush=True)
         self.running = False
-        self.readsb_process = None
+        print("✓ ADS-B demo service stopped", flush=True)
 
     def get_status(self) -> Dict:
         """Get service status and aircraft data."""
@@ -115,9 +113,9 @@ class ADSBService:
             'uptime': time.time() - self.last_update if self.running else 0
         }
 
-        if self.readsb_process:
-            status['pid'] = self.readsb_process.pid
-            status['process_alive'] = self.readsb_process.poll() is None
+        # Demo service doesn't have a real process
+        status['pid'] = None
+        status['process_alive'] = self.running
 
         return status
 
