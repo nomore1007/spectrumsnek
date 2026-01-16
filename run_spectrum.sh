@@ -28,7 +28,14 @@ if [ "$1" = "--reinstall-deps" ]; then
 fi
 
 # Activate virtual environment and run main.py
-source "$VENV_DIR/bin/activate"
+if [ -f "$VENV_DIR/bin/activate" ]; then
+    source "$VENV_DIR/bin/activate"
+else
+    echo "Virtual environment activation script not found. Recreating venv..."
+    python3 -m venv "$VENV_DIR" --clear
+    source "$VENV_DIR/bin/activate"
+fi
+
 cd "$SCRIPT_DIR"
 
 # Export virtual environment variables explicitly for sudo compatibility
