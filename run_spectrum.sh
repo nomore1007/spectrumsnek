@@ -5,9 +5,93 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
 
+# Function to check if required system packages are installed
+check_system_dependencies() {
+    local missing_packages=""
+
+    # Check for required packages
+    if ! command -v python3 &> /dev/null; then
+        missing_packages="$missing_packages python3"
+    fi
+
+    if ! command -v pip3 &> /dev/null; then
+        missing_packages="$missing_packages python3-pip"
+    fi
+
+    if ! dpkg -l | grep -q rtl-sdr; then
+        missing_packages="$missing_packages rtl-sdr"
+    fi
+
+    if ! dpkg -l | grep -q python3-dev; then
+        missing_packages="$missing_packages python3-dev"
+    fi
+
+    if [ -n "$missing_packages" ]; then
+        echo "Missing required system packages:$missing_packages"
+        echo "Running automatic setup to install dependencies..."
+        return 1
+    fi
+
+    return 0
+}
+
+# Function to check if Python virtual environment has required packages
+check_python_dependencies() {
+    if [ ! -f "$VENV_DIR/bin/activate" ]; then
+        echo "Virtual environment not properly set up."
+        return 1
+    fi
+
+    # Activate venv temporarily to check packages
+    source "$VENV_DIR/bin/activate"
+
+    # Check critical Python packages
+    if ! python -c "import rtlsdr" 2>/dev/null; then
+        echo "RTL-SDR Python library not found in virtual environment."
+        deactivate
+        return 1
+    fi
+
+    if ! python -c "import numpy" 2>/dev/null; then
+        echo "NumPy not found in virtual environment."
+        deactivate
+        return 1
+    fi
+
+    if ! python -c "import scipy" 2>/dev/null; then
+        echo "SciPy not found in virtual environment."
+        deactivate
+        return 1
+    fi
+
+    deactivate
+    return 0
+}
+
+# Check system dependencies
+if ! check_system_dependencies; then
+    if [ -f "./setup.sh" ]; then
+        ./setup.sh --auto
+    else
+        echo "Setup script not found. Please ensure setup.sh exists."
+        exit 1
+    fi
+fi
+
 # Check if virtual environment exists, auto-setup if needed
 if [ ! -d "$VENV_DIR" ]; then
     echo "Virtual environment not found. Running automatic setup..."
+    if [ -f "./setup.sh" ]; then
+        ./setup.sh --auto
+    else
+        echo "Setup script not found. Please ensure setup.sh exists."
+        exit 1
+    fi
+fi
+
+# Check Python dependencies
+if ! check_python_dependencies; then
+    echo "Python dependencies missing. Running automatic setup..."
     if [ -f "./setup.sh" ]; then
         ./setup.sh --auto
     else
