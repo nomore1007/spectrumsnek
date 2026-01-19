@@ -55,11 +55,13 @@ class SpectrumService:
                             'module': plugin_module,
                             'status': 'stopped'
                         }
-                        print(f"Loaded plugin: {info['name']}")
+                        print(f"Loaded plugin: {info['name']} ({item})")
                     except ImportError:
                         print(f"Failed to load plugin {item}")
                     except Exception as e:
                         print(f"Error loading plugin {item}: {e}")
+                elif item == "adsb_tool":
+                    print(f"Skipping adsb_tool plugin (handled by adsb_service)")
 
         # Add system tools
         self.add_system_tools()
