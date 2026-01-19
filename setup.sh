@@ -118,17 +118,17 @@ if command -v rtl_test &> /dev/null; then
 fi
 
 if [ "$sdr_type" = "rtlsdr" ]; then
-    # For RTL-SDR, try to install dump1090-fa or build from source
-    if ! command -v dump1090-fa &> /dev/null && ! command -v dump1090-mutability &> /dev/null && ! command -v dump1090 &> /dev/null; then
+    # For RTL-SDR, prioritize dump1090-mutability for best compatibility
+    if ! command -v dump1090-mutability &> /dev/null && ! command -v dump1090-fa &> /dev/null && ! command -v dump1090 &> /dev/null; then
         echo "Installing ADS-B decoder for RTL-SDR compatibility..."
 
-        # Try installing dump1090-fa
-        if safe_apt_install dump1090-fa; then
-            echo "✓ ADS-B decoder (dump1090-fa) installed for RTL-SDR"
+        # Try installing dump1090-mutability first (best RTL-SDR support)
+        if safe_apt_install dump1090-mutability; then
+            echo "✓ ADS-B decoder (dump1090-mutability) installed for RTL-SDR"
         else
-            echo "dump1090-fa not available, trying dump1090-mutability..."
-            if safe_apt_install dump1090-mutability; then
-                echo "✓ ADS-B decoder (dump1090-mutability) installed successfully"
+            echo "dump1090-mutability not available, trying dump1090-fa..."
+            if safe_apt_install dump1090-fa; then
+                echo "✓ ADS-B decoder (dump1090-fa) installed successfully"
             else
                 # Try building dump1090 from source
                 echo "Package installation failed, building from source..."
@@ -158,7 +158,7 @@ if [ "$sdr_type" = "rtlsdr" ]; then
                 fi
 
                 # Final check for successful installation
-                if command -v dump1090-fa &> /dev/null || command -v dump1090-mutability &> /dev/null || command -v dump1090 &> /dev/null; then
+                if command -v dump1090-mutability &> /dev/null || command -v dump1090-fa &> /dev/null || command -v dump1090 &> /dev/null; then
                     echo "✓ ADS-B decoder installation completed successfully"
                 else
                     echo "⚠ All automatic installation methods failed"
@@ -167,7 +167,13 @@ if [ "$sdr_type" = "rtlsdr" ]; then
             fi
         fi
     else
-        echo "✓ RTL-SDR compatible ADS-B decoder already available"
+        if command -v dump1090-mutability &> /dev/null; then
+            echo "✓ RTL-SDR compatible ADS-B decoder (dump1090-mutability) already available"
+        elif command -v dump1090-fa &> /dev/null; then
+            echo "✓ RTL-SDR compatible ADS-B decoder (dump1090-fa) already available"
+        else
+            echo "✓ RTL-SDR compatible ADS-B decoder already available"
+        fi
     fi
 else
     # For other SDR types or unknown, install readsb
