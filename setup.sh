@@ -43,30 +43,24 @@ if [ "$sdr_type" = "rtlsdr" ]; then
                     TEMP_DIR=$(mktemp -d)
                     cd "$TEMP_DIR"
 
-                    echo "Downloading dump1090-fa source..."
-                    if git clone https://github.com/flightaware/dump1090.git >/dev/null 2>&1; then
+                    echo "Trying alternative ADS-B decoder installation..."
+
+                    # Try the antirez dump1090 (simpler build)
+                    if git clone https://github.com/antirez/dump1090.git >/dev/null 2>&1; then
                         cd dump1090
-                        echo "Building dump1090-fa (this may take a few minutes)..."
-                        # Try faster build with parallel jobs
-                        if timeout 180 make -j$(nproc) BLADERF=no >/dev/null 2>&1; then
-                            echo "Installing dump1090-fa..."
-                            sudo make install >/dev/null 2>&1
-                            if command -v dump1090-fa &> /dev/null; then
-                                echo "✓ ADS-B decoder (dump1090-fa) built and installed from source"
+                        echo "Building dump1090 (simpler version)..."
+                        if gcc -I. dump1090.c anet.c -o dump1090 -lm -lpthread -lrtlsdr -lusb-1.0 >/dev/null 2>&1; then
+                            sudo cp dump1090 /usr/local/bin/ >/dev/null 2>&1
+                            if command -v dump1090 &> /dev/null; then
+                                echo "✓ ADS-B decoder (dump1090) built and installed from source"
                             else
-                                # Try alternative location
-                                sudo cp dump1090 /usr/local/bin/dump1090-fa 2>/dev/null || true
-                                if command -v dump1090-fa &> /dev/null || [ -f /usr/local/bin/dump1090-fa ]; then
-                                    echo "✓ ADS-B decoder (dump1090-fa) installed from source"
-                                else
-                                    echo "⚠ Build completed but decoder not found in PATH"
-                                fi
+                                echo "⚠ Build completed but dump1090 not found in PATH"
                             fi
                         else
-                            echo "⚠ Failed to build dump1090-fa from source within timeout"
+                            echo "⚠ Failed to compile dump1090"
                         fi
                     else
-                        echo "⚠ Failed to download dump1090-fa source"
+                        echo "⚠ Failed to download dump1090 source"
                     fi
 
                     cd /
