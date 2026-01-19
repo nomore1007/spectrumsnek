@@ -49,10 +49,18 @@ if [ "$sdr_type" = "rtlsdr" ]; then
                     if git clone https://github.com/antirez/dump1090.git >/dev/null 2>&1; then
                         cd dump1090
                         echo "Building dump1090 (simpler version)..."
-                        if gcc -I. dump1090.c anet.c -o dump1090 -lm -lpthread -lrtlsdr -lusb-1.0 >/dev/null 2>&1; then
+                        # Make sure we have all required libraries
+                        sudo apt install -y libncurses5-dev >/dev/null 2>&1
+                        if gcc -I. dump1090.c anet.c -o dump1090 -lm -lpthread -lrtlsdr -lusb-1.0 -lncurses >/dev/null 2>&1; then
                             sudo cp dump1090 /usr/local/bin/ >/dev/null 2>&1
                             if command -v dump1090 &> /dev/null; then
                                 echo "✓ ADS-B decoder (dump1090) built and installed from source"
+                                # Test if it can at least show help
+                                if dump1090 --help >/dev/null 2>&1; then
+                                    echo "✓ dump1090 basic functionality verified"
+                                else
+                                    echo "⚠ dump1090 installed but basic test failed"
+                                fi
                             else
                                 echo "⚠ Build completed but dump1090 not found in PATH"
                             fi
