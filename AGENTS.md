@@ -2,6 +2,23 @@
 
 This document provides essential information for AI coding agents working in this repository. It includes build/test/lint commands, code style guidelines, and development practices.
 
+## Primary Platform: Raspberry Pi Zero
+**SpectrumSnek is primarily designed and optimized for the Raspberry Pi Zero.**
+
+- **Hardware Constraints:** 512MB RAM, single-core 1GHz CPU, limited storage
+- **All features must work** within these resource limitations
+- **Memory optimization is critical** - avoid memory-intensive operations
+- **CPU efficiency matters** - minimize computational overhead
+- **Storage awareness** - SD card space is limited (~16-32GB typical)
+- **Power efficiency** - consider battery-powered operation scenarios
+
+**Development decisions should prioritize:**
+- Low memory footprint
+- Efficient algorithms
+- Graceful degradation on resource constraints
+- Clear error messages for hardware limitations
+- Fallback modes for insufficient resources
+
 ## Build, Lint, and Test Commands
 
 ### Primary Build Commands
@@ -277,9 +294,13 @@ git commit -m "refactor: simplify user validation logic"
 **Reason:** Demo modes defeat the purpose of a hardware analysis toolkit and confuse users about actual capabilities.
 
 ### Hardware Requirements
+- **Primary Platform:** Raspberry Pi Zero (512MB RAM, single-core)
 - Tools should require appropriate hardware (RTL-SDR, etc.)
 - Clear error messages when hardware is missing
 - Installation instructions for required software/drivers
 - No workarounds that bypass hardware requirements
+- **Memory constraints:** All code must work within 512MB RAM limit
+- **CPU constraints:** Single-core operations only, avoid threading complexity
+- **Storage constraints:** Minimal disk usage, efficient caching
 
 This document should be updated as the project evolves and new conventions are established.
