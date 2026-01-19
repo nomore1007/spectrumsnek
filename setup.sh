@@ -119,7 +119,7 @@ fi
 
 if [ "$sdr_type" = "rtlsdr" ]; then
     # For RTL-SDR, prioritize dump1090-mutability for best compatibility
-    if ! command -v dump1090-mutability &> /dev/null && ! command -v dump1090-fa &> /dev/null && ! command -v dump1090 &> /dev/null; then
+    if ! command -v dump1090-mutability &> /dev/null && ! command -v dump1090-fa &> /dev/null; then
         echo "Installing ADS-B decoder for RTL-SDR compatibility..."
 
         # Try installing dump1090-mutability first (best RTL-SDR support)
