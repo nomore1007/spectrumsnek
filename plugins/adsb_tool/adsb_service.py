@@ -145,7 +145,7 @@ class ADSBService:
 
             # Try multiple ADS-B decoders in order of preference
             dump1090_cmd = None
-            decoders = ['dump1090-mutability', 'readsb', 'dump1090-fa', 'dump1090']
+            decoders = ['dump1090-mutability', 'dump1090-fa', 'readsb', 'dump1090']
             for cmd in decoders:
                 try:
                     result = subprocess.run(['which', cmd], capture_output=True, text=True)
