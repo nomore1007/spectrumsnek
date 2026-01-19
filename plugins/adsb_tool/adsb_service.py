@@ -390,24 +390,7 @@ class ADSBService:
 
         return aircraft_data
 
-
-
-    def _collect_aircraft_data(self):
-        """
-        Collect aircraft data from ADS-B decoder in background thread.
-
-        Memory-optimized version for low-RAM systems. This method runs
-        continuously while the service is active, collecting aircraft data
-        from the decoder and maintaining the aircraft database.
-
-        Data Sources:
-        - dump1090-mutability: SBS protocol on port 30003
-        - Other decoders: JSON API on ports 8080/8081
-
-        Memory Optimizations:
-        - Reduced data retention to 2 minutes for low-memory systems
-        - Periodic garbage collection
-        - Minimal data structures
+    def stop_service(self):
         """
         Stop the ADS-B service and clean up resources.
 
