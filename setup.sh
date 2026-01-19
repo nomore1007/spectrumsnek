@@ -112,6 +112,8 @@ check_sudo_access() {
 
 # Function to install system dependencies
 install_system_deps() {
+    # Install core system packages required for SpectrumSnek operation
+    # Includes RTL-SDR drivers, development tools, and system utilities
     echo "DEBUG: install_system_deps START"
     echo "DEBUG: SKIP_SYSTEM_DEPS=${SKIP_SYSTEM_DEPS:-false}"
     if [ "${SKIP_SYSTEM_DEPS:-false}" = true ]; then
@@ -292,15 +294,11 @@ install_system_deps() {
             print_status "dump1090 ADS-B decoder installed successfully ✓"
             print_info "Real aircraft tracking is now available!"
         else
-            print_warning "No ADS-B decoder found - ADS-B will show installation instructions"
-            print_info "To enable real aircraft tracking, run:"
-            print_info "  sudo ./setup.sh --full"
-            print_info "Or manually install: sudo apt install dump1090-mutability"
-        fi
-    else
-        print_status "RTL-SDR drivers already installed"
+        print_warning "No ADS-B decoder found - ADS-B will show installation instructions"
+        print_info "To enable real aircraft tracking, run:"
+        print_info "  sudo ./setup.sh --full"
+        print_info "Or manually install: sudo apt install dump1090-mutability"
     fi
-}
 
 # Function to repair tmux issues
 repair_tmux() {
@@ -576,6 +574,8 @@ setup_architecture() {
 setup_console_service() {
 # Function to build ADS-B decoder from source
 build_adsb_from_source() {
+    # Automatically download and compile ADS-B decoder when packages unavailable
+    # Provides self-sustaining installation for systems without pre-built packages
     print_info "Building dump1090-mutability from source..."
     if command -v git &> /dev/null && command -v make &> /dev/null; then
         # Install build dependencies
