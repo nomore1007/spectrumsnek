@@ -45,6 +45,8 @@ Thumbs.db
 # Logs
 *.log
 logs/
+setup.log
+spectrum.log
 
 # Temporary files
 *.tmp
@@ -55,6 +57,9 @@ recordings/
 .env
 config.ini
 settings.json
+
+# Agent instructions (local only)
+AGENTS.md
 
 # RTL-SDR specific
 rtl-sdr.rules

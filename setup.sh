@@ -1,6 +1,9 @@
 #!/bin/bash
 # SpectrumSnek Setup Script - Complete Installation
 
+# Enable logging
+exec > >(tee setup.log) 2>&1
+
 echo "SpectrumSnek Setup"
 echo "=================="
 echo ""

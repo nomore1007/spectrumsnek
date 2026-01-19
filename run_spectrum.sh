@@ -12,6 +12,9 @@
 # Usage: ./run_spectrum.sh [options]
 # Options are passed through to the main Python application
 
+# Enable logging
+exec > >(tee spectrum.log) 2>&1
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
 
