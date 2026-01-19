@@ -179,7 +179,23 @@ class ADSBService:
             self.decoder_cmd = dump1090_cmd
 
             # Start ADS-B decoder with RTL-SDR device and networking enabled
-            cmd = [dump1090_cmd]
+            # Check if we need sudo for RTL-SDR access
+            use_sudo = False
+            try:
+                # Test if we can access RTL-SDR without sudo
+                import subprocess
+                test_result = subprocess.run(['rtl_test', '-t'], capture_output=True, timeout=5)
+                if test_result.returncode != 0:
+                    use_sudo = True
+                    print("   RTL-SDR requires sudo access")
+            except:
+                use_sudo = True
+
+            cmd = []
+            if use_sudo:
+                cmd = ['sudo']
+
+            cmd.append(dump1090_cmd)
 
             # Configure decoder based on type
             if dump1090_cmd == 'readsb':
