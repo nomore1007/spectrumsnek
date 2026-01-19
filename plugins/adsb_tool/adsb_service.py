@@ -102,7 +102,7 @@ class ADSBService:
                     return False
 
             # Check for other RTL-SDR processes
-            result = subprocess.run(['pgrep', '-f', 'rtl\|dump1090'],
+            result = subprocess.run(['pgrep', '-f', 'rtl|dump1090'],
                                   capture_output=True, text=True)
             if result.returncode == 0:
                 processes = result.stdout.strip().split('\n')

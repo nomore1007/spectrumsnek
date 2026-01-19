@@ -61,7 +61,9 @@ class SpectrumService:
                     except Exception as e:
                         print(f"Error loading plugin {item}: {e}")
                 elif item == "adsb_tool":
-                    print(f"Skipping adsb_tool plugin (handled by adsb_service)")
+                    print(f"DEBUG: Skipping adsb_tool plugin (handled by adsb_service)")
+                else:
+                    print(f"DEBUG: Considering plugin {item}...")
 
         # Add system tools
         self.add_system_tools()
