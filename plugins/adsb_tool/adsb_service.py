@@ -239,8 +239,8 @@ class ADSBService:
                 # dump1090-mutability automatically detects SDR and uses SBS on port 30003
                 cmd.extend(['--net', '--net-sbs-port', '30003'])
             else:
-                # dump1090 or other - use SBS format on port 30003
-                cmd.extend(['--device-index', '0', '--net', '--net-sbs-port', '30003'])
+                # dump1090 (antirez) - use default SBS on port 30003
+                cmd.extend(['--device-index', '0', '--net'])
 
             # Add common options (skip options not supported by all decoders)
             if dump1090_cmd != 'dump1090':
