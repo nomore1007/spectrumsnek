@@ -20,32 +20,74 @@ if command -v rtl_test &> /dev/null; then
 fi
 
 if [ "$sdr_type" = "rtlsdr" ]; then
-    # For RTL-SDR, try to install dump1090-fa or build from source
-    if ! command -v dump1090-fa &> /dev/null && ! command -v dump1090-mutability &> /dev/null; then
-        echo "Installing dump1090-fa for RTL-SDR compatibility..."
+    # For RTL-SDR, try multiple installation methods
+    if ! command -v dump1090-fa &> /dev/null && ! command -v dump1090-mutability &> /dev/null && ! command -v dump1090 &> /dev/null; then
+        echo "Installing ADS-B decoder for RTL-SDR compatibility..."
 
         # Update package lists
         sudo apt update >/dev/null 2>&1
 
-        # Try installing dump1090-fa
+        # Method 1: Try installing dump1090-fa
+        echo "Trying dump1090-fa..."
         if sudo apt install -y dump1090-fa >/dev/null 2>&1; then
-            echo "✓ ADS-B decoder (dump1090-fa) installed for RTL-SDR"
+            echo "✓ ADS-B decoder (dump1090-fa) installed successfully"
         else
-            echo "⚠ dump1090-fa not available, attempting to build compatible decoder..."
+            # Method 2: Try installing dump1090-mutability
+            echo "dump1090-fa not available, trying dump1090-mutability..."
+            if sudo apt install -y dump1090-mutability >/dev/null 2>&1; then
+                echo "✓ ADS-B decoder (dump1090-mutability) installed successfully"
+            else
+                # Method 3: Try building dump1090-fa from source
+                echo "Package installation failed, building from source..."
+                if command -v git &> /dev/null && command -v make &> /dev/null; then
+                    TEMP_DIR=$(mktemp -d)
+                    cd "$TEMP_DIR"
 
-        # Provide manual installation instructions since automatic build is complex
-        echo "⚠ Automatic ADS-B decoder installation failed"
-        echo ""
-        echo "To enable ADS-B functionality, please install manually:"
-        echo "  sudo apt install dump1090-fa"
-        echo "  # OR"
-        echo "  sudo apt install dump1090-mutability"
-        echo ""
-        echo "For source installation:"
-        echo "  git clone https://github.com/flightaware/dump1090.git"
-        echo "  cd dump1090 && make && sudo make install"
-        echo ""
-        echo "ADS-B will work once a compatible decoder is installed."
+                    echo "Downloading dump1090-fa source..."
+                    if git clone https://github.com/flightaware/dump1090.git >/dev/null 2>&1; then
+                        cd dump1090
+                        echo "Building dump1090-fa..."
+                        if make BLADERF=no >/dev/null 2>&1; then
+                            echo "Installing dump1090-fa..."
+                            sudo make install >/dev/null 2>&1
+                            if command -v dump1090-fa &> /dev/null; then
+                                echo "✓ ADS-B decoder (dump1090-fa) built and installed from source"
+                            else
+                                # Try alternative location
+                                sudo cp dump1090 /usr/local/bin/dump1090-fa 2>/dev/null || true
+                                if command -v dump1090-fa &> /dev/null || [ -f /usr/local/bin/dump1090-fa ]; then
+                                    echo "✓ ADS-B decoder (dump1090-fa) installed from source"
+                                else
+                                    echo "⚠ Build completed but decoder not found in PATH"
+                                fi
+                            fi
+                        else
+                            echo "⚠ Failed to build dump1090-fa from source"
+                        fi
+                    else
+                        echo "⚠ Failed to download dump1090-fa source"
+                    fi
+
+                    cd /
+                    rm -rf "$TEMP_DIR"
+                else
+                    echo "⚠ git/make not available for source build"
+                fi
+
+                # Check if any decoder was successfully installed
+                if command -v dump1090-fa &> /dev/null || command -v dump1090-mutability &> /dev/null || command -v dump1090 &> /dev/null; then
+                    echo "✓ ADS-B decoder installation completed"
+                else
+                    echo "⚠ All automatic installation methods failed"
+                    echo "Please install ADS-B decoder manually:"
+                    echo "  sudo apt install dump1090-fa"
+                    echo "  # OR"
+                    echo "  sudo apt install dump1090-mutability"
+                    echo "  # OR build from source:"
+                    echo "  git clone https://github.com/flightaware/dump1090.git"
+                    echo "  cd dump1090 && make && sudo make install"
+                fi
+            fi
         fi
     else
         echo "✓ RTL-SDR compatible ADS-B decoder already available"
