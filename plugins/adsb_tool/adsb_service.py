@@ -492,18 +492,33 @@ class ADSBService:
         return self.aircraft_data.copy()
 
 
-def run_text_interface(service: ADSBService):
+    def run_text_interface(service: ADSBService):
     """Run the text-based ADS-B interface."""
+    import select
+    import sys
+    import termios
+    import tty
+
     print("ADS-B Aircraft Tracker")
     print("Real-time aircraft surveillance on 1090 MHz")
     print("Press Ctrl+C or 'q' to quit")
     print()
+
+    # Set up terminal for non-blocking input
+    old_settings = termios.tcgetattr(sys.stdin)
+    tty.setcbreak(sys.stdin.fileno())
 
     last_display = 0
     try:
         while service.running:
             current_time = time.time()
             status = service.get_status()
+
+            # Check for 'q' key press
+            if select.select([sys.stdin], [], [], 0)[0]:
+                key = sys.stdin.read(1)
+                if key.lower() == 'q':
+                    break
 
             # Update display every 2 seconds
             if current_time - last_display >= 2:
@@ -522,13 +537,13 @@ def run_text_interface(service: ADSBService):
                     print("-" * 80)
 
                     for aircraft in status['aircraft']:
-                        icao = aircraft.get('icao', 'N/A')[:6]
-                        callsign = aircraft.get('callsign', 'N/A')[:9] or 'N/A'
-                        alt = f"{aircraft.get('alt', 'N/A')}" if aircraft.get('alt') else 'N/A'
-                        lat = f"{aircraft.get('lat', 'N/A'):.4f}" if aircraft.get('lat') else 'N/A'
-                        lon = f"{aircraft.get('lon', 'N/A'):.4f}" if aircraft.get('lon') else 'N/A'
-                        speed = f"{aircraft.get('speed', 'N/A')}" if aircraft.get('speed') else 'N/A'
-                        heading = f"{aircraft.get('heading', 'N/A')}" if aircraft.get('heading') else 'N/A'
+                        icao = aircraft.get('icao', '')[:6]
+                        callsign = aircraft.get('callsign', '')[:9] or ''
+                        alt = f"{aircraft.get('alt', '')}" if aircraft.get('alt') is not None else ''
+                        lat = f"{aircraft.get('lat', ''):.4f}" if aircraft.get('lat') is not None else ''
+                        lon = f"{aircraft.get('lon', ''):.4f}" if aircraft.get('lon') is not None else ''
+                        speed = f"{aircraft.get('speed', '')}" if aircraft.get('speed') is not None else ''
+                        heading = f"{aircraft.get('heading', '')}" if aircraft.get('heading') is not None else ''
 
                         print(f"{icao:<6} {callsign:<10} {alt:<8} {lat:<10} {lon:<11} {speed:<6} {heading:<8}")
                 else:
@@ -542,6 +557,10 @@ def run_text_interface(service: ADSBService):
             time.sleep(0.1)
 
     except KeyboardInterrupt:
+        pass
+    finally:
+        # Restore terminal settings
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
         print("\nStopping ADS-B interface...")
         service.stop_service()
 
