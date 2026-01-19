@@ -174,43 +174,17 @@ class ADSBService:
             # Start ADS-B decoder with RTL-SDR device and networking enabled
             cmd = [dump1090_cmd]
 
-            # Add device and networking options based on decoder and detected SDR
-            # Try to detect SDR type for better compatibility
-            sdr_type = 'rtlsdr'  # default
-
-            # Check for HackRF
-            if os.path.exists('/usr/bin/hackrf_info'):
-                try:
-                    import subprocess
-                    result = subprocess.run(['hackrf_info'], capture_output=True, text=True, timeout=5)
-                    if result.returncode == 0:
-                        sdr_type = 'hackrf'
-                except:
-                    pass
-
-            # Check for LimeSDR
-            if os.path.exists('/usr/bin/LimeUtil'):
-                try:
-                    import subprocess
-                    result = subprocess.run(['LimeUtil', '--find'], capture_output=True, text=True, timeout=5)
-                    if 'LimeSDR' in result.stdout:
-                        sdr_type = 'limesdr'
-                except:
-                    pass
-
+            # Configure decoder based on type
             if dump1090_cmd == 'readsb':
                 # readsb can work with RTL-SDR in some configurations
                 cmd.extend(['--net', '--net-api-port', '8080'])
             elif dump1090_cmd == 'dump1090-fa':
-                cmd.extend(['--device-type', sdr_type, '--net', '--net-ro-port', '8080'])
+                cmd.extend(['--device-type', 'rtlsdr', '--net', '--net-ro-port', '8080'])
             elif dump1090_cmd == 'dump1090-mutability':
                 # dump1090-mutability automatically detects SDR and uses SBS on port 30003
                 cmd.extend(['--net', '--net-sbs-port', '30003'])
-            elif dump1090_cmd == 'dump1090':
-                # Original dump1090 uses SBS format on port 30003
-                cmd.extend(['--device-index', '0', '--net', '--net-sbs-port', '30003'])
             else:
-                # Fallback - try SBS format
+                # dump1090 or other - use SBS format on port 30003
                 cmd.extend(['--device-index', '0', '--net', '--net-sbs-port', '30003'])
 
             cmd.extend([
