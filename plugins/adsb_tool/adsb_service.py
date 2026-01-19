@@ -113,19 +113,36 @@ class ADSBService:
                     return False
 
             # Check for other RTL-SDR processes
-            result = subprocess.run(['pgrep', '-f', 'rtl_test|rtl|dump1090|spectrum'],
+            result = subprocess.run(['pgrep', '-f', 'rtl_test|rtl|dump1090|spectrum|run_spectrum'],
                                   capture_output=True, text=True)
             if result.returncode == 0:
                 processes = result.stdout.strip().split('\n')
                 if processes and processes[0]:
-                    print(f"⚠ Found {len(processes)} conflicting RTL-SDR process(es)")
+                    print(f"⚠ Found {len(processes)} conflicting RTL-SDR process(es) (including SpectrumSnek)")
 
-                    # Try to stop them with sudo if needed
+                    # Stop SpectrumSnek service first (it might be using RTL-SDR)
+                    spectrum_pids = []
+                    for pid in processes:
+                        if pid.strip():
+                            try:
+                                # Check if this is a spectrum-related process
+                                cmd_result = subprocess.run(['ps', '-p', pid.strip(), '-o', 'cmd='], capture_output=True, text=True)
+                                if cmd_result.returncode == 0 and ('spectrum' in cmd_result.stdout or 'run_spectrum' in cmd_result.stdout):
+                                    spectrum_pids.append(pid.strip())
+                            except:
+                                pass
+
+                    if spectrum_pids:
+                        print(f"  Stopping {len(spectrum_pids)} SpectrumSnek process(es) temporarily...")
+                        for pid in spectrum_pids:
+                            subprocess.run(['kill', '-TERM', pid], capture_output=True)
+                        time.sleep(2)
+
+                    # Now stop other RTL-SDR processes
                     stop_cmds = [
                         ['pkill', '-f', 'rtl_test'],
                         ['pkill', '-f', 'rtl'],
-                        ['pkill', '-f', 'dump1090'],
-                        ['pkill', '-f', 'spectrum']
+                        ['pkill', '-f', 'dump1090']
                     ]
 
                     for cmd in stop_cmds:
@@ -134,7 +151,7 @@ class ADSBService:
                     time.sleep(3)  # Give more time for processes to stop
 
                     # Check if they're really stopped
-                    check_result = subprocess.run(['pgrep', '-f', 'rtl_test|rtl|dump1090|spectrum'],
+                    check_result = subprocess.run(['pgrep', '-f', 'rtl_test|rtl|dump1090'],
                                                 capture_output=True, text=True)
                     if check_result.returncode == 0:
                         remaining = check_result.stdout.strip().split('\n')
