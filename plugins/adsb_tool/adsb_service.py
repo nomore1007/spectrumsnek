@@ -48,24 +48,18 @@ class ADSBService:
         self.decoder_cmd = None
 
     def _check_readsb(self) -> bool:
-        """Check if ADS-B decoder (readsb, dump1090-mutability, dump1090-fa, dump1090) is installed."""
+        """Check if ADS-B decoder (dump1090-mutability, dump1090-fa, dump1090, readsb) is installed."""
         try:
             # Try multiple ADS-B decoders in order of preference
-            decoders = ['readsb', 'dump1090-mutability', 'dump1090-fa', 'dump1090']
+            decoders = ['dump1090-mutability', 'dump1090-fa', 'dump1090', 'readsb']
             for cmd in decoders:
                 result = subprocess.run(['which', cmd],
                                       capture_output=True, text=True)
                 if result.returncode == 0:
                     print(f"✓ Found ADS-B decoder: {cmd}", flush=True)
                     return True
-            # Also check if dump1090-mutability installed dump1090 binary
-            result = subprocess.run(['which', 'dump1090'],
-                                  capture_output=True, text=True)
-            if result.returncode == 0:
-                print(f"✓ Found ADS-B decoder: dump1090 (from dump1090-mutability)", flush=True)
-                return True
             print("ℹ No ADS-B decoder found - aircraft detection requires external decoder", flush=True)
-            print("  Available options: readsb, dump1090-mutability, dump1090-fa, dump1090", flush=True)
+            print("  Available options: dump1090-mutability, dump1090-fa, dump1090, readsb", flush=True)
             return False
         except Exception as e:
             print(f"⚠ Error checking for ADS-B decoder: {e}", flush=True)
