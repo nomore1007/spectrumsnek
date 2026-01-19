@@ -390,7 +390,6 @@ class ADSBService:
                             else:
                                 # No SBS data received
                                 pass
-
                         except Exception as sbs_err:
                             # Connection errors are handled silently
                             pass
