@@ -576,8 +576,8 @@ setup_console_service() {
 build_adsb_from_source() {
     # Automatically download and compile ADS-B decoder when packages unavailable
     # Provides self-sustaining installation for systems without pre-built packages
-    print_info "Building dump1090-mutability from source..."
-    if command -v git &> /dev/null && command -v make &> /dev/null; then
+    print_info "Building dump1090 from source..."
+    if command -v git &> /dev/null && command -v gcc &> /dev/null; then
         # Install build dependencies
         safe_apt_install build-essential librtlsdr-dev libusb-1.0-0-dev pkg-config
 
@@ -600,10 +600,6 @@ build_adsb_from_source() {
                 print_warning "Failed to compile ADS-B decoder from source"
                 return 1
             fi
-            else
-                print_warning "Failed to build ADS-B decoder from source (make failed)"
-                return 1
-            fi
         else
             print_warning "Failed to download ADS-B decoder source"
             return 1
@@ -611,7 +607,7 @@ build_adsb_from_source() {
         cd /
         rm -rf "$TEMP_DIR"
     else
-        print_warning "git/make not available for source build"
+        print_warning "git/gcc not available for source build"
         return 1
     fi
 }
