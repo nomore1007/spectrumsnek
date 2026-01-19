@@ -46,8 +46,8 @@ if [ "$sdr_type" = "rtlsdr" ]; then
                     echo "Downloading dump1090-fa source..."
                     if git clone https://github.com/flightaware/dump1090.git >/dev/null 2>&1; then
                         cd dump1090
-                        echo "Building dump1090-fa..."
-                        if make BLADERF=no >/dev/null 2>&1; then
+                        echo "Building dump1090-fa (this may take several minutes)..."
+                        if timeout 300 make BLADERF=no >/dev/null 2>&1; then
                             echo "Installing dump1090-fa..."
                             sudo make install >/dev/null 2>&1
                             if command -v dump1090-fa &> /dev/null; then
@@ -74,18 +74,12 @@ if [ "$sdr_type" = "rtlsdr" ]; then
                     echo "⚠ git/make not available for source build"
                 fi
 
-                # Check if any decoder was successfully installed
+                # Final check for successful installation
                 if command -v dump1090-fa &> /dev/null || command -v dump1090-mutability &> /dev/null || command -v dump1090 &> /dev/null; then
-                    echo "✓ ADS-B decoder installation completed"
+                    echo "✓ ADS-B decoder installation completed successfully"
                 else
                     echo "⚠ All automatic installation methods failed"
-                    echo "Please install ADS-B decoder manually:"
-                    echo "  sudo apt install dump1090-fa"
-                    echo "  # OR"
-                    echo "  sudo apt install dump1090-mutability"
-                    echo "  # OR build from source:"
-                    echo "  git clone https://github.com/flightaware/dump1090.git"
-                    echo "  cd dump1090 && make && sudo make install"
+                    echo "ADS-B functionality will require manual decoder installation"
                 fi
             fi
         fi
