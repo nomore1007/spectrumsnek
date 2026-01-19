@@ -341,15 +341,13 @@ class ADSBService:
                             data = sock.recv(8192).decode('utf-8', errors='ignore')
                             sock.close()
 
-                            print(f"DEBUG: Received {len(data)} bytes from SBS port", flush=True)
-                            if data:
-                                print(f"DEBUG: SBS data preview: {data[:200]}", flush=True)
+                                # Debug logging removed for cleaner output
                                 # Parse SBS format messages
                                 aircraft_data = self._parse_sbs_data(data)
                                 aircraft_count = len(aircraft_data)
 
                                 if aircraft_count > 0:
-                                    print(f"✓ Retrieved data for {aircraft_count} aircraft from SBS", flush=True)
+                                    # SBS data parsed successfully
                                 else:
                                     print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
 
@@ -357,10 +355,10 @@ class ADSBService:
                                 self.last_update = time.time()
                                 data_retrieved = True
                             else:
-                                print("⚠ No data received from SBS port", flush=True)
+                                # No SBS data received
 
                         except Exception as sbs_err:
-                            print(f"⚠ SBS connection failed: {sbs_err}", flush=True)
+                                # Connection errors are handled silently
                     else:
                         # Try JSON APIs for other decoders
                         api_urls = [
@@ -377,7 +375,7 @@ class ADSBService:
                                     aircraft_count = len(aircraft_list)
 
                                     if aircraft_count > 0:
-                                        print(f"✓ Retrieved data for {aircraft_count} aircraft", flush=True)
+                                        # Data retrieval success - displayed in interface
 
                                     # Convert decoder format to our internal format
                                     self.aircraft_data = {}
@@ -406,19 +404,19 @@ class ADSBService:
                                 continue
 
                     if not data_retrieved:
-                        print("⚠ Could not retrieve data from any API endpoint", flush=True)
+                        # Could not retrieve data - will show no aircraft in interface
                         # Check if the decoder process is still running
                         if self.readsb_process.poll() is not None:
-                            print("⚠ ADS-B decoder process has stopped", flush=True)
+                            # Decoder process stopped
                         self.aircraft_data = {}
                 else:
                     # No ADS-B decoder available - cannot provide real data
                     self.aircraft_data = {}
                     self.last_update = time.time()
-                    print("No ADS-B decoder available - cannot provide real aircraft data", flush=True)
+                    # No decoder available
 
             except Exception as e:
-                print(f"Error in aircraft data collection: {e}", flush=True)
+                    # Error in data collection - continuing
                 self.aircraft_data = {}
 
             time.sleep(2)  # Update every 2 seconds
@@ -471,10 +469,38 @@ def run_text_interface(service: ADSBService):
             current_time = time.time()
             status = service.get_status()
 
-            # Update display every second
-            if current_time - last_display >= 1:
-                # Clear previous lines and show status
-                print(f"\rAircraft: {status['aircraft_count']} | Status: {'Active' if status['running'] else 'Inactive'} | Uptime: {status['uptime']:.0f}s", end='', flush=True)
+            # Update display every 2 seconds
+            if current_time - last_display >= 2:
+                # Clear screen and show aircraft data
+                print("\033[2J\033[H", end="")  # Clear screen and move to top
+                print("ADS-B Aircraft Tracker - Real-time Surveillance")
+                print("=" * 50)
+                print(f"Status: {'Active' if status['running'] else 'Inactive'} | Uptime: {status['uptime']:.0f}s")
+                print(f"Aircraft detected: {status['aircraft_count']}")
+                print()
+
+                if status['aircraft']:
+                    print("Current Aircraft:")
+                    print("-" * 80)
+                    print(f"{'ICAO':<6} {'Callsign':<10} {'Alt':<8} {'Lat':<10} {'Lon':<11} {'Speed':<6} {'Heading':<8}")
+                    print("-" * 80)
+
+                    for aircraft in status['aircraft']:
+                        icao = aircraft.get('icao', 'N/A')[:6]
+                        callsign = aircraft.get('callsign', 'N/A')[:9] or 'N/A'
+                        alt = f"{aircraft.get('alt', 'N/A')}" if aircraft.get('alt') else 'N/A'
+                        lat = f"{aircraft.get('lat', 'N/A'):.4f}" if aircraft.get('lat') else 'N/A'
+                        lon = f"{aircraft.get('lon', 'N/A'):.4f}" if aircraft.get('lon') else 'N/A'
+                        speed = f"{aircraft.get('speed', 'N/A')}" if aircraft.get('speed') else 'N/A'
+                        heading = f"{aircraft.get('heading', 'N/A')}" if aircraft.get('heading') else 'N/A'
+
+                        print(f"{icao:<6} {callsign:<10} {alt:<8} {lat:<10} {lon:<11} {speed:<6} {heading:<8}")
+                else:
+                    print("No aircraft currently detected.")
+                    print("Make sure your RTL-SDR is connected and tuned to 1090 MHz.")
+
+                print()
+                print("Press Ctrl+C or 'q' to quit")
                 last_display = current_time
 
             time.sleep(0.1)
