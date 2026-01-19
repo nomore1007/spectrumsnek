@@ -17,6 +17,8 @@ VENV_DIR="$SCRIPT_DIR/venv"
 
 # Function to detect connected SDR devices
 detect_sdr_device() {
+    # Scan system for compatible SDR hardware (RTL-SDR, HackRF, LimeSDR)
+    # Returns device type string for appropriate driver configuration
     # Try to detect various SDR types
     if command -v rtl_test &> /dev/null; then
         if rtl_test -t 2>&1 | grep -q "Found [0-9] device"; then
@@ -51,6 +53,8 @@ detect_sdr_device() {
 
 # Function to check if required system packages are installed
 check_system_dependencies() {
+    # Verify all system prerequisites are met before launching SpectrumSnek
+    # Checks SDR devices, drivers, and development tools
     local missing_packages=""
 
     # Check for required commands/packages
@@ -149,7 +153,10 @@ if ! check_python_dependencies; then
 fi
 
 # Check ADS-B decoder availability
+# Function to check for available ADS-B decoders
 check_adsb_decoder() {
+    # Verify ADS-B decoder software is installed and accessible
+    # Supports multiple decoder implementations for maximum compatibility
     if command -v dump1090-mutability &> /dev/null || \
        command -v readsb &> /dev/null || \
        command -v dump1090-fa &> /dev/null || \

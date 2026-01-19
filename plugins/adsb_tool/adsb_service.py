@@ -366,7 +366,22 @@ class ADSBService:
         return aircraft_data
 
     def _collect_aircraft_data(self):
-        """Collect aircraft data from ADS-B decoder."""
+        """
+        Collect aircraft data from ADS-B decoder in background thread.
+
+        This method runs continuously while the service is active, collecting
+        aircraft data from the decoder and maintaining the aircraft database.
+        Implements data persistence with 5-minute timeouts and automatic
+        cleanup of stale aircraft information.
+
+        Data Sources:
+        - dump1090-mutability: SBS protocol on port 30003
+        - Other decoders: JSON API on ports 8080/8081
+
+        Thread Safety:
+        - Uses instance locks for data structure access
+        - Runs at 2-second intervals to balance responsiveness and CPU usage
+        """
         AIRCRAFT_TIMEOUT_MINUTES = 5  # Keep aircraft data for 5 minutes
 
         while self.running:
@@ -547,7 +562,27 @@ class ADSBService:
 
 
 def run_text_interface(service: ADSBService):
-    """Run the text-based ADS-B interface."""
+    """
+    Run the text-based ADS-B aircraft tracking interface.
+
+    Provides an interactive terminal interface for monitoring ADS-B aircraft.
+    Displays real-time aircraft data in a table format with automatic updates.
+    Supports keyboard quit ('q') and preserves last-known data values.
+
+    Args:
+        service (ADSBService): The ADS-B service instance to monitor
+
+    Interface Features:
+    - Real-time aircraft table with ICAO, callsign, position, altitude
+    - 2-second refresh rate for smooth updates
+    - Persistent data display (shows last known values)
+    - Aircraft count and service status
+    - Graceful keyboard interrupt handling
+
+    Key Bindings:
+    - 'q': Quit the interface
+    - Ctrl+C: Force quit
+    """
     import select
     import sys
     import termios
