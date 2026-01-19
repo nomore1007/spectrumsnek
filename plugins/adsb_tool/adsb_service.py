@@ -188,9 +188,8 @@ class ADSBService:
                     pass
 
             if dump1090_cmd == 'readsb':
-                # readsb doesn't support RTL-SDR directly, skip for now
-                print(f"⚠ readsb doesn't support RTL-SDR directly, trying next decoder...")
-                continue
+                # readsb can work with RTL-SDR in some configurations
+                cmd.extend(['--net', '--net-api-port', '8080'])
             elif dump1090_cmd == 'dump1090-fa':
                 cmd.extend(['--device-type', sdr_type, '--net', '--net-ro-port', '8080'])
             elif dump1090_cmd == 'dump1090-mutability':
