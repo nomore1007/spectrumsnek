@@ -578,6 +578,9 @@ setup_console_service() {
 build_adsb_from_source() {
     print_info "Building dump1090-mutability from source..."
     if command -v git &> /dev/null && command -v make &> /dev/null; then
+        # Install build dependencies
+        safe_apt_install build-essential librtlsdr-dev libusb-1.0-0-dev pkg-config
+
         TEMP_DIR=$(mktemp -d)
         cd "$TEMP_DIR"
         if git clone https://github.com/mutability/dump1090.git 2>/dev/null; then
@@ -593,7 +596,7 @@ build_adsb_from_source() {
                     return 1
                 fi
             else
-                print_warning "Failed to build ADS-B decoder from source"
+                print_warning "Failed to build ADS-B decoder from source (make failed)"
                 return 1
             fi
         else
