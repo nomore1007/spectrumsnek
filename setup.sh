@@ -1482,3 +1482,6 @@ echo "If you see permission warnings above, run:"
 echo "  sudo ./install_udev_rules.sh"
 echo "  sudo usermod -a -G plugdev \$USER"
 echo "Then log out and back in (or reboot)"
+
+# Run main function
+main "$@"
