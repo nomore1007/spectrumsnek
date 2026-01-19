@@ -585,9 +585,10 @@ build_adsb_from_source() {
         cd "$TEMP_DIR"
         if git clone https://github.com/antirez/dump1090.git 2>/dev/null; then
             cd dump1090
-            if make 2>/dev/null; then
-                sudo make install 2>/dev/null
-                if command -v dump1090-mutability &> /dev/null; then
+            # Try direct compilation since no Makefile
+            if gcc -I. dump1090.c anet.c -o dump1090 -lm -lpthread -lrtlsdr -lusb-1.0 2>/dev/null; then
+                sudo cp dump1090 /usr/local/bin/ 2>/dev/null
+                if command -v dump1090 &> /dev/null; then
                     print_status "ADS-B decoder built and installed from source ✓"
                     print_info "Real aircraft tracking is now available!"
                     return 0
@@ -595,6 +596,10 @@ build_adsb_from_source() {
                     print_warning "ADS-B decoder build succeeded but not found in PATH"
                     return 1
                 fi
+            else
+                print_warning "Failed to compile ADS-B decoder from source"
+                return 1
+            fi
             else
                 print_warning "Failed to build ADS-B decoder from source (make failed)"
                 return 1
