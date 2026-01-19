@@ -2,6 +2,21 @@
 """
 SpectrumSnek 🐍📻
 Main menu system for selecting and running various radio-related tools.
+
+This module provides a curses-based interactive menu system that allows users
+to select and launch different radio analysis tools including RTL-SDR spectrum
+analysis, ADS-B aircraft tracking, WiFi scanning, and Bluetooth discovery.
+
+Key Features:
+- Interactive curses-based menu navigation
+- Automatic tool discovery and loading
+- Service mode for web interface access
+- Comprehensive error handling and logging
+
+Usage:
+    python main.py                    # Interactive menu
+    python main.py --service-url URL  # Connect to service
+    python main.py --help            # Show help
 """
 
 import sys
@@ -16,7 +31,18 @@ from typing import List, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 class ModuleInfo:
-    """Information about a loadable module."""
+    """
+    Information container for a loadable SpectrumSnek module.
+
+    This class holds metadata about available tools and their execution
+    functions, enabling dynamic module loading and menu generation.
+
+    Attributes:
+        name (str): Display name of the module
+        description (str): Brief description for menu display
+        module_path (str): Filesystem path to the module
+        run_function: Callable function to execute the module
+    """
     def __init__(self, name: str, description: str, module_path: str, run_function):
         self.name = name
         self.description = description

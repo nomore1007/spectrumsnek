@@ -1,6 +1,16 @@
 #!/bin/bash
 # SpectrumSnek Launcher Script
 # Activates virtual environment and runs the main application
+#
+# This script provides a comprehensive launcher for SpectrumSnek that:
+# - Checks system dependencies (RTL-SDR, Python, etc.)
+# - Sets up and activates the Python virtual environment
+# - Configures SDR device permissions
+# - Handles ADS-B decoder conflicts
+# - Launches the main SpectrumSnek application
+#
+# Usage: ./run_spectrum.sh [options]
+# Options are passed through to the main Python application
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"

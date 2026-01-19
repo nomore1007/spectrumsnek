@@ -1,6 +1,28 @@
 """
-ADS-B Service using external decoders
-Provides real ADS-B aircraft tracking using readsb, dump1090-fa, or dump1090.
+ADS-B Aircraft Tracking Service
+Real-time aircraft surveillance using RTL-SDR hardware.
+
+This module provides comprehensive ADS-B (Automatic Dependent Surveillance-Broadcast)
+aircraft tracking capabilities. It supports multiple ADS-B decoders and provides
+real-time aircraft position, altitude, speed, and identification data.
+
+Features:
+- Automatic decoder detection and configuration
+- Real-time aircraft data collection and persistence
+- Text-based interface with live aircraft display
+- Multiple SDR device support (RTL-SDR, HackRF, LimeSDR)
+- 5-minute aircraft data retention for stable display
+
+Supported Decoders:
+- dump1090-mutability (preferred for RTL-SDR)
+- dump1090-fa (FlightAware version)
+- readsb (fallback option)
+- dump1090 (original version)
+
+Usage:
+    from adsb_service import ADSBService
+    service = ADSBService()
+    service.start_service()
 """
 
 import subprocess
@@ -480,7 +502,17 @@ class ADSBService:
             time.sleep(2)  # Update every 2 seconds
 
     def stop_service(self):
-        """Stop the ADS-B service."""
+        """
+        Stop the ADS-B service and clean up resources.
+
+        This method gracefully shuts down the ADS-B service:
+        1. Terminates the background data collection thread
+        2. Stops the ADS-B decoder process
+        3. Cleans up aircraft data cache
+        4. Resets service state for potential restart
+
+        Safe to call multiple times or when service is not running.
+        """
         print("Stopping ADS-B service...", flush=True)
         self.running = False
 
