@@ -145,7 +145,7 @@ class ADSBService:
 
             # Try multiple ADS-B decoders in order of preference
             dump1090_cmd = None
-            decoders = ['readsb', 'dump1090-mutability', 'dump1090-fa', 'dump1090']
+            decoders = ['dump1090-mutability', 'readsb', 'dump1090-fa', 'dump1090']
             for cmd in decoders:
                 try:
                     result = subprocess.run(['which', cmd], capture_output=True, text=True)
@@ -188,8 +188,9 @@ class ADSBService:
                     pass
 
             if dump1090_cmd == 'readsb':
-                # readsb automatically detects SDR
-                cmd.extend(['--device', '0', '--net', '--net-api-port', '8080'])
+                # readsb doesn't support RTL-SDR directly, skip for now
+                print(f"⚠ readsb doesn't support RTL-SDR directly, trying next decoder...")
+                continue
             elif dump1090_cmd == 'dump1090-fa':
                 cmd.extend(['--device-type', sdr_type, '--net', '--net-ro-port', '8080'])
             elif dump1090_cmd == 'dump1090-mutability':
