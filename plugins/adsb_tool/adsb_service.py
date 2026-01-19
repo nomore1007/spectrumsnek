@@ -188,8 +188,8 @@ class ADSBService:
                     pass
 
             if dump1090_cmd == 'readsb':
-                # readsb automatically detects SDR, no --device-type needed
-                cmd.extend(['--net', '--net-api-port', '8080'])
+                # readsb automatically detects SDR
+                cmd.extend(['--device', '0', '--net', '--net-api-port', '8080'])
             elif dump1090_cmd == 'dump1090-fa':
                 cmd.extend(['--device-type', sdr_type, '--net', '--net-ro-port', '8080'])
             elif dump1090_cmd == 'dump1090-mutability':
