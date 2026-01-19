@@ -5,6 +5,12 @@ A comprehensive Python-powered radio spectrum analysis toolkit with client-serve
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
+## Recent Updates
+
+- **ADS-B Tool Fix**: Resolved syntax error causing unterminated triple-quoted string literal in adsb_service.py
+- **Setup Script Enhancement**: Prioritized dump1090-mutability installation for optimal RTL-SDR ADS-B compatibility
+- **Raspberry Pi Optimized**: Primary deployment platform with 512MB RAM constraints in mind
+
 ## Overview
 
 SpectrumSnek is a modern, modular radio spectrum analysis toolkit with client-server architecture. It provides a complete software-defined radio (SDR) experience with multiple specialized tools for radio monitoring, analysis, and scanning. Built around the affordable RTL-SDR USB dongle, SpectrumSnek offers both traditional radio scanner functionality and modern spectrum analysis capabilities.
