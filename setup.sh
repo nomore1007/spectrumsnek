@@ -574,6 +574,40 @@ setup_architecture() {
 
 # Function to setup console autologin and tmux
 setup_console_service() {
+# Function to build ADS-B decoder from source
+build_adsb_from_source() {
+    print_info "Building dump1090-mutability from source..."
+    if command -v git &> /dev/null && command -v make &> /dev/null; then
+        TEMP_DIR=$(mktemp -d)
+        cd "$TEMP_DIR"
+        if git clone https://github.com/mutability/dump1090.git 2>/dev/null; then
+            cd dump1090
+            if make 2>/dev/null; then
+                sudo make install 2>/dev/null
+                if command -v dump1090-mutability &> /dev/null; then
+                    print_status "ADS-B decoder built and installed from source ✓"
+                    print_info "Real aircraft tracking is now available!"
+                    return 0
+                else
+                    print_warning "ADS-B decoder build succeeded but not found in PATH"
+                    return 1
+                fi
+            else
+                print_warning "Failed to build ADS-B decoder from source"
+                return 1
+            fi
+        else
+            print_warning "Failed to download ADS-B decoder source"
+            return 1
+        fi
+        cd /
+        rm -rf "$TEMP_DIR"
+    else
+        print_warning "git/make not available for source build"
+        return 1
+    fi
+}
+
     print_info "Setting up console autologin and tmux session..."
 
     SUDO_CMD=$(get_sudo)
