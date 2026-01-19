@@ -547,7 +547,7 @@ class RadioToolsLoader:
         selected = 0
         while True:
             print("\n" + "="*50)
-            print("Radio Tools Loader")
+            print("SpectrumSnek")
             print("="*50)
             print("Available tools:")
             
@@ -636,7 +636,7 @@ def check_dependencies():
 
 def main():
     """Main entry point."""
-    print("Radio Tools Loader")
+    print("SpectrumSnek")
     print("=" * 20)
 
     if not check_dependencies():
@@ -674,7 +674,7 @@ def main():
     # For UI mode, parse arguments
     import argparse
 
-    parser = argparse.ArgumentParser(description="SpectrumSnek Radio Tools Loader")
+    parser = argparse.ArgumentParser(description="SpectrumSnek")
     parser.add_argument('--service-url', default='http://127.0.0.1:5000',
                        help='URL of the SpectrumSnek service (default: http://127.0.0.1:5000)')
 
@@ -714,7 +714,7 @@ def main():
         try:
             loader.text_menu_loop()
         except KeyboardInterrupt:
-            print("\nRadio Tools Loader stopped by user")
+            print("\nSpectrumSnek stopped by user")
         except Exception as e:
             print(f"\nError in text menu: {e}")
 
