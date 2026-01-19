@@ -492,7 +492,7 @@ class ADSBService:
         return self.aircraft_data.copy()
 
 
-    def run_text_interface(service: ADSBService):
+def run_text_interface(service: ADSBService):
     """Run the text-based ADS-B interface."""
     import select
     import sys
