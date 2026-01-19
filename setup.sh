@@ -138,7 +138,7 @@ if [ "$sdr_type" = "rtlsdr" ]; then
                     if git clone https://github.com/antirez/dump1090.git >/dev/null 2>&1; then
                         cd dump1090
                         echo "Building dump1090..."
-                        if gcc -I. dump1090.c anet.c -o dump1090 -lm -lpthread -lrtlsdr -lusb-1.0 -lncurses >/dev/null 2>&1; then
+                        if gcc -I. *.c -o dump1090 -lm -lpthread -lrtlsdr -lusb-1.0 -lncurses >/dev/null 2>&1; then
                             $SUDO_CMD cp dump1090 /usr/local/bin/ >/dev/null 2>&1
                             if command -v dump1090 &> /dev/null; then
                                 echo "✓ ADS-B decoder (dump1090) built and installed from source"
