@@ -187,12 +187,15 @@ class ADSBService:
                 # dump1090 or other - use SBS format on port 30003
                 cmd.extend(['--device-index', '0', '--net', '--net-sbs-port', '30003'])
 
-            cmd.extend([
-                '--quiet',
-                '--fix',
-                '--metric',
-                '--max-range', '200'
-            ])
+            # Add common options (skip options not supported by all decoders)
+            if dump1090_cmd != 'dump1090':
+                # These options might not be supported by antirez dump1090
+                cmd.extend([
+                    '--quiet',
+                    '--fix',
+                    '--metric',
+                    '--max-range', '200'
+                ])
 
             print(f"Starting {dump1090_cmd}...", flush=True)
             self.readsb_process = subprocess.Popen(
