@@ -5,6 +5,40 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
 
+# Function to detect connected SDR devices
+detect_sdr_device() {
+    # Try to detect various SDR types
+    if command -v rtl_test &> /dev/null; then
+        if rtl_test -t 2>&1 | grep -q "Found [0-9] device"; then
+            echo "RTL-SDR detected"
+            return 0
+        fi
+    fi
+
+    if command -v hackrf_info &> /dev/null; then
+        if hackrf_info 2>&1 | grep -q "hackrf_info version"; then
+            echo "HackRF detected"
+            return 0
+        fi
+    fi
+
+    if command -v LimeUtil &> /dev/null; then
+        if LimeUtil --find 2>&1 | grep -q "LimeSDR"; then
+            echo "LimeSDR detected"
+            return 0
+        fi
+    fi
+
+    # Check for any USB SDR devices
+    if lsusb 2>/dev/null | grep -i -E "(rtl|hackrf|lime|airspy|bladeRF)" &> /dev/null; then
+        echo "Generic SDR device detected via USB"
+        return 0
+    fi
+
+    echo "No SDR device detected"
+    return 1
+}
+
 # Function to check if required system packages are installed
 check_system_dependencies() {
     local missing_packages=""
@@ -14,14 +48,19 @@ check_system_dependencies() {
         missing_packages="$missing_packages python3"
     fi
 
-    # Skip pip check - it's available via python3 -m pip if needed
+    # Check for SDR device
+    if ! detect_sdr_device > /dev/null; then
+        echo "Warning: No SDR device detected. Some tools may not work."
+        echo "Supported SDR types: RTL-SDR, HackRF, LimeSDR, Airspy, bladeRF"
+    fi
 
-    if ! dpkg -l | grep -q rtl-sdr; then
+    # Check for RTL-SDR drivers (most common, install if not present)
+    if ! dpkg -l | grep -q rtl-sdr 2>/dev/null; then
         missing_packages="$missing_packages rtl-sdr"
     fi
 
     # Check for Python dev headers (more flexible check)
-    if ! dpkg -l | grep -q "python3.*dev" && ! dpkg -l | grep -q "python3.*headers"; then
+    if ! dpkg -l | grep -q "python3.*dev" 2>/dev/null && ! dpkg -l | grep -q "python3.*headers" 2>/dev/null; then
         missing_packages="$missing_packages python3-dev"
     fi
 
@@ -155,7 +194,7 @@ check_rtl_conflicts() {
 # Check for RTL-SDR conflicts before proceeding
 check_rtl_conflicts
 
-# Warn about ADS-B decoder if not available
+# Warn about ADS-B decoder and SDR compatibility
 if ! check_adsb_decoder; then
     echo ""
     echo "⚠ NOTICE: ADS-B decoder not found"
@@ -168,6 +207,11 @@ if ! check_adsb_decoder; then
     echo "ADS-B will show installation instructions until decoder is installed."
     echo ""
 fi
+
+# Check SDR device status
+echo "SDR Device Status:"
+detect_sdr_device
+echo ""
 
 # Handle special commands
 if [ "$1" = "--reinstall-deps" ]; then

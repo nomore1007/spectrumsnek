@@ -163,17 +163,40 @@ class ADSBService:
             # Start ADS-B decoder with RTL-SDR device and networking enabled
             cmd = [dump1090_cmd]
 
-            # Add device and networking options based on decoder
+            # Add device and networking options based on decoder and detected SDR
+            # Try to detect SDR type for better compatibility
+            sdr_type = 'rtlsdr'  # default
+
+            # Check for HackRF
+            if os.path.exists('/usr/bin/hackrf_info'):
+                try:
+                    import subprocess
+                    result = subprocess.run(['hackrf_info'], capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        sdr_type = 'hackrf'
+                except:
+                    pass
+
+            # Check for LimeSDR
+            if os.path.exists('/usr/bin/LimeUtil'):
+                try:
+                    import subprocess
+                    result = subprocess.run(['LimeUtil', '--find'], capture_output=True, text=True, timeout=5)
+                    if 'LimeSDR' in result.stdout:
+                        sdr_type = 'limesdr'
+                except:
+                    pass
+
             if dump1090_cmd == 'readsb':
-                # readsb automatically detects RTL-SDR, no --device-type needed
+                # readsb automatically detects SDR, no --device-type needed
                 cmd.extend(['--net', '--net-api-port', '8080'])
             elif dump1090_cmd == 'dump1090-fa':
-                cmd.extend(['--device-type', 'rtlsdr', '--net', '--net-ro-port', '8080'])
+                cmd.extend(['--device-type', sdr_type, '--net', '--net-ro-port', '8080'])
             elif dump1090_cmd == 'dump1090-mutability':
-                # dump1090-mutability automatically detects RTL-SDR and uses SBS on port 30003
+                # dump1090-mutability automatically detects SDR and uses SBS on port 30003
                 cmd.extend(['--net', '--net-sbs-port', '30003'])
             else:  # dump1090
-                cmd.extend(['--device-type', 'rtlsdr', '--net', '--net-http-port', '8080'])
+                cmd.extend(['--device-type', sdr_type, '--net', '--net-http-port', '8080'])
 
             cmd.extend([
                 '--quiet',
@@ -348,12 +371,25 @@ class ADSBService:
                             if data:
                                 # Debug logging removed for cleaner output
                                 # Parse SBS format messages
-                                parsed_data = self._parse_sbs_data(data)
-                                aircraft_count = len(parsed_data)
+                                aircraft_data = self._parse_sbs_data(data)
+                                aircraft_count = len(aircraft_data)
 
                                 if aircraft_count > 0:
                                     # SBS data parsed successfully
                                     pass
+                                else:
+                                    print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
+
+                                self.aircraft_data = aircraft_data
+                                self.last_update = time.time()
+                                data_retrieved = True
+                            else:
+                                # No SBS data received
+                                pass
+
+                        except Exception as sbs_err:
+                            # Connection errors are handled silently
+                            pass
                                 else:
                                     print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
 
