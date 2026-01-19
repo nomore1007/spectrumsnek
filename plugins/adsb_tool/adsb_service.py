@@ -341,23 +341,24 @@ class ADSBService:
                             data = sock.recv(8192).decode('utf-8', errors='ignore')
                             sock.close()
 
-                            # Debug logging removed for cleaner output
-                            # Parse SBS format messages
-                            aircraft_data = self._parse_sbs_data(data)
-                            aircraft_count = len(aircraft_data)
+                            if data:
+                                # Debug logging removed for cleaner output
+                                # Parse SBS format messages
+                                aircraft_data = self._parse_sbs_data(data)
+                                aircraft_count = len(aircraft_data)
 
-                            if aircraft_count > 0:
-                                # SBS data parsed successfully
-                                pass
+                                if aircraft_count > 0:
+                                    # SBS data parsed successfully
+                                    pass
+                                else:
+                                    print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
+
+                                self.aircraft_data = aircraft_data
+                                self.last_update = time.time()
+                                data_retrieved = True
                             else:
-                                print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
-
-                            self.aircraft_data = aircraft_data
-                            self.last_update = time.time()
-                            data_retrieved = True
-                        else:
-                            # No SBS data received
-                            pass
+                                # No SBS data received
+                                pass
 
                         except Exception as sbs_err:
                             # Connection errors are handled silently
@@ -406,17 +407,13 @@ class ADSBService:
                             except (requests.RequestException, json.JSONDecodeError):
                                 # Try next URL
                                 continue
-                            except (requests.RequestException, json.JSONDecodeError):
-                                # Try next URL
-                                continue
 
                     if not data_retrieved:
                         # Could not retrieve data - will show no aircraft in interface
-                        pass
                         # Check if the decoder process is still running
                         if self.readsb_process.poll() is not None:
                             # Decoder process stopped
-                        self.aircraft_data = {}
+                            self.aircraft_data = {}
                 else:
                     # No ADS-B decoder available - cannot provide real data
                     self.aircraft_data = {}
@@ -424,8 +421,7 @@ class ADSBService:
                     # No decoder available
 
             except Exception as e:
-                    # Error in data collection - continuing
-                    pass
+                # Error in data collection - continuing
                 self.aircraft_data = {}
 
             time.sleep(2)  # Update every 2 seconds
