@@ -341,24 +341,27 @@ class ADSBService:
                             data = sock.recv(8192).decode('utf-8', errors='ignore')
                             sock.close()
 
-                                # Debug logging removed for cleaner output
-                                # Parse SBS format messages
-                                aircraft_data = self._parse_sbs_data(data)
-                                aircraft_count = len(aircraft_data)
+                            # Debug logging removed for cleaner output
+                            # Parse SBS format messages
+                            aircraft_data = self._parse_sbs_data(data)
+                            aircraft_count = len(aircraft_data)
 
-                                if aircraft_count > 0:
-                                    # SBS data parsed successfully
-                                else:
-                                    print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
-
-                                self.aircraft_data = aircraft_data
-                                self.last_update = time.time()
-                                data_retrieved = True
+                            if aircraft_count > 0:
+                                # SBS data parsed successfully
+                                pass
                             else:
-                                # No SBS data received
+                                print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
+
+                            self.aircraft_data = aircraft_data
+                            self.last_update = time.time()
+                            data_retrieved = True
+                        else:
+                            # No SBS data received
+                            pass
 
                         except Exception as sbs_err:
-                                # Connection errors are handled silently
+                            # Connection errors are handled silently
+                            pass
                     else:
                         # Try JSON APIs for other decoders
                         api_urls = [
