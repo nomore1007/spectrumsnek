@@ -78,14 +78,16 @@ class ADSBService:
             pass
 
     def _fail_gracefully(self) -> bool:
-        """Handle service startup failure gracefully by enabling demo mode."""
-        print("ℹ ADS-B decoder not compatible with current hardware", flush=True)
-        print("  Starting demo mode with simulated aircraft data...", flush=True)
+        """Handle service startup failure gracefully."""
+        print("❌ ADS-B functionality unavailable - no compatible decoder installed", flush=True)
         print("", flush=True)
+        print("ADS-B requires compatible hardware or decoder software.", flush=True)
+        print("For RTL-SDR users: Install dump1090-mutability or dump1090-fa", flush=True)
+        print("For dedicated ADS-B receivers: Install readsb", flush=True)
+        print("", flush=True)
+        print("Run 'sudo apt install dump1090-mutability' for best RTL-SDR compatibility", flush=True)
 
-        # Start demo mode with simulated aircraft data
-        self._start_demo_mode()
-        return True
+        return False
 
     def _check_rtl_conflicts(self) -> bool:
         """Check for and resolve RTL-SDR device conflicts."""
@@ -356,48 +358,7 @@ class ADSBService:
 
         return aircraft_data
 
-    def _start_demo_mode(self):
-        """Start demo mode with simulated aircraft data."""
-        import random
-        import time
 
-        # Create some demo aircraft
-        demo_aircraft = {
-            'ABC123': {
-                'icao': 'ABC123',
-                'callsign': 'DEMO001',
-                'alt': 35000,
-                'lat': 40.7128 + random.uniform(-1, 1),
-                'lon': -74.0060 + random.uniform(-1, 1),
-                'speed': 500,
-                'heading': 90,
-                'last_update': datetime.now()
-            },
-            'DEF456': {
-                'icao': 'DEF456',
-                'callsign': 'DEMO002',
-                'alt': 25000,
-                'lat': 40.7128 + random.uniform(-0.5, 0.5),
-                'lon': -74.0060 + random.uniform(-0.5, 0.5),
-                'speed': 450,
-                'heading': 180,
-                'last_update': datetime.now()
-            },
-            'GHI789': {
-                'icao': 'GHI789',
-                'callsign': 'DEMO003',
-                'alt': 15000,
-                'lat': 40.7128 + random.uniform(-0.8, 0.8),
-                'lon': -74.0060 + random.uniform(-0.8, 0.8),
-                'speed': 400,
-                'heading': 270,
-                'last_update': datetime.now()
-            }
-        }
-
-        self.aircraft_data = demo_aircraft
-        self.last_update = time.time()
-        print("✓ Demo mode active - showing simulated aircraft", flush=True)
 
     def _collect_aircraft_data(self):
         """Collect aircraft data from ADS-B decoder."""
@@ -524,10 +485,9 @@ class ADSBService:
                             # Decoder process stopped
                             self.aircraft_data = {}
                 else:
-                    # No ADS-B decoder available - use demo mode
-                    if not hasattr(self, '_demo_started'):
-                        self._start_demo_mode()
-                        self._demo_started = True
+                    # No ADS-B decoder available - cannot provide data
+                    self.aircraft_data = {}
+                    self.last_update = time.time()
 
             except Exception as e:
                 # Error in data collection - continuing

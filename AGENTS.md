@@ -264,4 +264,22 @@ git commit -m "refactor: simplify user validation logic"
 - [ ] Performance considerations are addressed
 - [ ] Documentation is updated if needed
 
+## Important Notes for AI Agents
+
+### 🚫 NO DEMO MODES
+**ABSOLUTELY NO demo modes or simulated data should ever be implemented in SpectrumSnek.**
+
+- Do not create fake/demo aircraft data for ADS-B
+- Do not create simulated spectrum data for analyzers
+- Do not create mock Bluetooth/WiFi devices
+- Tools should either work with real hardware or fail gracefully with clear instructions
+
+**Reason:** Demo modes defeat the purpose of a hardware analysis toolkit and confuse users about actual capabilities.
+
+### Hardware Requirements
+- Tools should require appropriate hardware (RTL-SDR, etc.)
+- Clear error messages when hardware is missing
+- Installation instructions for required software/drivers
+- No workarounds that bypass hardware requirements
+
 This document should be updated as the project evolves and new conventions are established.
