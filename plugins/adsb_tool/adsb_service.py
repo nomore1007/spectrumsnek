@@ -165,7 +165,8 @@ class ADSBService:
 
             # Add device and networking options based on decoder
             if dump1090_cmd == 'readsb':
-                cmd.extend(['--device-type', 'rtlsdr', '--net', '--net-api-port', '8080'])
+                # readsb automatically detects RTL-SDR, no --device-type needed
+                cmd.extend(['--net', '--net-api-port', '8080'])
             elif dump1090_cmd == 'dump1090-fa':
                 cmd.extend(['--device-type', 'rtlsdr', '--net', '--net-ro-port', '8080'])
             elif dump1090_cmd == 'dump1090-mutability':
@@ -321,6 +322,8 @@ class ADSBService:
 
     def _collect_aircraft_data(self):
         """Collect aircraft data from ADS-B decoder."""
+        AIRCRAFT_TIMEOUT_MINUTES = 5  # Keep aircraft data for 5 minutes
+
         while self.running:
             try:
                 # Check if we have a real ADS-B decoder process running
@@ -328,6 +331,7 @@ class ADSBService:
                     # Fetch real aircraft data from decoder
                     # Try multiple possible endpoints based on decoder type
                     data_retrieved = False
+                    new_aircraft_data = {}
 
                     if self.decoder_cmd == 'dump1090-mutability':
                         # dump1090-mutability uses SBS format on port 30003
@@ -344,8 +348,8 @@ class ADSBService:
                             if data:
                                 # Debug logging removed for cleaner output
                                 # Parse SBS format messages
-                                aircraft_data = self._parse_sbs_data(data)
-                                aircraft_count = len(aircraft_data)
+                                parsed_data = self._parse_sbs_data(data)
+                                aircraft_count = len(parsed_data)
 
                                 if aircraft_count > 0:
                                     # SBS data parsed successfully
@@ -353,8 +357,12 @@ class ADSBService:
                                 else:
                                     print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
 
-                                self.aircraft_data = aircraft_data
-                                self.last_update = time.time()
+                                # Merge with existing data, update timestamps for new/updated aircraft
+                                current_time = datetime.now()
+                                for icao, aircraft in parsed_data.items():
+                                    aircraft['last_update'] = current_time
+                                    new_aircraft_data[icao] = aircraft
+
                                 data_retrieved = True
                             else:
                                 # No SBS data received
@@ -382,12 +390,12 @@ class ADSBService:
                                         # Data retrieval success - displayed in interface
                                         pass
 
-                                    # Convert decoder format to our internal format
-                                    self.aircraft_data = {}
+                                    # Convert decoder format to our internal format and merge
+                                    current_time = datetime.now()
                                     for aircraft in aircraft_list:
                                         icao = aircraft.get('hex', '').upper()
                                         if icao:
-                                            self.aircraft_data[icao] = {
+                                            new_aircraft_data[icao] = {
                                                 'icao': icao,
                                                 'callsign': aircraft.get('flight', '').strip() or None,
                                                 'lat': aircraft.get('lat'),
@@ -396,9 +404,8 @@ class ADSBService:
                                                 'speed': aircraft.get('gs'),
                                                 'heading': aircraft.get('track'),
                                                 'vertical_rate': aircraft.get('baro_rate') or aircraft.get('geom_rate'),
-                                                'last_update': datetime.now()
+                                                'last_update': current_time
                                             }
-                                    self.last_update = time.time()
                                     data_retrieved = True
                                     break  # Success, stop trying other URLs
                                 else:
@@ -408,11 +415,35 @@ class ADSBService:
                                 # Try next URL
                                 continue
 
+                    # Update aircraft database: merge new data with existing, clean up old entries
+                    if data_retrieved or not self.aircraft_data:
+                        current_time = datetime.now()
+                        # Start with existing aircraft data
+                        updated_aircraft_data = self.aircraft_data.copy()
+
+                        # Update/add new aircraft data
+                        for icao, aircraft in new_aircraft_data.items():
+                            updated_aircraft_data[icao] = aircraft
+
+                        # Remove aircraft not seen for more than AIRCRAFT_TIMEOUT_MINUTES
+                        to_remove = []
+                        for icao, aircraft in updated_aircraft_data.items():
+                            if 'last_update' in aircraft:
+                                age_minutes = (current_time - aircraft['last_update']).total_seconds() / 60
+                                if age_minutes > AIRCRAFT_TIMEOUT_MINUTES:
+                                    to_remove.append(icao)
+
+                        for icao in to_remove:
+                            del updated_aircraft_data[icao]
+
+                        self.aircraft_data = updated_aircraft_data
+                        self.last_update = time.time()
+
                     if not data_retrieved:
-                        # Could not retrieve data - will show no aircraft in interface
+                        # Could not retrieve data - will show existing aircraft data
                         # Check if the decoder process is still running
                         if self.readsb_process.poll() is not None:
-                            # Decoder process stopped
+                            # Decoder process stopped, clear data
                             self.aircraft_data = {}
                 else:
                     # No ADS-B decoder available - cannot provide real data
