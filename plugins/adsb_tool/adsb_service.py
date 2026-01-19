@@ -376,6 +376,7 @@ class ADSBService:
 
                                     if aircraft_count > 0:
                                         # Data retrieval success - displayed in interface
+                                        pass
 
                                     # Convert decoder format to our internal format
                                     self.aircraft_data = {}
@@ -402,9 +403,13 @@ class ADSBService:
                             except (requests.RequestException, json.JSONDecodeError):
                                 # Try next URL
                                 continue
+                            except (requests.RequestException, json.JSONDecodeError):
+                                # Try next URL
+                                continue
 
                     if not data_retrieved:
                         # Could not retrieve data - will show no aircraft in interface
+                        pass
                         # Check if the decoder process is still running
                         if self.readsb_process.poll() is not None:
                             # Decoder process stopped
@@ -417,6 +422,7 @@ class ADSBService:
 
             except Exception as e:
                     # Error in data collection - continuing
+                    pass
                 self.aircraft_data = {}
 
             time.sleep(2)  # Update every 2 seconds
