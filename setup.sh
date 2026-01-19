@@ -46,8 +46,9 @@ if [ "$sdr_type" = "rtlsdr" ]; then
                     echo "Downloading dump1090-fa source..."
                     if git clone https://github.com/flightaware/dump1090.git >/dev/null 2>&1; then
                         cd dump1090
-                        echo "Building dump1090-fa (this may take several minutes)..."
-                        if timeout 300 make BLADERF=no >/dev/null 2>&1; then
+                        echo "Building dump1090-fa (this may take a few minutes)..."
+                        # Try faster build with parallel jobs
+                        if timeout 180 make -j$(nproc) BLADERF=no >/dev/null 2>&1; then
                             echo "Installing dump1090-fa..."
                             sudo make install >/dev/null 2>&1
                             if command -v dump1090-fa &> /dev/null; then
@@ -62,7 +63,7 @@ if [ "$sdr_type" = "rtlsdr" ]; then
                                 fi
                             fi
                         else
-                            echo "⚠ Failed to build dump1090-fa from source"
+                            echo "⚠ Failed to build dump1090-fa from source within timeout"
                         fi
                     else
                         echo "⚠ Failed to download dump1090-fa source"
