@@ -43,32 +43,45 @@ if [ "$sdr_type" = "rtlsdr" ]; then
                     TEMP_DIR=$(mktemp -d)
                     cd "$TEMP_DIR"
 
-                    echo "Trying alternative ADS-B decoder installation..."
+                    echo "Trying dump1090-mutability from Debian repository..."
 
-                    # Try the antirez dump1090 (simpler build)
-                    if git clone https://github.com/antirez/dump1090.git >/dev/null 2>&1; then
-                        cd dump1090
-                        echo "Building dump1090 (simpler version)..."
-                        # Make sure we have all required libraries
-                        sudo apt install -y libncurses5-dev >/dev/null 2>&1
-                        if gcc -I. dump1090.c anet.c -o dump1090 -lm -lpthread -lrtlsdr -lusb-1.0 -lncurses >/dev/null 2>&1; then
-                            sudo cp dump1090 /usr/local/bin/ >/dev/null 2>&1
-                            if command -v dump1090 &> /dev/null; then
-                                echo "✓ ADS-B decoder (dump1090) built and installed from source"
-                                # Test if it can at least show help
-                                if dump1090 --help >/dev/null 2>&1; then
-                                    echo "✓ dump1090 basic functionality verified"
+                    # Try to add the Debian ADS-B repository for dump1090-mutability
+                    if wget -q -O - https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | sudo apt-key add - >/dev/null 2>&1; then
+                        echo "deb http://archive.raspberrypi.org/debian/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/raspi.list >/dev/null 2>&1
+                        sudo apt update >/dev/null 2>&1
+                    fi
+
+                    # Try installing dump1090-mutability again
+                    if sudo apt install -y dump1090-mutability >/dev/null 2>&1; then
+                        echo "✓ ADS-B decoder (dump1090-mutability) installed successfully"
+                    else
+                        echo "Package installation failed, trying source build..."
+
+                        # Try the antirez dump1090 (simpler build)
+                        if git clone https://github.com/antirez/dump1090.git >/dev/null 2>&1; then
+                            cd dump1090
+                            echo "Building dump1090 (simpler version)..."
+                            # Make sure we have all required libraries
+                            sudo apt install -y libncurses5-dev >/dev/null 2>&1
+                            if gcc -I. dump1090.c anet.c -o dump1090 -lm -lpthread -lrtlsdr -lusb-1.0 -lncurses >/dev/null 2>&1; then
+                                sudo cp dump1090 /usr/local/bin/ >/dev/null 2>&1
+                                if command -v dump1090 &> /dev/null; then
+                                    echo "✓ ADS-B decoder (dump1090) built and installed from source"
+                                    # Test if it can at least show help
+                                    if dump1090 --help >/dev/null 2>&1; then
+                                        echo "✓ dump1090 basic functionality verified"
+                                    else
+                                        echo "⚠ dump1090 installed but basic test failed"
+                                    fi
                                 else
-                                    echo "⚠ dump1090 installed but basic test failed"
+                                    echo "⚠ Build completed but dump1090 not found in PATH"
                                 fi
                             else
-                                echo "⚠ Build completed but dump1090 not found in PATH"
+                                echo "⚠ Failed to compile dump1090"
                             fi
                         else
-                            echo "⚠ Failed to compile dump1090"
+                            echo "⚠ Failed to download dump1090 source"
                         fi
-                    else
-                        echo "⚠ Failed to download dump1090 source"
                     fi
 
                     cd /
