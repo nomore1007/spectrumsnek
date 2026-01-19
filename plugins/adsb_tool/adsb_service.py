@@ -371,25 +371,12 @@ class ADSBService:
                             if data:
                                 # Debug logging removed for cleaner output
                                 # Parse SBS format messages
-                                aircraft_data = self._parse_sbs_data(data)
-                                aircraft_count = len(aircraft_data)
+                                parsed_data = self._parse_sbs_data(data)
+                                aircraft_count = len(parsed_data)
 
                                 if aircraft_count > 0:
                                     # SBS data parsed successfully
                                     pass
-                                else:
-                                    print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
-
-                                self.aircraft_data = aircraft_data
-                                self.last_update = time.time()
-                                data_retrieved = True
-                            else:
-                                # No SBS data received
-                                pass
-
-                        except Exception as sbs_err:
-                            # Connection errors are handled silently
-                            pass
                                 else:
                                     print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
 
@@ -479,7 +466,7 @@ class ADSBService:
                         # Could not retrieve data - will show existing aircraft data
                         # Check if the decoder process is still running
                         if self.readsb_process.poll() is not None:
-                            # Decoder process stopped, clear data
+                            # Decoder process stopped
                             self.aircraft_data = {}
                 else:
                     # No ADS-B decoder available - cannot provide real data
