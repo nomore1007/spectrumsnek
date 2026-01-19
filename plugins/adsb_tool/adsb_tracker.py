@@ -16,7 +16,7 @@ import os
 # Suppress deprecated pkg_resources warning from rtlsdr
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated")
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from datetime import datetime, timedelta
 import math
 import warnings
@@ -44,10 +44,12 @@ class Aircraft:
         self.position_history = []  # List of (lat, lon, alt, time) tuples
         self.message_count = 0
 
-    def update_position(self, lat: float, lon: float, alt: float = None):
+    def update_position(self, lat: Optional[float], lon: Optional[float], alt: Optional[float] = None):
         """Update aircraft position."""
-        self.latitude = lat
-        self.longitude = lon
+        if lat is not None:
+            self.latitude = lat
+        if lon is not None:
+            self.longitude = lon
         if alt is not None:
             self.altitude = alt
 
@@ -62,10 +64,12 @@ class Aircraft:
         """Update aircraft callsign."""
         self.callsign = callsign.strip()
 
-    def update_velocity(self, speed: float, heading: float, vertical_rate: float = None):
+    def update_velocity(self, speed: Optional[float], heading: Optional[float], vertical_rate: Optional[float] = None):
         """Update aircraft velocity information."""
-        self.speed = speed
-        self.heading = heading
+        if speed is not None:
+            self.speed = speed
+        if heading is not None:
+            self.heading = heading
         if vertical_rate is not None:
             self.vertical_rate = vertical_rate
 
@@ -97,7 +101,7 @@ class ADSBTracker:
         self.running = False
         self.center_freq = 1090000000  # 1090 MHz (ADS-B frequency)
         self.sample_rate = 2400000  # 2.4 MHz sample rate (matches dump1090)
-        self.gain = 40  # Manual gain for better sensitivity
+        self.gain: Union[int, str] = 40  # Manual gain for better sensitivity
 
         # ADS-B message statistics
         self.total_messages = 0
@@ -211,31 +215,173 @@ class ADSBTracker:
             finally:
                 self.sdr = None
 
-    def decode_adsb_message(self, iq_samples: np.ndarray) -> List[Dict]:
+    def decode_adsb_message(self, iq_samples) -> List[Dict]:
         """
-        Decode ADS-B messages from IQ samples.
-        Simple, robust implementation to avoid segmentation faults.
+        Decode real ADS-B messages from IQ samples using pyModeS.
+        Implements proper ADS-B demodulation with preamble detection and PPM decoding.
         """
         messages = []
 
         try:
-            # Basic validation
-            if iq_samples is None or len(iq_samples) == 0:
-                return messages
-
             # Check if pyModeS is available
             try:
-                import pyModeS
+                import pyModeS as pms
                 pymodes_available = True
             except ImportError:
                 pymodes_available = False
-
-            if not pymodes_available:
-                print("pyModeS not available - skipping ADS-B decoding", flush=True)
+                print("pyModeS not available - cannot decode real ADS-B data", flush=True)
                 return messages
 
-            # ADS-B decoding requires complex signal processing not yet implemented
-            print("ADS-B decoding not implemented - system ready for future development", flush=True)
+            # Ensure we have numpy array
+            if not isinstance(iq_samples, np.ndarray):
+                iq_samples = np.array(iq_samples)
+
+            if len(iq_samples) < 24000:  # Need at least ~10ms of samples
+                return messages
+
+            # ADS-B parameters
+            sample_rate = 2400000  # 2.4 Msps
+            bit_rate = 2000000     # 2 Mbps
+            samples_per_bit = sample_rate / bit_rate  # 1.2 samples per bit
+            preamble_length = 16   # 16 preamble chips (8 μs)
+
+            # Convert IQ to magnitude for envelope detection
+            magnitude = np.abs(iq_samples)
+
+            # Apply DC removal and basic filtering
+            magnitude = magnitude - np.mean(magnitude)
+            from scipy import signal
+
+            # Low-pass filter to smooth the signal
+            b, a = signal.butter(4, 0.1)  # Low-pass at 0.1 * Nyquist
+            filtered = signal.filtfilt(b, a, magnitude)
+
+            # Normalize
+            if np.max(np.abs(filtered)) > 0:
+                filtered = filtered / np.max(np.abs(filtered))
+
+            # ADS-B preamble pattern - 8 μs with specific chip pattern
+            # The actual preamble chips are: 1,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0
+            # But for correlation, we use the expected magnitude pattern
+            preamble_pattern = np.array([1,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0])
+
+            # Search for preamble with correlation
+            correlation_threshold = 0.7
+            search_step = 6  # Search every 6 samples for efficiency
+
+            max_search = len(filtered) - int(120 * samples_per_bit) - preamble_length  # Leave room for message
+
+            for start_idx in range(0, max_search, search_step):
+                # Extract preamble window
+                preamble_window = filtered[start_idx:start_idx + preamble_length]
+
+                if len(preamble_window) < preamble_length:
+                    continue
+
+                # Compute correlation with preamble pattern
+                correlation = np.corrcoef(preamble_window, preamble_pattern)[0, 1]
+
+                if correlation > correlation_threshold:
+                    # Preamble detected! Try to decode the message
+                    print(f"Potential ADS-B preamble detected (correlation: {correlation:.3f})", flush=True)
+                    try:
+                        # Calculate message start position (skip preamble)
+                        msg_start = start_idx + preamble_length
+
+                        # Extract samples for the 112-bit message
+                        msg_length_samples = int(112 * samples_per_bit)  # ~134 samples
+                        msg_samples = filtered[msg_start:msg_start + msg_length_samples]
+
+                        if len(msg_samples) < msg_length_samples * 0.8:  # Allow some tolerance
+                            continue
+
+                        # PPM demodulation - find bit transitions
+                        bits = []
+                        samples_per_chip = samples_per_bit / 2  # 2 chips per bit in PPM
+
+                        for bit_idx in range(112):
+                            chip_start = int(bit_idx * samples_per_bit)
+                            chip_end = int((bit_idx + 1) * samples_per_bit)
+
+                            if chip_end > len(msg_samples):
+                                break
+
+                            chip_samples = msg_samples[chip_start:chip_end]
+
+                            if len(chip_samples) < samples_per_chip:
+                                continue
+
+                            # Find the peak in each half-bit
+                            first_half = chip_samples[:int(samples_per_chip)]
+                            second_half = chip_samples[int(samples_per_chip):]
+
+                            # PPM: bit 0 = pulse in first half, bit 1 = pulse in second half
+                            first_energy = np.sum(first_half ** 2)
+                            second_energy = np.sum(second_half ** 2)
+
+                            bit = 0 if first_energy > second_energy else 1
+                            bits.append(bit)
+
+                        if len(bits) >= 112:
+                            try:
+                                # Convert bits to hex string
+                                bit_string = ''.join(str(b) for b in bits[:112])
+
+                                # Convert to hex
+                                hex_msg = hex(int(bit_string, 2))[2:].upper().zfill(28)
+
+                                # Validate with pyModeS (CRC check)
+                                if pms.crc(hex_msg) == 0:  # CRC should be 0 for valid messages
+                                    # Decode the message
+                                    icao_int = pms.adsb.icao(hex_msg)
+                                    if icao_int:
+                                        icao = f"{icao_int:06X}"
+                                        decoded_msg = {'icao': icao}
+
+                                        # Extract additional data
+                                        try:
+                                            callsign = pms.adsb.callsign(hex_msg)
+                                            if callsign:
+                                                decoded_msg['callsign'] = callsign.strip()
+                                        except:
+                                            pass
+
+                                        try:
+                                            alt = pms.adsb.altitude(hex_msg)
+                                            if alt is not None:
+                                                decoded_msg['alt'] = float(alt)
+                                        except:
+                                            pass
+
+                                        try:
+                                            vel = pms.adsb.velocity(hex_msg)
+                                            if vel and len(vel) >= 2:
+                                                decoded_msg['speed'] = float(vel[0])
+                                                decoded_msg['heading'] = float(vel[1])
+                                                if len(vel) >= 3:
+                                                    decoded_msg['vertical_rate'] = float(vel[2])
+                                        except:
+                                            pass
+
+                                        # Try position decoding (more complex, requires reference data)
+                                        try:
+                                            # This is simplified - real position decoding needs more context
+                                            pos = pms.adsb.position(hex_msg, 37.7749, -122.4194, 0, 0)  # Reference position
+                                            if pos and len(pos) >= 2:
+                                                decoded_msg['lat'] = float(pos[0])
+                                                decoded_msg['lon'] = float(pos[1])
+                                        except:
+                                            pass
+
+                                        messages.append(decoded_msg)
+                                        print(f"✓ ADS-B message decoded: ICAO {icao}", flush=True)
+                                        break  # Found valid message, continue search
+
+                            except Exception as msg_decode_err:
+                                continue  # Try next potential message
+
+                    except Exception as msg_err:
+                        continue  # Try next preamble
 
         except Exception as e:
             print(f"ADS-B decoding error: {e}", flush=True)
@@ -709,25 +855,29 @@ def run_tracking_loop(tracker: ADSBTracker):
     try:
         while tracker.running:
             try:
-                # Simple delay and status check - avoid complex SDR operations
-                time.sleep(1)  # Check every second
+                # Capture samples for ADS-B decoding
+                if hasattr(tracker, 'sdr') and tracker.sdr is not None:
+                    try:
+                        # Capture a batch of samples for ADS-B processing
+                        num_samples = 2048000  # ~1 second at 2.4 Msps
+                        iq_samples = tracker.sdr.read_samples(num_samples)
 
-                # Basic health check
-                if not hasattr(tracker, 'sdr') or tracker.sdr is None:
-                    print("SDR device lost, stopping tracking", flush=True)
+                        # Decode ADS-B messages from the samples
+                        messages = tracker.decode_adsb_message(iq_samples)
+
+                        # Process any decoded messages
+                        if messages:
+                            tracker.process_adsb_messages(messages)
+                            print(f"Decoded {len(messages)} ADS-B messages", flush=True)
+                        else:
+                            print("ADS-B monitoring active - scanning for aircraft signals", flush=True)
+
+                    except Exception as e:
+                        print(f"ADS-B capture/decoding error: {e}", flush=True)
+                        time.sleep(1)
+                else:
+                    print("ADS-B SDR connection lost", flush=True)
                     break
-
-                # In a full implementation, this would read actual SDR samples and decode them
-                # For now, we just monitor the connection health
-                try:
-                    # Basic SDR health check (without reading samples to avoid crashes)
-                    if hasattr(tracker, 'sdr') and tracker.sdr is not None:
-                        print("ADS-B monitoring active - no aircraft signals detected", flush=True)
-                    else:
-                        print("ADS-B SDR connection lost", flush=True)
-                        break
-                except Exception as e:
-                    print(f"ADS-B monitoring error: {e}", flush=True)
 
                 # Update statistics periodically
                 current_time = time.time()

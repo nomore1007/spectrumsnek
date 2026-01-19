@@ -332,6 +332,10 @@ class RadioToolsLoader:
                 import importlib
                 mod = importlib.import_module(f"plugins.{tool_name}")
                 mod.run()
+            elif tool_name == "adsb_service":
+                # ADS-B service runs locally through adsb_tool
+                import plugins.adsb_tool as adsb_tool
+                adsb_tool.run()
             elif tool_name == "system_tools":
                 # Handle system tools as a submenu within the main menu
                 self.show_system_tools_submenu()

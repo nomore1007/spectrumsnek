@@ -116,6 +116,44 @@
         .refresh-btn:hover {
             background-color: #0044cc;
         }
+        .adsb-data {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #1a1a1a;
+            border-radius: 3px;
+        }
+        .aircraft-count {
+            font-weight: bold;
+            color: #00ff00;
+            margin-bottom: 5px;
+        }
+        .aircraft-list {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .aircraft-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            border-bottom: 1px solid #333;
+            font-size: 0.8em;
+        }
+        .aircraft-callsign {
+            font-weight: bold;
+            color: #00aaff;
+            min-width: 80px;
+        }
+        .aircraft-alt, .aircraft-speed {
+            text-align: right;
+            min-width: 60px;
+            color: #cccccc;
+        }
+        .aircraft-more {
+            text-align: center;
+            color: #888;
+            font-style: italic;
+            padding: 5px;
+        }
     </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
@@ -212,11 +250,23 @@
             card.className = 'tool-card';
             card.id = `tool-${toolName}`;
 
+            let extraContent = '';
+
+            // Add aircraft data display for ADS-B service
+            if (toolName === 'adsb_service' && toolData.status === 'running') {
+                extraContent = `
+                    <div class="adsb-data" id="adsb-data-${toolName}">
+                        <div class="aircraft-count">Loading aircraft data...</div>
+                    </div>
+                `;
+            }
+
             card.innerHTML = `
                 <div class="tool-info">
                     <div class="tool-name">${toolData.info.name}</div>
                     <div class="tool-description">${toolData.info.description}</div>
                     <div class="tool-version">Version: ${toolData.info.version} | Author: ${toolData.info.author}</div>
+                    ${extraContent}
                 </div>
                 <div class="tool-status status-${toolData.status}" id="status-${toolName}">${toolData.status.toUpperCase()}</div>
                 <button id="btn-${toolName}" onclick="toggleTool('${toolName}')">
@@ -225,6 +275,40 @@
             `;
 
             return card;
+        }
+
+        // Update ADS-B aircraft data display
+        async function updateADSBData() {
+            try {
+                const response = await fetch(`${SERVICE_URL}/api/adsb/status`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const adsbElement = document.getElementById('adsb-data-adsb_service');
+                    if (adsbElement && data.aircraft) {
+                        let html = `<div class="aircraft-count">Aircraft: ${data.aircraft_count}</div>`;
+                        if (data.aircraft_count > 0) {
+                            html += '<div class="aircraft-list">';
+                            data.aircraft.slice(0, 5).forEach(aircraft => {  // Show first 5 aircraft
+                                const callsign = aircraft.callsign || aircraft.icao || 'Unknown';
+                                const alt = aircraft.alt ? `${aircraft.alt}ft` : '---';
+                                const speed = aircraft.speed ? `${aircraft.speed}kt` : '---';
+                                html += `<div class="aircraft-item">
+                                    <span class="aircraft-callsign">${callsign}</span>
+                                    <span class="aircraft-alt">${alt}</span>
+                                    <span class="aircraft-speed">${speed}</span>
+                                </div>`;
+                            });
+                            if (data.aircraft_count > 5) {
+                                html += `<div class="aircraft-more">... and ${data.aircraft_count - 5} more</div>`;
+                            }
+                            html += '</div>';
+                        }
+                        adsbElement.innerHTML = html;
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating ADS-B data:', error);
+            }
         }
 
         // Update tool status display
@@ -245,6 +329,10 @@
                 const container = document.getElementById('tools-container');
 
                 if (status === 'running') {
+                    // Update ADS-B data if this is the ADS-B service
+                    if (toolName === 'adsb_service') {
+                        updateADSBData();
+                    }
                     // Move to running container
                     if (!runningContainer.contains(card)) {
                         // Add header if not present
@@ -302,14 +390,28 @@
 
             try {
                 let response;
-                if (currentStatus === 'start') {
-                    response = await fetch(`${SERVICE_URL}/api/tools/${toolName}/start`, {
-                        method: 'POST'
-                    });
+                // Special handling for ADS-B service
+                if (toolName === 'adsb_service') {
+                    if (currentStatus === 'start') {
+                        response = await fetch(`${SERVICE_URL}/api/adsb/start`, {
+                            method: 'POST'
+                        });
+                    } else {
+                        response = await fetch(`${SERVICE_URL}/api/adsb/stop`, {
+                            method: 'POST'
+                        });
+                    }
                 } else {
-                    response = await fetch(`${SERVICE_URL}/api/tools/${toolName}/stop`, {
-                        method: 'POST'
-                    });
+                    // Generic tool handling
+                    if (currentStatus === 'start') {
+                        response = await fetch(`${SERVICE_URL}/api/tools/${toolName}/start`, {
+                            method: 'POST'
+                        });
+                    } else {
+                        response = await fetch(`${SERVICE_URL}/api/tools/${toolName}/stop`, {
+                            method: 'POST'
+                        });
+                    }
                 }
 
                 const result = await response.json();
@@ -328,8 +430,9 @@
 
         // Initialize when page loads
         window.onload = function() {
-            initUpdates();
             loadTools();
+            setInterval(updateSystemStats, 2000); // Update every 2 seconds
+            setInterval(updateADSBData, 3000); // Update ADS-B data every 3 seconds
         };
     </script>
 </body>

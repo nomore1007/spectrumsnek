@@ -70,12 +70,65 @@ get_sudo() {
     fi
 }
 
+check_sudo_access() {
+    # Test if we can run sudo commands
+    if check_root; then
+        echo "DEBUG: Running as root, sudo not needed"
+        return 0  # Already root, no sudo needed
+    fi
+
+    # If we're here, we need sudo. Since the script might be run with sudo,
+    # let's check if we can actually install packages.
+    if command -v apt-get &> /dev/null; then
+        # Test if we can update package list (requires root/sudo)
+        if apt-get update >/dev/null 2>&1; then
+            echo "DEBUG: Package manager access confirmed"
+            return 0
+        fi
+    fi
+
+    if ! command -v sudo &> /dev/null; then
+        print_error "sudo command not found. Please install sudo or run as root."
+        return 1
+    fi
+
+    # Test sudo access by trying a harmless command
+    if sudo -n true 2>/dev/null; then
+        echo "DEBUG: sudo works without password"
+        return 0  # sudo works without password
+    fi
+
+    # Try sudo with password prompt
+    print_info "sudo access required for system package installation..."
+    if sudo true; then
+        print_status "sudo access confirmed"
+        return 0
+    else
+        print_error "sudo access denied or failed"
+        print_info "Please run this script as root or ensure you have sudo privileges"
+        return 1
+    fi
+}
+
 # Function to install system dependencies
 install_system_deps() {
+    echo "DEBUG: install_system_deps START"
+    echo "DEBUG: SKIP_SYSTEM_DEPS=${SKIP_SYSTEM_DEPS:-false}"
     if [ "${SKIP_SYSTEM_DEPS:-false}" = true ]; then
         print_info "Skipping system dependency installation (--no-system-deps)"
-        return
+        return 0
     fi
+
+    # Check sudo access before attempting installation
+    echo "DEBUG: Checking sudo access..."
+    if ! check_sudo_access; then
+        print_error "Cannot install system dependencies without sudo access"
+        print_info "Please run: sudo ./setup.sh --full"
+        print_info "Or install required packages manually:"
+        print_info "  sudo apt install $RTLSDR_PKG $ADSB_PKG build-essential"
+        return 1
+    fi
+    echo "DEBUG: Sudo access confirmed"
 
     print_info "Checking system dependencies..."
 
@@ -85,7 +138,7 @@ install_system_deps() {
         OS="debian"
         RTLSDR_PKG="rtl-sdr"
         PYTHON_DEV_PKG="python3-dev python3-all-dev python3.13-dev python3-pip python3-numpy python3-scipy"
-        ADSB_PKG="readsb"
+        ADSB_PKG="dump1090-mutability"
         PULSEAUDIO_PKG="pulseaudio pulseaudio-module-bluetooth alsa-utils"
         BLUEZ_PKG="bluez"
         BLUEZ_TOOLS_PKG="bluez-tools"
@@ -97,6 +150,7 @@ install_system_deps() {
         OS="redhat"
         RTLSDR_PKG="rtl-sdr"
         PYTHON_DEV_PKG="python3-devel python3-pip"
+        ADSB_PKG="dump1090-mutability"  # ADS-B decoder for RTL-SDR
         PULSEAUDIO_PKG="pulseaudio pulseaudio-module-bluetooth alsa-utils"
         BLUEZ_PKG="bluez"
         BLUEZ_TOOLS_PKG="bluez-tools"
@@ -108,6 +162,7 @@ install_system_deps() {
         OS="arch"
         RTLSDR_PKG="rtl-sdr"
         PYTHON_DEV_PKG="python python-pip"
+        ADSB_PKG="dump1090"  # May need AUR or source install
         PULSEAUDIO_PKG="pulseaudio pulseaudio-bluetooth alsa-utils"
         BLUEZ_PKG="bluez"
         BLUEZ_TOOLS_PKG="bluez-tools"
@@ -130,10 +185,10 @@ install_system_deps() {
                     $SUDO_CMD apt-get install -y $RTLSDR_PKG $PYTHON_DEV_PKG build-essential $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG $ADSB_PKG
                     ;;
                 redhat)
-                    $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
+                    $SUDO_CMD dnf install -y $RTLSDR_PKG $PYTHON_DEV_PKG gcc $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG $ADSB_PKG
                     ;;
                 arch)
-                    $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG
+                    $SUDO_CMD pacman -S --noconfirm $RTLSDR_PKG $PYTHON_DEV_PKG base-devel $PULSEAUDIO_PKG $BLUEZ_PKG $BLUEZ_TOOLS_PKG $BLUEZ_ALSA_PKG $PORTAUDIO_PKG $TMUX_PKG $ADSB_PKG
                     ;;
             esac
 
@@ -146,10 +201,101 @@ install_system_deps() {
             TMUX_AVAILABLE=false
         fi
 
+        # Specific ADS-B package installation verification and retry
+        print_info "Verifying ADS-B decoder installation..."
+        echo "DEBUG: ADSB_PKG='$ADSB_PKG', OS='$OS'"
+        if [ -n "$ADSB_PKG" ]; then
+            # Check if ADS-B package is already installed
+            case $OS in
+                debian)
+                    if dpkg -l | grep -q "^ii.*$ADSB_PKG"; then
+                        print_status "$ADSB_PKG already installed"
+                    else
+                        print_info "Installing $ADSB_PKG (ADS-B decoder)..."
+                        # Test sudo access specifically for apt
+                        if $SUDO_CMD apt-get update >/dev/null 2>&1; then
+                            if $SUDO_CMD apt-get install -y $ADSB_PKG; then
+                                if dpkg -l | grep -q "^ii.*$ADSB_PKG"; then
+                                    print_status "$ADSB_PKG installed successfully ✓"
+                                    print_info "ADS-B aircraft tracking is now enabled!"
+                                else
+                                    print_error "Package installed but not detected - please check manually"
+                                    print_info "Verify: dpkg -l | grep $ADSB_PKG"
+                                fi
+                            else
+                                print_error "Failed to install $ADSB_PKG"
+                                print_info "Manual installation: sudo apt install $ADSB_PKG"
+                            fi
+                        else
+                            print_error "Cannot access package manager - sudo required"
+                            print_info "Please run: sudo ./setup.sh --full"
+                            print_info "Or manually install: sudo apt install $ADSB_PKG"
+                        fi
+                    fi
+                    ;;
+                redhat)
+                    if rpm -q $ADSB_PKG &>/dev/null; then
+                        print_status "$ADSB_PKG already installed"
+                    else
+                        print_info "Installing $ADSB_PKG..."
+                        if $SUDO_CMD dnf install -y $ADSB_PKG; then
+                            if rpm -q $ADSB_PKG &>/dev/null; then
+                                print_status "$ADSB_PKG installed successfully"
+                            else
+                                print_error "Failed to install $ADSB_PKG - ADS-B functionality will not work"
+                                print_info "Try manually: sudo dnf install $ADSB_PKG"
+                            fi
+                        else
+                            print_error "ADS-B package installation failed - sudo access required"
+                            print_info "Run: sudo dnf install $ADSB_PKG"
+                        fi
+                    fi
+                    ;;
+                arch)
+                    if pacman -Q $ADSB_PKG &>/dev/null; then
+                        print_status "$ADSB_PKG already installed"
+                    else
+                        print_info "Installing $ADSB_PKG..."
+                        if $SUDO_CMD pacman -S --noconfirm $ADSB_PKG; then
+                            if pacman -Q $ADSB_PKG &>/dev/null; then
+                                print_status "$ADSB_PKG installed successfully"
+                            else
+                                print_error "Failed to install $ADSB_PKG - ADS-B functionality will not work"
+                                print_info "Try manually: sudo pacman -S $ADSB_PKG"
+                            fi
+                        else
+                            print_error "ADS-B package installation failed - sudo access required"
+                            print_info "Run: sudo pacman -S $ADSB_PKG"
+                        fi
+                    fi
+                    ;;
+            esac
+        fi
+
         if command -v rtl_test &> /dev/null; then
             print_status "RTL-SDR drivers installed successfully"
         else
             print_warning "RTL-SDR installation may have failed"
+        fi
+
+        # Check ADS-B decoder installation
+        if command -v dump1090-mutability &> /dev/null; then
+            print_status "dump1090-mutability ADS-B decoder installed successfully ✓"
+            print_info "Real aircraft tracking is now available!"
+        elif command -v readsb &> /dev/null; then
+            print_status "readsb ADS-B decoder installed successfully ✓"
+            print_info "Real aircraft tracking is now available!"
+        elif command -v dump1090-fa &> /dev/null; then
+            print_status "dump1090-fa ADS-B decoder installed successfully ✓"
+            print_info "Real aircraft tracking is now available!"
+        elif command -v dump1090 &> /dev/null; then
+            print_status "dump1090 ADS-B decoder installed successfully ✓"
+            print_info "Real aircraft tracking is now available!"
+        else
+            print_warning "No ADS-B decoder found - ADS-B will show installation instructions"
+            print_info "To enable real aircraft tracking, run:"
+            print_info "  sudo ./setup.sh --full"
+            print_info "Or manually install: sudo apt install dump1090-mutability"
         fi
     else
         print_status "RTL-SDR drivers already installed"

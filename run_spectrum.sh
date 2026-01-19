@@ -99,6 +99,76 @@ if ! check_python_dependencies; then
     fi
 fi
 
+# Check ADS-B decoder availability
+check_adsb_decoder() {
+    if command -v dump1090-mutability &> /dev/null || \
+       command -v readsb &> /dev/null || \
+       command -v dump1090-fa &> /dev/null || \
+       command -v dump1090 &> /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check for RTL-SDR device conflicts
+check_rtl_conflicts() {
+    # Check if dump1090-mutability service is running
+    if systemctl is-active --quiet dump1090-mutability 2>/dev/null; then
+        echo ""
+        echo "⚠ RTL-SDR Conflict Detected: dump1090-mutability service is running"
+        echo "This will prevent ADS-B and other RTL-SDR tools from working."
+        echo ""
+        read -p "Stop the dump1090-mutability service? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "Stopping dump1090-mutability service..."
+            sudo systemctl stop dump1090-mutability
+            sudo systemctl disable dump1090-mutability
+            echo "✓ Service stopped and disabled"
+        else
+            echo "⚠ Service not stopped - RTL-SDR tools may not work"
+        fi
+        echo ""
+    fi
+
+    # Check for other RTL-SDR processes
+    if pgrep -f "rtl\|dump1090" > /dev/null 2>&1; then
+        echo "⚠ Other RTL-SDR processes detected"
+        ps aux | grep -E "(rtl|dump1090)" | grep -v grep
+        echo ""
+        read -p "Kill RTL-SDR processes? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "Stopping RTL-SDR processes..."
+            sudo pkill -f rtl
+            sudo pkill -f dump1090
+            sleep 2
+            echo "✓ RTL-SDR processes stopped"
+        else
+            echo "⚠ Processes not stopped - RTL-SDR tools may conflict"
+        fi
+        echo ""
+    fi
+}
+
+# Check for RTL-SDR conflicts before proceeding
+check_rtl_conflicts
+
+# Warn about ADS-B decoder if not available
+if ! check_adsb_decoder; then
+    echo ""
+    echo "⚠ NOTICE: ADS-B decoder not found"
+    echo "The ADS-B aircraft tracking feature requires an external decoder."
+    echo "To enable real aircraft data, run:"
+    echo "  sudo ./setup.sh --full"
+    echo "Or manually install:"
+    echo "  sudo apt install dump1090-mutability"
+    echo ""
+    echo "ADS-B will show installation instructions until decoder is installed."
+    echo ""
+fi
+
 # Handle special commands
 if [ "$1" = "--reinstall-deps" ]; then
     echo "Reinstalling Python dependencies..."

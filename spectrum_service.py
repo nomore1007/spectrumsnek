@@ -73,10 +73,7 @@ class SpectrumService:
                 if name in ['rtl_scanner', 'radio_scanner']:
                     local_module = __import__(f'plugins.{name}', fromlist=['run'])
                     tool['local_run'] = local_module.run
-                elif name == 'adsb_tool':
-                    # ADS-B tool now uses service instead of direct execution
-                    from plugins.adsb_tool.adsb_service import run_adsb_service
-                    tool['local_run'] = lambda: run_adsb_service('--text')
+                # ADS-B is handled by the dedicated adsb_service, not local_run
                 elif name == 'system_tools':
                     tool['local_run'] = lambda: os.system('python system_tools_launcher.py')
                 elif name == 'demo_scanner':
