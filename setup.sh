@@ -583,7 +583,7 @@ build_adsb_from_source() {
 
         TEMP_DIR=$(mktemp -d)
         cd "$TEMP_DIR"
-        if git clone https://github.com/mutability/dump1090.git 2>/dev/null; then
+        if git clone https://github.com/antirez/dump1090.git 2>/dev/null; then
             cd dump1090
             if make 2>/dev/null; then
                 sudo make install 2>/dev/null
