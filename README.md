@@ -243,12 +243,20 @@ sudo systemctl disable spectrum-service spectrum-console
 
 ### After Installation
 
+**Primary Launcher:**
+SpectrumSnek uses `./run_spectrum.sh` as the main program launcher. It automatically activates the virtual environment and runs the interactive menu system.
+
+```bash
+# Main launcher (recommended for all modes)
+./run_spectrum.sh
+```
+
 **Console Mode:**
 ```bash
 # Reboot - menu appears automatically on HDMI
 # SSH: ssh user@pi
 # Then run: ~/spectrum_ssh.sh (recommended)
-# Or: ./run_spectrum.sh (direct)
+# Or: ./run_spectrum.sh (main program)
 ```
 
 **Headless Mode:**
@@ -273,7 +281,7 @@ ssh user@pi  # Automatically starts tmux with SpectrumSnek
 # SSH manual access:
 ssh user@pi
 ~/spectrum_ssh.sh  # Auto-detects running service, shows web interface
-./run_spectrum.sh  # Direct launcher (if service not running)
+./run_spectrum.sh  # Main program launcher (if service not running)
 ```
 
 ### Service Management
