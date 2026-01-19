@@ -210,6 +210,17 @@ class ADSBService:
 
             self.decoder_cmd = dump1090_cmd
 
+            # For RTL-SDR systems, ensure we have a compatible decoder
+            if dump1090_cmd == 'dump1090':
+                try:
+                    rtl_test = subprocess.run(['rtl_test', '-t'], capture_output=True, timeout=5)
+                    if rtl_test.returncode == 0:
+                        print("⚠ RTL-SDR detected but using incompatible dump1090 (antirez) decoder", flush=True)
+                        print("  Install dump1090-mutability: sudo apt install dump1090-mutability", flush=True)
+                        return self._fail_gracefully()
+                except:
+                    pass
+
             # Start ADS-B decoder with RTL-SDR device and networking enabled
             # Check if we need sudo for RTL-SDR access
             use_sudo = False
