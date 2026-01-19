@@ -78,14 +78,69 @@ class ADSBService:
         print("Then restart the ADS-B tool to see real aircraft data!", flush=True)
         return False
 
+    def _check_rtl_conflicts(self) -> bool:
+        """Check for and resolve RTL-SDR device conflicts."""
+        try:
+            # Check if dump1090-mutability service is running
+            import subprocess
+            result = subprocess.run(['systemctl', 'is-active', '--quiet', 'dump1090-mutability'],
+                                  capture_output=True)
+            if result.returncode == 0:
+                print("⚠ RTL-SDR Conflict: dump1090-mutability service is running", flush=True)
+                print("  Attempting to stop conflicting service...", flush=True)
+
+                stop_result = subprocess.run(['sudo', 'systemctl', 'stop', 'dump1090-mutability'],
+                                           capture_output=True)
+                if stop_result.returncode == 0:
+                    subprocess.run(['sudo', 'systemctl', 'disable', 'dump1090-mutability'],
+                                 capture_output=True)
+                    print("✓ Conflicting service stopped and disabled", flush=True)
+                    time.sleep(2)  # Wait for cleanup
+                else:
+                    print("❌ Failed to stop conflicting service - manual intervention required", flush=True)
+                    print("  Run: sudo systemctl stop dump1090-mutability", flush=True)
+                    return False
+
+            # Check for other RTL-SDR processes
+            result = subprocess.run(['pgrep', '-f', 'rtl\|dump1090'],
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                processes = result.stdout.strip().split('\n')
+                if processes and processes[0]:
+                    print(f"⚠ Found {len(processes)} conflicting RTL-SDR process(es)", flush=True)
+
+                    # Try to stop them
+                    stop_result = subprocess.run(['sudo', 'pkill', '-f', 'rtl'],
+                                               capture_output=True)
+                    subprocess.run(['sudo', 'pkill', '-f', 'dump1090'],
+                                 capture_output=True)
+
+                    if stop_result.returncode == 0:
+                        print("✓ Conflicting RTL-SDR processes stopped", flush=True)
+                        time.sleep(1)
+                    else:
+                        print("❌ Failed to stop conflicting processes - manual intervention required", flush=True)
+                        print("  Run: sudo pkill -f rtl && sudo pkill -f dump1090", flush=True)
+                        return False
+
+            return True
+
+        except Exception as e:
+            print(f"⚠ Error checking RTL conflicts: {e}", flush=True)
+            return True  # Continue anyway
+
     def start_service(self) -> bool:
         """Start the ADS-B service using external decoder."""
         try:
+            # Check for RTL-SDR conflicts and resolve them
+            if not self._check_rtl_conflicts():
+                return self._fail_gracefully()
+
             # Check if ADS-B decoder is available
             if not self._check_readsb():
                 return self._fail_gracefully()
 
-            # Stop any existing dump1090 processes
+            # Stop any existing dump1090 processes (double-check)
             self._stop_existing_readsb()
 
             # Try multiple ADS-B decoders in order of preference
