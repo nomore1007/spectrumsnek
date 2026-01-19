@@ -113,29 +113,33 @@ class ADSBService:
                     return False
 
             # Check for other RTL-SDR processes
-            result = subprocess.run(['pgrep', '-f', 'rtl_test|rtl|dump1090'],
+            result = subprocess.run(['pgrep', '-f', 'rtl_test|rtl|dump1090|spectrum'],
                                   capture_output=True, text=True)
             if result.returncode == 0:
                 processes = result.stdout.strip().split('\n')
                 if processes and processes[0]:
                     print(f"⚠ Found {len(processes)} conflicting RTL-SDR process(es)")
 
-                    # Try to stop them
-                    stop_result = subprocess.run(['pkill', '-f', 'rtl_test'],
-                                                capture_output=True)
-                    subprocess.run(['pkill', '-f', 'rtl'],
-                                  capture_output=True)
-                    subprocess.run(['pkill', '-f', 'dump1090'],
-                                  capture_output=True)
+                    # Try to stop them with sudo if needed
+                    stop_cmds = [
+                        ['pkill', '-f', 'rtl_test'],
+                        ['pkill', '-f', 'rtl'],
+                        ['pkill', '-f', 'dump1090'],
+                        ['pkill', '-f', 'spectrum']
+                    ]
 
-                    time.sleep(2)  # Give more time for processes to stop
+                    for cmd in stop_cmds:
+                        subprocess.run(cmd, capture_output=True)
+
+                    time.sleep(3)  # Give more time for processes to stop
 
                     # Check if they're really stopped
-                    check_result = subprocess.run(['pgrep', '-f', 'rtl_test|rtl|dump1090'],
+                    check_result = subprocess.run(['pgrep', '-f', 'rtl_test|rtl|dump1090|spectrum'],
                                                 capture_output=True, text=True)
                     if check_result.returncode == 0:
-                        print("❌ Some RTL-SDR processes still running - manual intervention required")
-                        print("  Run: pkill -f rtl_test && pkill -f rtl && pkill -f dump1090")
+                        remaining = check_result.stdout.strip().split('\n')
+                        print(f"❌ {len(remaining)} RTL-SDR process(es) still running")
+                        print("  Run: sudo pkill -9 -f rtl_test && sudo pkill -9 -f rtl && sudo pkill -9 -f dump1090")
                         return False
                     else:
                         print("✓ Conflicting RTL-SDR processes stopped")
