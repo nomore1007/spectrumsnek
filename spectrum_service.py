@@ -46,7 +46,7 @@ class SpectrumService:
         if os.path.exists(plugins_dir):
             for item in os.listdir(plugins_dir):
                 plugin_path = os.path.join(plugins_dir, item)
-                if os.path.isdir(plugin_path) and not item.startswith('__') and item != "system_tools":
+                if os.path.isdir(plugin_path) and not item.startswith('__') and item not in ["system_tools", "adsb_tool"]:
                     try:
                         plugin_module = __import__(f"{plugins_dir}.{item}", fromlist=[item])
                         info = plugin_module.get_module_info()

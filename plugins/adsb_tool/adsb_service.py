@@ -279,28 +279,33 @@ class ADSBService:
                         try:
                             import socket
                             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                            sock.settimeout(1)
+                            sock.settimeout(2)
                             sock.connect(('localhost', 30003))
 
                             # SBS format is text-based, read some data
                             data = sock.recv(8192).decode('utf-8', errors='ignore')
                             sock.close()
 
+                            print(f"DEBUG: Received {len(data)} bytes from SBS port", flush=True)
                             if data:
+                                print(f"DEBUG: SBS data preview: {data[:200]}", flush=True)
                                 # Parse SBS format messages
                                 aircraft_data = self._parse_sbs_data(data)
                                 aircraft_count = len(aircraft_data)
 
                                 if aircraft_count > 0:
                                     print(f"✓ Retrieved data for {aircraft_count} aircraft from SBS", flush=True)
+                                else:
+                                    print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
 
                                 self.aircraft_data = aircraft_data
                                 self.last_update = time.time()
                                 data_retrieved = True
+                            else:
+                                print("⚠ No data received from SBS port", flush=True)
 
                         except Exception as sbs_err:
-                            # SBS connection failed
-                            pass
+                            print(f"⚠ SBS connection failed: {sbs_err}", flush=True)
                     else:
                         # Try JSON APIs for other decoders
                         api_urls = [
