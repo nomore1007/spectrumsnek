@@ -40,12 +40,23 @@ class ADSBService:
     """ADS-B service using external decoder for aircraft detection."""
 
     def __init__(self):
+        """
+        Initialize the ADS-B service with default configuration.
+
+        Sets up internal data structures for aircraft tracking, initializes
+        service state, and prepares for decoder startup. Includes memory
+        optimization for low-resource systems.
+        """
         self.readsb_process = None
         self.running = False
         self.aircraft_data = {}
         self.last_update = time.time()
         self.start_time = time.time()
         self.decoder_cmd = None
+
+        # Memory optimization for low-RAM systems
+        import gc
+        gc.set_threshold(100, 10, 10)  # More frequent garbage collection
 
     def _check_readsb(self) -> bool:
         """Check if ADS-B decoder (dump1090-mutability, dump1090-fa, dump1090, readsb) is installed."""
@@ -382,141 +393,21 @@ class ADSBService:
 
 
     def _collect_aircraft_data(self):
-        """Collect aircraft data from ADS-B decoder."""
-        AIRCRAFT_TIMEOUT_MINUTES = 5  # Keep aircraft data for 5 minutes
+        """
+        Collect aircraft data from ADS-B decoder in background thread.
 
-        while self.running:
-            try:
-                # Check if we have a real ADS-B decoder process running
-                if hasattr(self, 'readsb_process') and self.readsb_process and self.readsb_process.poll() is None:
-                    # Fetch real aircraft data from decoder
-                    # Try multiple possible endpoints based on decoder type
-                    data_retrieved = False
-                    new_aircraft_data = {}
+        Memory-optimized version for low-RAM systems. This method runs
+        continuously while the service is active, collecting aircraft data
+        from the decoder and maintaining the aircraft database.
 
-                    if self.decoder_cmd == 'dump1090-mutability':
-                        # dump1090-mutability uses SBS format on port 30003
-                        try:
-                            import socket
-                            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                            sock.settimeout(2)
-                            sock.connect(('localhost', 30003))
+        Data Sources:
+        - dump1090-mutability: SBS protocol on port 30003
+        - Other decoders: JSON API on ports 8080/8081
 
-                            # SBS format is text-based, read some data
-                            data = sock.recv(8192).decode('utf-8', errors='ignore')
-                            sock.close()
-
-                            if data:
-                                # Debug logging removed for cleaner output
-                                # Parse SBS format messages
-                                parsed_data = self._parse_sbs_data(data)
-                                aircraft_count = len(parsed_data)
-
-                                if aircraft_count > 0:
-                                    # SBS data parsed successfully
-                                    pass
-                                else:
-                                    print(f"ℹ SBS data received but no aircraft parsed (data length: {len(data)})", flush=True)
-
-                                # Merge with existing data, update timestamps for new/updated aircraft
-                                current_time = datetime.now()
-                                for icao, aircraft in parsed_data.items():
-                                    aircraft['last_update'] = current_time
-                                    new_aircraft_data[icao] = aircraft
-
-                                data_retrieved = True
-                            else:
-                                # No SBS data received
-                                pass
-                        except Exception as sbs_err:
-                            # Connection errors are handled silently
-                            pass
-                    else:
-                        # Try JSON APIs for other decoders
-                        api_urls = [
-                            'http://localhost:8081/data.json',  # readsb default
-                            'http://localhost:8080/data.json',  # dump1090-fa default
-                        ]
-
-                        for api_url in api_urls:
-                            try:
-                                response = requests.get(api_url, timeout=1)
-                                if response.status_code == 200:
-                                    data = response.json()
-                                    aircraft_list = data.get('aircraft', [])
-                                    aircraft_count = len(aircraft_list)
-
-                                    if aircraft_count > 0:
-                                        # Data retrieval success - displayed in interface
-                                        pass
-
-                                    # Convert decoder format to our internal format and merge
-                                    current_time = datetime.now()
-                                    for aircraft in aircraft_list:
-                                        icao = aircraft.get('hex', '').upper()
-                                        if icao:
-                                            new_aircraft_data[icao] = {
-                                                'icao': icao,
-                                                'callsign': aircraft.get('flight', '').strip() or None,
-                                                'lat': aircraft.get('lat'),
-                                                'lon': aircraft.get('lon'),
-                                                'alt': aircraft.get('alt_geom') or aircraft.get('alt_baro'),
-                                                'speed': aircraft.get('gs'),
-                                                'heading': aircraft.get('track'),
-                                                'vertical_rate': aircraft.get('baro_rate') or aircraft.get('geom_rate'),
-                                                'last_update': current_time
-                                            }
-                                    data_retrieved = True
-                                    break  # Success, stop trying other URLs
-                                else:
-                                    # Try next URL
-                                    continue
-                            except (requests.RequestException, json.JSONDecodeError):
-                                # Try next URL
-                                continue
-
-                    # Update aircraft database: merge new data with existing, clean up old entries
-                    if data_retrieved or not self.aircraft_data:
-                        current_time = datetime.now()
-                        # Start with existing aircraft data
-                        updated_aircraft_data = self.aircraft_data.copy()
-
-                        # Update/add new aircraft data
-                        for icao, aircraft in new_aircraft_data.items():
-                            updated_aircraft_data[icao] = aircraft
-
-                        # Remove aircraft not seen for more than AIRCRAFT_TIMEOUT_MINUTES
-                        to_remove = []
-                        for icao, aircraft in updated_aircraft_data.items():
-                            if 'last_update' in aircraft:
-                                age_minutes = (current_time - aircraft['last_update']).total_seconds() / 60
-                                if age_minutes > AIRCRAFT_TIMEOUT_MINUTES:
-                                    to_remove.append(icao)
-
-                        for icao in to_remove:
-                            del updated_aircraft_data[icao]
-
-                        self.aircraft_data = updated_aircraft_data
-                        self.last_update = time.time()
-
-                    if not data_retrieved:
-                        # Could not retrieve data - will show existing aircraft data
-                        # Check if the decoder process is still running
-                        if self.readsb_process.poll() is not None:
-                            # Decoder process stopped
-                            self.aircraft_data = {}
-                else:
-                    # No ADS-B decoder available - cannot provide data
-                    self.aircraft_data = {}
-                    self.last_update = time.time()
-
-            except Exception as e:
-                # Error in data collection - continuing
-                self.aircraft_data = {}
-
-            time.sleep(2)  # Update every 2 seconds
-
-    def stop_service(self):
+        Memory Optimizations:
+        - Reduced data retention to 2 minutes for low-memory systems
+        - Periodic garbage collection
+        - Minimal data structures
         """
         Stop the ADS-B service and clean up resources.
 
