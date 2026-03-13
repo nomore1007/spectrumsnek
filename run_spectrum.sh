@@ -35,8 +35,26 @@ launch_adsb_with_decoder() {
     chown root:root /run/readsb
     rm -f /run/readsb/*
     
-    # Launch readsb in background, using absolute path and logging errors
-    /usr/bin/readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --no-interactive --device-type rtlsdr --gain auto > /tmp/readsb.log 2>&1 &
+    # Find readsb executable
+    READSB_PATH=$(command -v readsb)
+    if [ -z "$READSB_PATH" ]; then
+        echo "ERROR: 'readsb' command not found. Please ensure it is installed and in the PATH."
+        sleep 5
+        return
+    fi
+    
+    # Ensure the JSON directory exists and is owned by the 'readsb' user if it exists
+    mkdir -p /run/readsb
+    if id -u readsb >/dev/null 2>&1; then
+        chown readsb:readsb /run/readsb
+    else
+        chown root:root /run/readsb
+    fi
+    rm -f /run/readsb/*
+    
+    # Launch readsb in background, using the found absolute path.
+    # The readsb process itself may drop root privileges to a 'readsb' user.
+    $READSB_PATH --net --net-api-port 8080 --write-json /run/readsb --quiet --no-interactive --device-type rtlsdr --gain auto > /tmp/readsb.log 2>&1 &
     READSB_PID=$!
     
     # Wait for readsb to initialize
