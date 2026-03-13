@@ -82,6 +82,41 @@ def main(stdscr, args):
             stdscr.addch(center_y, center_x, '+', color_center)
         except: pass
 
+        # Draw distance rings (every 10 miles)
+        # 1 degree of latitude is ~69 miles
+        miles_per_degree = 69.0
+        cos_lat = math.cos(math.radians(avg_lat))
+        
+        # Unified scale is in degrees per half-screen
+        unified_scale = max(scale_lat, scale_lon / cos_lat if cos_lat > 0 else scale_lon)
+        y_factor = (height / 2) / unified_scale
+        x_factor = ((width / 2) / (unified_scale / cos_lat if cos_lat > 0 else unified_scale)) * 2.0
+        
+        color_ring = curses.A_DIM
+        for miles in range(10, 200, 10):
+            deg_dist = miles / miles_per_degree
+            
+            # Points for "circle" (actually an ellipse on screen)
+            # Just draw some dots around the perimeter
+            num_dots = 40
+            for i in range(num_dots):
+                angle = 2 * math.pi * i / num_dots
+                dy = deg_dist * math.cos(angle)
+                dx = deg_dist * math.sin(angle)
+                
+                ry = int(center_y - dy * y_factor)
+                rx = int(center_x + dx * x_factor)
+                
+                if 0 <= ry < height and 0 <= rx < width:
+                    try:
+                        # Use dots for rings, and maybe a number at the top
+                        char = '.'
+                        if i == 0: # Top of the ring
+                            stdscr.addstr(ry, rx, f"{miles}", color_ring)
+                        else:
+                            stdscr.addch(ry, rx, char, color_ring)
+                    except: pass
+
         # Draw planes
         for a in aircraft:
             cos_lat = math.cos(math.radians(avg_lat))

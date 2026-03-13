@@ -73,15 +73,15 @@ while true; do
         shift
         case "$cmd" in
             spectrum|rtl_scanner)
-                python3 plugins/rtl_scanner/scanner.py "$@"
+                python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py" "$@"
                 exit 0
                 ;;
             radio|scanner)
-                python3 plugins/radio_scanner/scanner.py "$@"
+                python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py" "$@"
                 exit 0
                 ;;
             radar|adsb_radar)
-                ./adsb_radar.py "$@"
+                "$SCRIPT_DIR/adsb_radar.py" "$@"
                 exit 0
                 ;;
             adsb_full)
@@ -89,11 +89,11 @@ while true; do
                 exit 0
                 ;;
             adsb_service)
-                python3 plugins/adsb_tool/adsb_service.py "$@"
+                python3 "$SCRIPT_DIR/plugins/adsb_tool/adsb_service.py" "$@"
                 exit 0
                 ;;
             main)
-                python3 main.py "$@"
+                python3 "$SCRIPT_DIR/main.py" "$@"
                 exit 0
                 ;;
             *)
@@ -113,18 +113,18 @@ while true; do
         "5" "WiFi Tool" \
         "6" "Bluetooth Tool" \
         "7" "System Tools" \
-        "8) Launch Original main.py (Legacy)" "" \
+        "8" "Launch Original main.py (Legacy)" \
         "q" "Quit" 3>&1 1>&2 2>&3)
 
     case "$CHOICE" in
-        1) python3 plugins/rtl_scanner/scanner.py ;;
-        2) python3 plugins/radio_scanner/scanner.py ;;
+        1) python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py" ;;
+        2) python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py" ;;
         3) launch_adsb_with_decoder ;;
-        4) python3 plugins/adsb_tool/adsb_service.py ;;
-        5) python3 wifi_tool/wifi_selector.py ;;
-        6) python3 bluetooth_tool/bluetooth_connector.py ;;
-        7) python3 plugins/system_tools/system_menu.py ;;
-        8) python3 main.py ;;
+        4) python3 "$SCRIPT_DIR/plugins/adsb_tool/adsb_service.py" ;;
+        5) python3 "$SCRIPT_DIR/wifi_tool/wifi_selector.py" ;;
+        6) python3 "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py" ;;
+        7) python3 "$SCRIPT_DIR/plugins/system_tools/system_menu.py" ;;
+        8) python3 "$SCRIPT_DIR/main.py" ;;
         q|"") echo "Goodbye!"; exit 0 ;;
         *) exit 0 ;;
     esac
