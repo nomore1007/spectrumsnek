@@ -54,6 +54,18 @@ launch_adsb_with_decoder() {
     if id -u readsb >/dev/null 2>&1; then
         echo "User 'readsb' exists. Setting ownership to readsb:readsb"
         chown readsb:readsb /run/readsb
+        # Pre-flight check: Verify that the 'readsb' user can actually write here.
+        if ! su -s /bin/bash -c "touch /run/readsb/write_test" readsb; then
+            echo "---------------------------------------------------------"
+            echo "ERROR: Permission pre-flight check FAILED."
+            echo "The 'readsb' user cannot write to /run/readsb."
+            echo "This is likely a system configuration or AppArmor/SELinux issue."
+            echo "---------------------------------------------------------"
+            sleep 5
+            return
+        fi
+        echo "Write permission verified for user 'readsb'."
+        rm /run/readsb/write_test
     else
         echo "User 'readsb' does not exist. Setting ownership to root:root"
         chown root:root /run/readsb
