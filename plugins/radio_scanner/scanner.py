@@ -41,8 +41,13 @@ class FrequencyBank:
 class FrequencyBankLoader:
     """Loads frequency banks from XML files."""
 
-    def __init__(self, banks_dir: str = "radio_scanner/banks"):
-        self.banks_dir = banks_dir
+    def __init__(self, banks_dir: str = None):
+        if banks_dir is None:
+            # Get path relative to this script
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            self.banks_dir = os.path.join(script_dir, "banks")
+        else:
+            self.banks_dir = banks_dir
 
     def load_bank(self, filename: str) -> Optional[FrequencyBank]:
         """Load a frequency bank from XML file."""
@@ -166,7 +171,7 @@ class TraditionalScanner:
         self.sample_rate = 2.4e6
         self.gain = 'auto'
 
-        # Load available banks
+        # Load available banks from relative directory
         self.bank_loader = FrequencyBankLoader()
         self.available_banks = self.bank_loader.list_banks()
 
@@ -317,8 +322,37 @@ class TraditionalScanner:
 
 def main():
     """Command-line entry point."""
+    import argparse
+    parser = argparse.ArgumentParser(description="Traditional Radio Scanner")
+    parser.add_argument('--bank', type=str, help='Bank filename to load and start scanning immediately')
+    parser.add_argument('--gain', type=str, default='auto', help='SDR gain (auto or value)')
+    args = parser.parse_args()
+
     scanner = TraditionalScanner()
-    scanner.run()
+    if args.gain != 'auto':
+        try:
+            scanner.gain = int(args.gain)
+        except ValueError:
+            scanner.gain = 'auto'
+
+    try:
+        scanner.initialize_device()
+
+        if args.bank:
+            if scanner.load_bank(args.bank):
+                print(f"Loaded bank: {scanner.current_bank.name}")
+                scanner.is_scanning = True
+                scanner.scan_loop()
+            else:
+                print(f"Failed to load bank: {args.bank}")
+        else:
+            scanner.run_terminal_interface()
+
+    except Exception as e:
+        logger.error(f"Scanner error: {e}")
+    finally:
+        if scanner.sdr:
+            scanner.sdr.close()
 
 if __name__ == "__main__":
     main()

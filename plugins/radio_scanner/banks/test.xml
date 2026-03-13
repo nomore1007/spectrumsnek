@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bank name="Test FM Bank" description="Standard FM Broadcast for testing">
+    <frequency name="Test Station 1" value="88100000" mode="FM" />
+    <frequency name="Test Station 2" value="98100000" mode="FM" />
+    <frequency name="Test Station 3" value="107100000" mode="FM" />
+</bank>
