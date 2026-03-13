@@ -28,89 +28,63 @@ launch_adsb_with_decoder() {
     clear
     echo "--- LAUNCHER DEBUG ---"
     echo "Running as user: $(whoami)"
-    echo "PATH: $PATH"
     echo "----------------------"
     
     echo "Stopping existing services to free SDR..."
     stop_adsb_services
     
     # Find readsb executable
-    echo "Searching for 'readsb' executable..."
     READSB_PATH=$(command -v readsb)
     if [ -z "$READSB_PATH" ]; then
-        echo "ERROR: 'readsb' command not found in the current PATH."
-        echo "Please ensure it is installed, and its location is in the root user's PATH."
+        echo "ERROR: 'readsb' command not found."
         sleep 5
         return
     fi
     echo "Found readsb at: $READSB_PATH"
-    
-    # Ensure the JSON directory exists and has correct permissions
-    echo "Configuring /run/readsb directory..."
-    mkdir -p /run/readsb
-    echo "Permissions before chown:"
-    ls -ld /run/readsb
-    
-    if id -u readsb >/dev/null 2>&1; then
-        echo "User 'readsb' exists. Setting ownership to readsb:readsb"
-        chown readsb:readsb /run/readsb
-        # Pre-flight check: Verify that the 'readsb' user can actually write here.
-        if ! su -s /bin/bash -c "touch /run/readsb/write_test" readsb; then
-            echo "---------------------------------------------------------"
-            echo "ERROR: Permission pre-flight check FAILED."
-            echo "The 'readsb' user cannot write to /run/readsb."
-            echo "This is likely a system configuration or AppArmor/SELinux issue."
-            echo "---------------------------------------------------------"
-            sleep 5
-            return
-        fi
-        echo "Write permission verified for user 'readsb'."
-        rm /run/readsb/write_test
+
+    # Determine writable directory for readsb output
+    JSON_DIR="/run/readsb"
+    if ! [ -w "$JSON_DIR" ] || ! [ -x "$JSON_DIR" ]; then
+        echo "WARNING: /run/readsb is not writable. Falling back to /tmp/spectrumsnek"
+        JSON_DIR="/tmp/spectrumsnek"
+        # Ensure the fallback directory is clean
+        mkdir -p "$JSON_DIR"
+        rm -f "$JSON_DIR"/*
     else
-        echo "User 'readsb' does not exist. Setting ownership to root:root"
-        chown root:root /run/readsb
+        # Clear the primary directory if it's usable
+        rm -f "$JSON_DIR"/*
     fi
-    rm -f /run/readsb/*
-    echo "Permissions after chown and rm:"
-    ls -ld /run/readsb
-    
-    # Launch readsb in background, showing its output
+    echo "Using '$JSON_DIR' for readsb output."
+
+    # Launch readsb, showing its output
     echo "--- STARTING READSB ---"
-    echo "Command: $READSB_PATH --net --net-api-port 8080 --write-json /run/readsb --no-interactive --device-type rtlsdr --gain auto"
-    $READSB_PATH --net --net-api-port 8080 --write-json /run/readsb --no-interactive --device-type rtlsdr --gain auto &
+    $READSB_PATH --net --net-api-port 8080 --write-json "$JSON_DIR" --no-interactive --device-type rtlsdr --gain auto &
     READSB_PID=$!
     
     # Wait for readsb to initialize
     echo "Waiting for decoder to start (PID: $READSB_PID)..."
-    sleep 5 # Give it a few seconds to start up or fail
+    sleep 5
     
     if ! kill -0 $READSB_PID 2>/dev/null; then
-        echo "--------------------------"
-        echo "ERROR: Decoder process is not running."
-        echo "Please check the output above for errors from readsb."
-        echo "--------------------------"
+        echo "ERROR: Decoder process failed to start. Check output above."
         sleep 5
         return
     fi
     
-    if [ ! -f "/run/readsb/aircraft.json" ]; then
-        echo "--------------------------"
-        echo "WARNING: aircraft.json has not been created."
-        echo "Decoder is running, but may not be writing data."
-        echo "Final permissions on /run/readsb:"
-        ls -l /run/readsb
-        echo "--------------------------"
+    if [ ! -f "$JSON_DIR/aircraft.json" ]; then
+        echo "WARNING: aircraft.json was not created in $JSON_DIR."
+        echo "Decoder is running, but is not writing data. Check permissions or readsb output."
     else
-        echo "Decoder started successfully and created aircraft.json."
+        echo "Decoder started successfully and is writing to $JSON_DIR/aircraft.json."
     fi
 
     echo "Launching Radar Display..."
-    # Launch the graphical radar
-    "$SCRIPT_DIR/adsb_radar.py"
+    # Pass the correct JSON file path to the radar
+    "$SCRIPT_DIR/adsb_radar.py" --file "$JSON_DIR/aircraft.json"
     
     echo "Stopping ADS-B Decoder..."
     kill $READSB_PID 2>/dev/null
-    stop_adsb_services # Final cleanup
+    stop_adsb_services
     echo "Done."
     sleep 1
 }
