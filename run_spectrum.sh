@@ -30,25 +30,25 @@ launch_adsb_with_decoder() {
     stop_adsb_services
     
     echo "Starting ADS-B Decoder (readsb)..."
-    # Ensure the JSON directory exists and is writable, clear old data
+    # Ensure the JSON directory exists, is owned by root, and is clean
     mkdir -p /run/readsb
+    chown root:root /run/readsb
     rm -f /run/readsb/*
     
-    # Use start-stop-daemon to run readsb as root and ensure it can access the device and directory.
-    start-stop-daemon --start --quiet --pidfile /tmp/readsb.pid --make-pidfile \
-        --background --chuid root --exec /usr/bin/readsb -- \
-        --net --net-api-port 8080 --write-json /run/readsb --quiet \
-        --no-interactive --device-type rtlsdr --gain auto
+    # Launch readsb in background, logging errors for diagnosis
+    readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --no-interactive --device-type rtlsdr --gain auto > /tmp/readsb.log 2>&1 &
+    READSB_PID=$!
     
-    # Wait for readsb to initialize and start writing JSON
+    # Wait for readsb to initialize
     echo "Waiting for decoder to start..."
     for i in {1..10}; do
         if [ -f "/run/readsb/aircraft.json" ]; then
             echo "Decoder started successfully."
             break
         fi
-        if ! pgrep -f "readsb" >/dev/null; then
-            echo "ERROR: Decoder failed to start."
+        if ! kill -0 $READSB_PID 2>/dev/null; then
+            echo "ERROR: Decoder failed to start. Check /tmp/readsb.log"
+            cat /tmp/readsb.log
             sleep 5
             return
         fi
@@ -60,9 +60,8 @@ launch_adsb_with_decoder() {
     "$SCRIPT_DIR/adsb_radar.py"
     
     echo "Stopping ADS-B Decoder..."
-    start-stop-daemon --stop --quiet --pidfile /tmp/readsb.pid
+    kill $READSB_PID 2>/dev/null
     stop_adsb_services # Final cleanup
-    rm -f /tmp/readsb.pid
     echo "Done."
     sleep 1
 }
