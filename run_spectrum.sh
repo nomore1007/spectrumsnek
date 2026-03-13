@@ -26,53 +26,72 @@ stop_adsb_services() {
 # Function to launch ADS-B Radar with its own decoder
 launch_adsb_with_decoder() {
     clear
+    echo "--- LAUNCHER DEBUG ---"
+    echo "Running as user: $(whoami)"
+    echo "PATH: $PATH"
+    echo "----------------------"
+    
     echo "Stopping existing services to free SDR..."
     stop_adsb_services
     
-    echo "Starting ADS-B Decoder (readsb)..."
-    # Ensure the JSON directory exists, is owned by root, and is clean
-    mkdir -p /run/readsb
-    chown root:root /run/readsb
-    rm -f /run/readsb/*
-    
     # Find readsb executable
+    echo "Searching for 'readsb' executable..."
     READSB_PATH=$(command -v readsb)
     if [ -z "$READSB_PATH" ]; then
-        echo "ERROR: 'readsb' command not found. Please ensure it is installed and in the PATH."
+        echo "ERROR: 'readsb' command not found in the current PATH."
+        echo "Please ensure it is installed, and its location is in the root user's PATH."
+        sleep 5
+        return
+    fi
+    echo "Found readsb at: $READSB_PATH"
+    
+    # Ensure the JSON directory exists and has correct permissions
+    echo "Configuring /run/readsb directory..."
+    mkdir -p /run/readsb
+    echo "Permissions before chown:"
+    ls -ld /run/readsb
+    
+    if id -u readsb >/dev/null 2>&1; then
+        echo "User 'readsb' exists. Setting ownership to readsb:readsb"
+        chown readsb:readsb /run/readsb
+    else
+        echo "User 'readsb' does not exist. Setting ownership to root:root"
+        chown root:root /run/readsb
+    fi
+    rm -f /run/readsb/*
+    echo "Permissions after chown and rm:"
+    ls -ld /run/readsb
+    
+    # Launch readsb in background, showing its output
+    echo "--- STARTING READSB ---"
+    echo "Command: $READSB_PATH --net --net-api-port 8080 --write-json /run/readsb --no-interactive --device-type rtlsdr --gain auto"
+    $READSB_PATH --net --net-api-port 8080 --write-json /run/readsb --no-interactive --device-type rtlsdr --gain auto &
+    READSB_PID=$!
+    
+    # Wait for readsb to initialize
+    echo "Waiting for decoder to start (PID: $READSB_PID)..."
+    sleep 5 # Give it a few seconds to start up or fail
+    
+    if ! kill -0 $READSB_PID 2>/dev/null; then
+        echo "--------------------------"
+        echo "ERROR: Decoder process is not running."
+        echo "Please check the output above for errors from readsb."
+        echo "--------------------------"
         sleep 5
         return
     fi
     
-    # Ensure the JSON directory exists and is owned by the 'readsb' user if it exists
-    mkdir -p /run/readsb
-    if id -u readsb >/dev/null 2>&1; then
-        chown readsb:readsb /run/readsb
+    if [ ! -f "/run/readsb/aircraft.json" ]; then
+        echo "--------------------------"
+        echo "WARNING: aircraft.json has not been created."
+        echo "Decoder is running, but may not be writing data."
+        echo "Final permissions on /run/readsb:"
+        ls -l /run/readsb
+        echo "--------------------------"
     else
-        chown root:root /run/readsb
+        echo "Decoder started successfully and created aircraft.json."
     fi
-    rm -f /run/readsb/*
-    
-    # Launch readsb in background, using the found absolute path.
-    # The readsb process itself may drop root privileges to a 'readsb' user.
-    $READSB_PATH --net --net-api-port 8080 --write-json /run/readsb --quiet --no-interactive --device-type rtlsdr --gain auto > /tmp/readsb.log 2>&1 &
-    READSB_PID=$!
-    
-    # Wait for readsb to initialize
-    echo "Waiting for decoder to start..."
-    for i in {1..10}; do
-        if [ -f "/run/readsb/aircraft.json" ]; then
-            echo "Decoder started successfully."
-            break
-        fi
-        if ! kill -0 $READSB_PID 2>/dev/null; then
-            echo "ERROR: Decoder failed to start. Check /tmp/readsb.log"
-            cat /tmp/readsb.log
-            sleep 5
-            return
-        fi
-        sleep 1
-    done
-    
+
     echo "Launching Radar Display..."
     # Launch the graphical radar
     "$SCRIPT_DIR/adsb_radar.py"
@@ -124,15 +143,15 @@ while true; do
     fi
 
     # Whiptail Menu
-    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" --menu "Select a tool to launch:" 18 65 10 \
-        "1" "RTL-SDR Spectrum Listener" \
-        "2" "Traditional Radio Scanner" \
-        "3" "ADS-B Radar (Full: readsb + display)" \
-        "4" "ADS-B Service Only (readsb)" \
-        "5" "WiFi Tool" \
-        "6" "Bluetooth Tool" \
-        "7" "System Tools" \
-        "8" "Launch Original main.py (Legacy)" \
+    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" --menu "Select a tool to launch:" 18 65 10 
+        "1" "RTL-SDR Spectrum Listener" 
+        "2" "Traditional Radio Scanner" 
+        "3" "ADS-B Radar (Full: readsb + display)" 
+        "4" "ADS-B Service Only (readsb)" 
+        "5" "WiFi Tool" 
+        "6" "Bluetooth Tool" 
+        "7" "System Tools" 
+        "8" "Launch Original main.py (Legacy)" 
         "q" "Quit" 3>&1 1>&2 2>&3)
 
     case "$CHOICE" in
