@@ -554,3 +554,6 @@ def run_adsb_service(*args, **kwargs):
     except Exception as e:
         print(f"ADS-B service error: {e}")
         service.stop_service()
+
+if __name__ == "__main__":
+    run_adsb_service()
