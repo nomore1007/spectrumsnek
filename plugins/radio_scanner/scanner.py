@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 """
 Traditional Radio Scanner
 
 Scans through user-defined frequency lists stored in XML format.
-Supports FM with CTCSS/DCS squelch detection and DMR frequencies.
+Supports FM and AM demodulation with audio output.
 """
 
 import os
@@ -18,6 +19,14 @@ from rtlsdr import RtlSdr
 import numpy as np
 from scipy import signal
 
+# Try to import audio libraries
+try:
+    import sounddevice as sd
+    SOUNDDEVICE_AVAILABLE = True
+except ImportError:
+    sd = None
+    SOUNDDEVICE_AVAILABLE = False
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -26,7 +35,7 @@ logger = logging.getLogger(__name__)
 class Frequency:
     """Represents a single frequency entry."""
     value: float  # Frequency in Hz
-    mode: str    # 'FM', 'AM', 'DMR', etc.
+    mode: str    # 'FM', 'AM', etc.
     name: str    # Human-readable name
     squelch: Optional[Dict] = None  # Squelch settings
     dmr: Optional[Dict] = None      # DMR specific settings
@@ -97,15 +106,7 @@ class FrequencyBankLoader:
                     code = squelch_elem.get('code', '023')
                     squelch = {'type': 'DCS', 'code': code}
 
-            # Parse DMR settings
-            dmr_elem = elem.find('dmr')
-            dmr = None
-            if dmr_elem is not None:
-                color_code = int(dmr_elem.get('color_code', 1))
-                timeslot = int(dmr_elem.get('timeslot', 1))
-                dmr = {'color_code': color_code, 'timeslot': timeslot}
-
-            return Frequency(value, mode, name, squelch, dmr)
+            return Frequency(value, mode, name, squelch)
 
         except ValueError as e:
             logger.error(f"Error parsing frequency element: {e}")
@@ -123,41 +124,44 @@ class FrequencyBankLoader:
 
         return sorted(banks)
 
-class SquelchDetector:
-    """Detects CTCSS/DCS tones for squelch control."""
-
-    def __init__(self, sample_rate: float = 2.4e6):
+class Demodulator:
+    """Handles radio signal demodulation."""
+    
+    def __init__(self, sample_rate: float, audio_rate: int = 48000):
         self.sample_rate = sample_rate
-        self.ctcss_tones = [
-            67.0, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8,
-            97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3,
-            131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 162.2, 167.9, 173.8,
-            179.9, 186.2, 192.8, 203.5, 210.7, 218.1, 225.7, 233.6, 241.8,
-            250.3
-        ]
+        self.audio_rate = audio_rate
+        self.downsample_factor = int(sample_rate / audio_rate)
+        
+    def demodulate_fm(self, samples: np.ndarray) -> np.ndarray:
+        """Demodulate FM signal."""
+        # FM Demodulation: derivative of the phase
+        phase_diff = np.angle(samples[1:] * np.conj(samples[:-1]))
+        
+        # Low-pass filter and decimate
+        audio = signal.decimate(phase_diff, self.downsample_factor, ftype='fir')
+        
+        # Normalize and scale
+        if np.max(np.abs(audio)) > 0:
+            audio = audio / np.max(np.abs(audio)) * 0.5
+            
+        return audio.astype(np.float32)
 
-    def detect_ctcss(self, samples: np.ndarray, target_tone: float, threshold: float = 0.1) -> bool:
-        """Detect CTCSS tone in audio samples."""
-        # Simple Goertzel algorithm for tone detection
-        # This is a basic implementation - could be improved
-        try:
-            # Convert to audio frequency range (demodulate FM first)
-            # For now, just check for tone presence in a simple way
-            # Real implementation would need proper FM demodulation
-
-            # Placeholder - always return True for now
-            # TODO: Implement proper CTCSS detection
-            return True
-
-        except Exception as e:
-            logger.error(f"Error in CTCSS detection: {e}")
-            return False
-
-    def detect_dcs(self, samples: np.ndarray, target_code: str) -> bool:
-        """Detect DCS code in audio samples."""
-        # DCS detection is more complex - placeholder implementation
-        # TODO: Implement proper DCS detection
-        return True
+    def demodulate_am(self, samples: np.ndarray) -> np.ndarray:
+        """Demodulate AM signal."""
+        # AM Demodulation: envelope detection (absolute value)
+        envelope = np.abs(samples)
+        
+        # Remove DC offset
+        audio = envelope - np.mean(envelope)
+        
+        # Low-pass filter and decimate
+        audio = signal.decimate(audio, self.downsample_factor, ftype='fir')
+        
+        # Normalize
+        if np.max(np.abs(audio)) > 0:
+            audio = audio / np.max(np.abs(audio)) * 0.5
+            
+        return audio.astype(np.float32)
 
 class TraditionalScanner:
     """Main traditional radio scanner class."""
@@ -167,11 +171,14 @@ class TraditionalScanner:
         self.current_bank: Optional[FrequencyBank] = None
         self.current_freq_idx = 0
         self.is_scanning = False
-        self.squelch_detector = SquelchDetector()
-        self.sample_rate = 2.4e6
+        self.sample_rate = 1.2e6  # Reduced sample rate for better performance
+        self.audio_rate = 48000
         self.gain = 'auto'
+        self.demodulator = Demodulator(self.sample_rate, self.audio_rate)
+        self.audio_stream = None
+        self.squelch_threshold = -45  # dB
 
-        # Load available banks from relative directory
+        # Load available banks
         self.bank_loader = FrequencyBankLoader()
         self.available_banks = self.bank_loader.list_banks()
 
@@ -179,180 +186,138 @@ class TraditionalScanner:
         """Initialize RTL-SDR device."""
         try:
             self.sdr = RtlSdr()
-            assert self.sdr is not None  # Type guard
             self.sdr.sample_rate = self.sample_rate
-            if self.gain == 'auto':
-                self.sdr.gain = 'auto'
-            else:
-                self.sdr.gain = self.gain
-
-            logger.info("RTL-SDR initialized for traditional scanning")
-
+            self.sdr.gain = self.gain
+            logger.info(f"RTL-SDR initialized: {self.sample_rate/1e6} MHz SR, Gain: {self.gain}")
         except Exception as e:
             logger.error(f"Failed to initialize RTL-SDR: {e}")
             raise
 
+    def initialize_audio(self):
+        """Initialize audio output."""
+        if SOUNDDEVICE_AVAILABLE:
+            try:
+                self.audio_stream = sd.OutputStream(
+                    samplerate=self.audio_rate,
+                    channels=1,
+                    dtype='float32'
+                )
+                self.audio_stream.start()
+                logger.info(f"Audio output started at {self.audio_rate} Hz")
+            except Exception as e:
+                logger.error(f"Failed to initialize audio: {e}")
+                self.audio_stream = None
+
     def load_bank(self, bank_filename: str) -> bool:
         """Load a frequency bank."""
         self.current_bank = self.bank_loader.load_bank(bank_filename)
-        if self.current_bank:
-            logger.info(f"Loaded bank '{self.current_bank.name}' with {len(self.current_bank.frequencies)} frequencies")
-            return True
-        return False
+        return self.current_bank is not None
 
-    def scan_next_frequency(self) -> bool:
-        """Move to next frequency in the bank."""
-        if not self.current_bank or not self.current_bank.frequencies:
-            return False
-
-        self.current_freq_idx = (self.current_freq_idx + 1) % len(self.current_bank.frequencies)
-        return True
+    def scan_next_frequency(self):
+        """Move to next frequency."""
+        if self.current_bank and self.current_bank.frequencies:
+            self.current_freq_idx = (self.current_freq_idx + 1) % len(self.current_bank.frequencies)
 
     def get_current_frequency(self) -> Optional[Frequency]:
-        """Get the current frequency."""
-        if not self.current_bank or not self.current_bank.frequencies:
-            return None
-        return self.current_bank.frequencies[self.current_freq_idx]
-
-    def check_squelch(self, frequency: Frequency, samples: np.ndarray) -> bool:
-        """Check if squelch should be open for the given frequency."""
-        if not frequency.squelch:
-            # No squelch - always open
-            return True
-
-        squelch_type = frequency.squelch.get('type')
-
-        if squelch_type == 'CTCSS':
-            tone = frequency.squelch.get('tone', 0)
-            return self.squelch_detector.detect_ctcss(samples, tone)
-        elif squelch_type == 'DCS':
-            code = frequency.squelch.get('code', '023')
-            return self.squelch_detector.detect_dcs(samples, code)
-
-        return True
+        """Get current frequency object."""
+        if self.current_bank and 0 <= self.current_freq_idx < len(self.current_bank.frequencies):
+            return self.current_bank.frequencies[self.current_freq_idx]
+        return None
 
     def scan_loop(self):
-        """Main scanning loop."""
-        if not self.current_bank:
-            logger.error("No frequency bank loaded")
+        """Main scanning loop with audio output."""
+        if not self.current_bank or self.sdr is None:
             return
 
-        if self.sdr is None:
-            logger.error("RTL-SDR not initialized")
-            return
-
-        logger.info("Starting traditional scan...")
+        self.initialize_audio()
+        logger.info("Scanning... Press Ctrl+C to stop.")
 
         while self.is_scanning:
             current_freq = self.get_current_frequency()
-            if not current_freq:
-                break
+            if not current_freq: break
 
-            # Tune to frequency
+            # Tune and check signal
             self.sdr.center_freq = current_freq.value
-            logger.info(f"Scanning: {current_freq.name} ({current_freq.value/1e6:.3f} MHz, {current_freq.mode})")
-
-            # Capture samples
-            samples = self.sdr.read_samples(1024*1024)
-
-            # Check signal strength
+            time.sleep(0.05)  # Wait for tuner to settle
+            
+            # Read a small chunk to check power
+            samples = self.sdr.read_samples(64*1024)
             power = 10 * np.log10(np.mean(np.abs(samples)**2))
 
-            # Check squelch
-            squelch_open = self.check_squelch(current_freq, samples)
-
-            if squelch_open and power > -60:  # Signal threshold
-                logger.info(f"Signal detected on {current_freq.name}: {power:.1f} dB")
-                # Could add audio playback, recording, etc. here
-                time.sleep(2.0)  # Listen for 2 seconds
+            if power > self.squelch_threshold:
+                logger.info(f"Signal on {current_freq.name} ({current_freq.value/1e6:.3f} MHz): {power:.1f} dB")
+                
+                # Signal detected: stop scanning and play audio
+                while self.is_scanning:
+                    samples = self.sdr.read_samples(128*1024)
+                    power = 10 * np.log10(np.mean(np.abs(samples)**2))
+                    
+                    if power < self.squelch_threshold - 5: # Hysteresis
+                        logger.info("Signal lost, resuming scan.")
+                        break
+                        
+                    # Demodulate based on mode
+                    if current_freq.mode.upper() == 'AM':
+                        audio = self.demodulator.demodulate_am(samples)
+                    else:
+                        audio = self.demodulator.demodulate_fm(samples)
+                        
+                    if self.audio_stream:
+                        self.audio_stream.write(audio)
             else:
-                time.sleep(0.1)  # Quick check
-
-            # Move to next frequency
-            self.scan_next_frequency()
+                self.scan_next_frequency()
 
     def run_terminal_interface(self):
-        """Run the terminal-based scanner interface."""
+        """Run interactive interface."""
         print("Traditional Radio Scanner")
         print("=" * 40)
-
         if not self.available_banks:
-            print("No frequency banks found in radio_scanner/banks/")
-            print("Create XML frequency files first.")
+            print("No banks found in plugins/radio_scanner/banks/")
             return
 
-        print("Available frequency banks:")
         for i, bank in enumerate(self.available_banks):
             print(f"{i+1}. {bank}")
 
         try:
-            choice = input("Select bank (number): ").strip()
-            bank_idx = int(choice) - 1
-            if 0 <= bank_idx < len(self.available_banks):
-                bank_file = self.available_banks[bank_idx]
-                if self.load_bank(bank_file):
-                    assert self.current_bank is not None  # Should be set by successful load_bank
-                    print(f"\nLoaded bank: {self.current_bank.name}")
-                    print(f"Frequencies: {len(self.current_bank.frequencies)}")
-                    print("\nPress Ctrl+C to stop scanning\n")
-
+            choice = input("Select bank: ").strip()
+            idx = int(choice) - 1
+            if 0 <= idx < len(self.available_banks):
+                if self.load_bank(self.available_banks[idx]):
                     self.is_scanning = True
                     self.scan_loop()
-                else:
-                    print("Failed to load bank")
             else:
-                print("Invalid selection")
-
-        except ValueError:
-            print("Invalid input")
-        except KeyboardInterrupt:
-            print("\nScan stopped")
-
-    def run(self):
-        """Main run method."""
-        try:
-            self.initialize_device()
-            self.run_terminal_interface()
-
-        except Exception as e:
-            logger.error(f"Scanner error: {e}")
-        finally:
-            if self.sdr:
-                self.sdr.close()
+                print("Invalid choice")
+        except (ValueError, KeyboardInterrupt):
+            print("\nExiting")
 
 def main():
-    """Command-line entry point."""
+    """CLI entry point."""
     import argparse
     parser = argparse.ArgumentParser(description="Traditional Radio Scanner")
-    parser.add_argument('--bank', type=str, help='Bank filename to load and start scanning immediately')
-    parser.add_argument('--gain', type=str, default='auto', help='SDR gain (auto or value)')
+    parser.add_argument('--bank', type=str, help='Bank filename to load')
+    parser.add_argument('--gain', type=str, default='auto', help='SDR gain')
+    parser.add_argument('--squelch', type=float, default=-45, help='Squelch threshold in dB')
     args = parser.parse_args()
 
     scanner = TraditionalScanner()
+    scanner.squelch_threshold = args.squelch
     if args.gain != 'auto':
-        try:
-            scanner.gain = int(args.gain)
-        except ValueError:
-            scanner.gain = 'auto'
-
+        try: scanner.gain = int(args.gain)
+        except ValueError: pass
+    
     try:
         scanner.initialize_device()
-
         if args.bank:
             if scanner.load_bank(args.bank):
-                print(f"Loaded bank: {scanner.current_bank.name}")
                 scanner.is_scanning = True
                 scanner.scan_loop()
-            else:
-                print(f"Failed to load bank: {args.bank}")
         else:
             scanner.run_terminal_interface()
-
-    except Exception as e:
-        logger.error(f"Scanner error: {e}")
     finally:
-        if scanner.sdr:
-            scanner.sdr.close()
+        if scanner.sdr: scanner.sdr.close()
+        if scanner.audio_stream: 
+            scanner.audio_stream.stop()
+            scanner.audio_stream.close()
 
 if __name__ == "__main__":
     main()
