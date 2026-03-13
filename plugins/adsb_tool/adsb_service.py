@@ -111,10 +111,10 @@ class ADSBService:
                 print("⚠ RTL-SDR Conflict: dump1090-mutability service is running", flush=True)
                 print("  Attempting to stop conflicting service...", flush=True)
 
-                stop_result = subprocess.run(['sudo', 'systemctl', 'stop', 'dump1090-mutability'],
+                stop_result = subprocess.run(['systemctl', 'stop', 'dump1090-mutability'],
                                            capture_output=True)
                 if stop_result.returncode == 0:
-                    subprocess.run(['sudo', 'systemctl', 'disable', 'dump1090-mutability'],
+                    subprocess.run(['systemctl', 'disable', 'dump1090-mutability'],
                                  capture_output=True)
                     print("✓ Conflicting service stopped and disabled", flush=True)
                     time.sleep(2)  # Wait for cleanup
@@ -221,47 +221,20 @@ class ADSBService:
                 except:
                     pass
 
-            # Start ADS-B decoder with RTL-SDR device and networking enabled
-            # Check if we need sudo for RTL-SDR access
-            use_sudo = False
-            try:
-                # Test if we can access RTL-SDR without sudo
-                import subprocess
-                test_result = subprocess.run(['rtl_test', '-t'], capture_output=True, timeout=5)
-                if test_result.returncode != 0:
-                    use_sudo = True
-                    print("   RTL-SDR requires sudo access")
-            except:
-                use_sudo = True
-
-            cmd = []
-            if use_sudo:
-                cmd = ['sudo']
-
-            cmd.append(dump1090_cmd)
+            cmd = [dump1090_cmd]
 
             # Configure decoder based on type
             if dump1090_cmd == 'readsb':
-                # readsb can work with RTL-SDR in some configurations
                 cmd.extend(['--net', '--net-api-port', '8080'])
             elif dump1090_cmd == 'dump1090-fa':
                 cmd.extend(['--device-type', 'rtlsdr', '--net', '--net-ro-port', '8080'])
             elif dump1090_cmd == 'dump1090-mutability':
-                # dump1090-mutability automatically detects SDR and uses SBS on port 30003
                 cmd.extend(['--net', '--net-sbs-port', '30003'])
             else:
-                # dump1090 (antirez) - use default SBS on port 30003
                 cmd.extend(['--device-index', '0', '--net'])
 
-            # Add common options (skip options not supported by all decoders)
             if dump1090_cmd != 'dump1090':
-                # These options might not be supported by antirez dump1090
-                cmd.extend([
-                    '--quiet',
-                    '--fix',
-                    '--metric',
-                    '--max-range', '200'
-                ])
+                cmd.extend(['--quiet', '--fix', '--metric', '--max-range', '200'])
 
             print(f"Starting {dump1090_cmd}...", flush=True)
             self.readsb_process = subprocess.Popen(

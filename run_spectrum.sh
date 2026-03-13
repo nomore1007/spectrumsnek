@@ -16,8 +16,8 @@ fi
 # Function to stop any running ADS-B services
 stop_adsb_services() {
     # Try multiple ways to stop decoders
-    sudo pkill -f readsb 2>/dev/null
-    sudo pkill -f dump1090 2>/dev/null
+    pkill -f readsb 2>/dev/null
+    pkill -f dump1090 2>/dev/null
     # Also stop any python-based services
     pkill -f adsb_service.py 2>/dev/null
     sleep 1
@@ -32,7 +32,7 @@ launch_adsb_with_decoder() {
     echo "Starting ADS-B Decoder (readsb)..."
     # Launch readsb in background. 
     # We use a standard set of flags suitable for the radar display.
-    sudo readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --device-type rtlsdr --gain auto > /dev/null 2>&1 &
+    readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --device-type rtlsdr --gain auto > /dev/null 2>&1 &
     READSB_PID=$!
     
     # Wait for readsb to initialize and start writing JSON
@@ -49,7 +49,7 @@ launch_adsb_with_decoder() {
     ./adsb_radar.py
     
     echo "Stopping ADS-B Decoder..."
-    sudo kill $READSB_PID 2>/dev/null
+    kill $READSB_PID 2>/dev/null
     stop_adsb_services
     echo "Done."
     sleep 1
