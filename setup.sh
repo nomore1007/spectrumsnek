@@ -66,7 +66,7 @@ safe_apt_update
 
 # Install system dependencies
 echo "Installing system dependencies..."
-SYSTEM_PACKAGES="git build-essential python3-dev python3-venv python3-pip rtl-sdr libusb-1.0-0-dev pkg-config libncurses5-dev"
+SYSTEM_PACKAGES="git build-essential python3-dev python3-venv python3-pip rtl-sdr libusb-1.0-0-dev pkg-config libncurses5-dev libportaudio2 libasound2-dev"
 if safe_apt_install $SYSTEM_PACKAGES; then
     echo "✓ System dependencies installed"
 else
