@@ -1,6 +1,6 @@
 #!/bin/bash
-# SpectrumSnek Bash Launcher & Menu
-# Simplified launcher that handles environment and provides a standalone-capable menu.
+# SpectrumSnek Whiptail Launcher & Menu
+# Modern launcher using whiptail for a better CLI experience.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
@@ -13,34 +13,46 @@ else
     exit 1
 fi
 
-# Function to show the menu
-show_menu() {
-    clear
-    echo "🐍📻 SpectrumSnek - Radio Tools Menu"
-    echo "======================================"
-    echo "1) RTL-SDR Spectrum Listener (RTL Scanner)"
-    echo "2) Traditional Radio Scanner"
-    echo "3) ADS-B Aircraft Tracker (Radar)"
-    echo "4) ADS-B Service (readsb)"
-    echo "5) WiFi Tool"
-    echo "6) Bluetooth Tool"
-    echo "7) System Tools"
-    echo "8) Launch Original main.py (Legacy)"
-    echo "q) Quit"
-    echo ""
-    read -p "Select an option: " choice
+# Function to stop any running ADS-B services
+stop_adsb_services() {
+    # Try multiple ways to stop decoders
+    sudo pkill -f readsb 2>/dev/null
+    sudo pkill -f dump1090 2>/dev/null
+    # Also stop any python-based services
+    pkill -f adsb_service.py 2>/dev/null
+    sleep 1
 }
 
-# Function to launch ADS-B Radar
-launch_adsb_radar() {
-    echo "Launching ADS-B Radar..."
-    # Check if readsb is running
-    if ! pgrep -f "readsb|dump1090" > /dev/null; then
-        echo "Warning: No ADS-B decoder (readsb/dump1090) detected."
-        echo "Radar might not show any planes. Start ADS-B Service first if needed."
-        sleep 2
-    fi
+# Function to launch ADS-B Radar with its own decoder
+launch_adsb_with_decoder() {
+    clear
+    echo "Stopping existing services to free SDR..."
+    stop_adsb_services
+    
+    echo "Starting ADS-B Decoder (readsb)..."
+    # Launch readsb in background. 
+    # We use a standard set of flags suitable for the radar display.
+    sudo readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --device-type rtlsdr --gain auto > /dev/null 2>&1 &
+    READSB_PID=$!
+    
+    # Wait for readsb to initialize and start writing JSON
+    echo "Waiting for decoder to start..."
+    for i in {1..10}; do
+        if [ -f "/run/readsb/aircraft.json" ]; then
+            break
+        fi
+        sleep 1
+    done
+    
+    echo "Launching Radar Display..."
+    # Launch the graphical radar
     ./adsb_radar.py
+    
+    echo "Stopping ADS-B Decoder..."
+    sudo kill $READSB_PID 2>/dev/null
+    stop_adsb_services
+    echo "Done."
+    sleep 1
 }
 
 # Main loop
@@ -62,6 +74,10 @@ while true; do
                 ./adsb_radar.py "$@"
                 exit 0
                 ;;
+            adsb_full)
+                launch_adsb_with_decoder
+                exit 0
+                ;;
             adsb_service)
                 python3 plugins/adsb_tool/adsb_service.py "$@"
                 exit 0
@@ -72,23 +88,34 @@ while true; do
                 ;;
             *)
                 echo "Unknown command: $cmd"
-                echo "Usage: $0 [spectrum|radio|radar|adsb_service|main] [args]"
+                echo "Usage: $0 [spectrum|radio|radar|adsb_full|adsb_service|main] [args]"
                 exit 1
                 ;;
         esac
     fi
 
-    show_menu
-    case "$choice" in
+    # Whiptail Menu
+    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" --menu "Select a tool to launch:" 18 65 10 \
+        "1" "RTL-SDR Spectrum Listener" \
+        "2" "Traditional Radio Scanner" \
+        "3" "ADS-B Radar (Full: readsb + display)" \
+        "4" "ADS-B Service Only (readsb)" \
+        "5" "WiFi Tool" \
+        "6" "Bluetooth Tool" \
+        "7" "System Tools" \
+        "8) Launch Original main.py (Legacy)" "" \
+        "q" "Quit" 3>&1 1>&2 2>&3)
+
+    case "$CHOICE" in
         1) python3 plugins/rtl_scanner/scanner.py ;;
         2) python3 plugins/radio_scanner/scanner.py ;;
-        3) launch_adsb_radar ;;
+        3) launch_adsb_with_decoder ;;
         4) python3 plugins/adsb_tool/adsb_service.py ;;
         5) python3 wifi_tool/wifi_selector.py ;;
         6) python3 bluetooth_tool/bluetooth_connector.py ;;
         7) python3 plugins/system_tools/system_menu.py ;;
         8) python3 main.py ;;
-        q|Q) echo "Goodbye!"; exit 0 ;;
-        *) echo "Invalid option. Press enter to continue."; read ;;
+        q|"") echo "Goodbye!"; exit 0 ;;
+        *) exit 0 ;;
     esac
 done
