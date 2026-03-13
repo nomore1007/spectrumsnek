@@ -35,8 +35,8 @@ launch_adsb_with_decoder() {
     chown root:root /run/readsb
     rm -f /run/readsb/*
     
-    # Launch readsb in background, logging errors for diagnosis
-    readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --no-interactive --device-type rtlsdr --gain auto > /tmp/readsb.log 2>&1 &
+    # Launch readsb in background, using absolute path and logging errors
+    /usr/bin/readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --no-interactive --device-type rtlsdr --gain auto > /tmp/readsb.log 2>&1 &
     READSB_PID=$!
     
     # Wait for readsb to initialize
