@@ -89,9 +89,9 @@ def main(stdscr, args):
         max_d_lat = max(abs(e['data']['lat'] - avg_lat) for e in display_aircraft)
         max_d_lon = max(abs(e['data']['lon'] - avg_lon) for e in display_aircraft)
         
-        # Minimum scale (approx 0.5 mile window if only one plane)
-        scale_lat = max(max_d_lat, 0.005) * 1.2
-        scale_lon = max(max_d_lon, 0.005) * 1.2
+        # Minimum scale (user requested 0.5 degree minimum total span, so 0.25 half-span)
+        scale_lat = max(max_d_lat, 0.2083) * 1.2
+        scale_lon = max(max_d_lon, 0.2083) * 1.2
         
         center_y, center_x = height // 2, width // 2
         
