@@ -30,16 +30,26 @@ launch_adsb_with_decoder() {
     stop_adsb_services
     
     echo "Starting ADS-B Decoder (readsb)..."
-    # Launch readsb in background. 
-    # We use a standard set of flags suitable for the radar display.
-    readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --device-type rtlsdr --gain auto > /dev/null 2>&1 &
+    # Ensure the JSON directory exists
+    mkdir -p /run/readsb
+    
+    # Launch readsb in background with logging
+    # --no-interactive might help when running as root
+    readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --no-interactive --device-type rtlsdr --gain auto > /tmp/readsb.log 2>&1 &
     READSB_PID=$!
     
     # Wait for readsb to initialize and start writing JSON
     echo "Waiting for decoder to start..."
     for i in {1..10}; do
         if [ -f "/run/readsb/aircraft.json" ]; then
+            echo "Decoder started successfully."
             break
+        fi
+        if ! kill -0 $READSB_PID 2>/dev/null; then
+            echo "ERROR: Decoder failed to start. Check /tmp/readsb.log"
+            cat /tmp/readsb.log
+            sleep 5
+            return
         fi
         sleep 1
     done
