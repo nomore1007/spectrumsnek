@@ -30,13 +30,15 @@ launch_adsb_with_decoder() {
     stop_adsb_services
     
     echo "Starting ADS-B Decoder (readsb)..."
-    # Ensure the JSON directory exists
+    # Ensure the JSON directory exists and is writable, clear old data
     mkdir -p /run/readsb
+    rm -f /run/readsb/*
     
-    # Launch readsb in background with logging
-    # --no-interactive might help when running as root
-    readsb --net --net-api-port 8080 --write-json /run/readsb --quiet --no-interactive --device-type rtlsdr --gain auto > /tmp/readsb.log 2>&1 &
-    READSB_PID=$!
+    # Use start-stop-daemon to run readsb as root and ensure it can access the device and directory.
+    start-stop-daemon --start --quiet --pidfile /tmp/readsb.pid --make-pidfile \
+        --background --chuid root --exec /usr/bin/readsb -- \
+        --net --net-api-port 8080 --write-json /run/readsb --quiet \
+        --no-interactive --device-type rtlsdr --gain auto
     
     # Wait for readsb to initialize and start writing JSON
     echo "Waiting for decoder to start..."
@@ -45,9 +47,8 @@ launch_adsb_with_decoder() {
             echo "Decoder started successfully."
             break
         fi
-        if ! kill -0 $READSB_PID 2>/dev/null; then
-            echo "ERROR: Decoder failed to start. Check /tmp/readsb.log"
-            cat /tmp/readsb.log
+        if ! pgrep -f "readsb" >/dev/null; then
+            echo "ERROR: Decoder failed to start."
             sleep 5
             return
         fi
@@ -56,11 +57,12 @@ launch_adsb_with_decoder() {
     
     echo "Launching Radar Display..."
     # Launch the graphical radar
-    ./adsb_radar.py
+    "$SCRIPT_DIR/adsb_radar.py"
     
     echo "Stopping ADS-B Decoder..."
-    kill $READSB_PID 2>/dev/null
-    stop_adsb_services
+    start-stop-daemon --stop --quiet --pidfile /tmp/readsb.pid
+    stop_adsb_services # Final cleanup
+    rm -f /tmp/readsb.pid
     echo "Done."
     sleep 1
 }
