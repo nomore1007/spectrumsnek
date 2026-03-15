@@ -1,16 +1,19 @@
 #!/bin/bash
-# SpectrumSnek Simple & Reliable Launcher
+# SpectrumSnek Whiptail Launcher & Menu - CORRECTED
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
 
-# --- Pre-flight Checks ---
 if [ ! -d "$VENV_DIR" ]; then
     echo "ERROR: Virtual environment not found. Please run ./setup.sh first." >&2
     exit 1
 fi
 source "$VENV_DIR/bin/activate"
-# --- End Pre-flight Checks ---
+
+if ! command -v whiptail >/dev/null 2>&1; then
+    echo "ERROR: 'whiptail' is not installed. Please run 'sudo apt-get install whiptail'." >&2
+    exit 1
+fi
 
 stop_adsb_services() {
     pkill -f readsb 2>/dev/null
@@ -19,25 +22,21 @@ stop_adsb_services() {
 
 launch_adsb_with_decoder() {
     clear
-    echo "--- Preparing ADS-B Session ---"
-    stop_adsb_services
-    
     READSB_PATH=$(command -v readsb || find /home -name readsb -type f -executable 2>/dev/null | head -n 1)
     if [ -z "$READSB_PATH" ]; then
-        echo "ERROR: 'readsb' executable not found." && sleep 3
+        whiptail --title "Error" --msgbox "'readsb' executable not found." 8 78
         return
     fi
 
     JSON_DIR="/tmp/spectrumsnek"
     mkdir -p "$JSON_DIR"
     rm -rf "$JSON_DIR"/*
-    echo "Using '$JSON_DIR' for readsb output."
-
+    
     $READSB_PATH --net --write-json "$JSON_DIR" --quiet --no-interactive --device-type rtlsdr --gain auto &
     READSB_PID=$!
     
     if ! timeout 10s bash -c "while ! [ -s '$JSON_DIR/aircraft.json' ]; do sleep 0.5; done"; then
-        echo "ERROR: readsb started but failed to write data. Check SDR." && sleep 3
+        whiptail --title "Error" --msgbox "readsb started but failed to write data. Check SDR." 8 78
         kill $READSB_PID 2>/dev/null
         return
     fi
@@ -48,62 +47,48 @@ launch_adsb_with_decoder() {
     stop_adsb_services
 }
 
-# --- Main Menu Loop ---
 while true; do
+    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" --menu "Select a tool:" 20 78 12 
+        "1" "RTL-SDR Spectrum Listener" 
+        "2" "Traditional Radio Scanner" 
+        "3" "ADS-B Radar (Full Session)" 
+        "4" "WiFi Tool" 
+        "5" "Bluetooth Tool" 
+        "6" "System Tools" 
+        "7" "Legacy Curses Menu (main.py)" 
+        3>&1 1>&2 2>&3)
+
+    if [ $? -ne 0 ]; then
+        break
+    fi
+
     clear
-    echo "======================================"
-    echo " SpectrumSnek 🐍📻 - Main Menu"
-    echo "======================================"
-    options=(
-        "RTL-SDR Spectrum Listener"
-        "Traditional Radio Scanner"
-        "ADS-B Radar (Full Session)"
-        "WiFi Tool"
-        "Bluetooth Tool"
-        "System Tools"
-        "Legacy Curses Menu (main.py)"
-        "Quit"
-    )
-    
-    select opt in "${options[@]}"; do
-        case "$opt" in
-            "RTL-SDR Spectrum Listener")
-                python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
-                break
-                ;;
-            "Traditional Radio Scanner")
-                python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
-                break
-                ;;
-            "ADS-B Radar (Full Session)")
-                launch_adsb_with_decoder
-                break
-                ;;
-            "WiFi Tool")
-                python3 "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
-                break
-                ;;
-            "Bluetooth Tool")
-                python3 "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py"
-                break
-                ;;
-            "System Tools")
-                python3 "$SCRIPT_DIR/plugins/system_tools/system_menu.py"
-                break
-                ;;
-            "Legacy Curses Menu (main.py)")
-                python3 "$SCRIPT_DIR/main.py"
-                break
-                ;;
-            "Quit")
-                echo "Goodbye!"
-                exit 0
-                ;;
-            *) 
-                echo "Invalid option $REPLY"
-                ;;
-        esac
-    done
+    case "$CHOICE" in
+        "1")
+            python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
+            ;;
+        "2")
+            python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
+            ;;
+        "3")
+            launch_adsb_with_decoder
+            ;;
+        "4")
+            python3 "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
+            ;;
+        "5")
+            python3 "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py"
+            ;;
+        "6")
+            python3 "$SCRIPT_DIR/plugins/system_tools/system_menu.py"
+            ;;
+        "7")
+            python3 "$SCRIPT_DIR/main.py"
+            ;;
+    esac
     echo
-    read -p "Press Enter to return to menu..."
+    echo "--- Task Ended. Press Enter to return to menu. ---"
+    read -r
 done
+
+echo "Goodbye!"
