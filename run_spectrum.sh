@@ -55,7 +55,8 @@ launch_adsb_with_decoder() {
     echo "Using '$JSON_DIR' for readsb output."
 
     # 3. Launch readsb
-    $READSB_PATH --net --net-api-port 8080 --write-json "$JSON_DIR" --no-interactive --device-type rtlsdr --gain auto &
+    echo "--- Starting readsb (in background) ---"
+    $READSB_PATH --net --net-api-port 8080 --write-json "$JSON_DIR" --quiet --no-interactive --device-type rtlsdr --gain auto > /dev/null 2>&1 &
     READSB_PID=$!
     
     # 4. Verify readsb is running and writing data
