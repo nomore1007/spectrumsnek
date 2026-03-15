@@ -15,77 +15,89 @@ fi
 
 # Function to stop any running ADS-B services
 stop_adsb_services() {
-    # Try multiple ways to stop decoders
     pkill -f readsb 2>/dev/null
     pkill -f dump1090 2>/dev/null
-    # Also stop any python-based services
-    pkill -f adsb_service.py 2>/dev/null
-    sleep 1
+    sleep 0.5
 }
 
 # Function to launch ADS-B Radar with its own decoder
 launch_adsb_with_decoder() {
     clear
-    echo "--- LAUNCHER DEBUG ---"
-    echo "Running as user: $(whoami)"
-    echo "----------------------"
+    echo "--- Preparing ADS-B Session ---"
     
-    echo "Stopping existing services to free SDR..."
     stop_adsb_services
     
-    # Find readsb executable
+    # 1. Find readsb
     READSB_PATH=$(command -v readsb)
     if [ -z "$READSB_PATH" ]; then
         echo "ERROR: 'readsb' command not found."
-        sleep 5
+        sleep 3
         return
     fi
     echo "Found readsb at: $READSB_PATH"
 
-    # Determine writable directory for readsb output
+    # 2. Determine and prepare the output directory
     JSON_DIR="/run/readsb"
-    if ! [ -w "$JSON_DIR" ] || ! [ -x "$JSON_DIR" ]; then
-        echo "WARNING: /run/readsb is not writable. Falling back to /tmp/spectrumsnek"
+    # Create the directory if it doesn't exist
+    mkdir -p "$JSON_DIR"
+    # Attempt to take ownership to ensure write access. This is the most reliable way under root.
+    chown root:root "$JSON_DIR"
+    
+    # Check if we can write to the primary directory. If not, fallback to /tmp.
+    if ! touch "$JSON_DIR/write_test" 2>/dev/null; then
+        echo "WARNING: Cannot write to '$JSON_DIR'. Falling back to /tmp/spectrumsnek."
         JSON_DIR="/tmp/spectrumsnek"
-        # Ensure the fallback directory is clean
         mkdir -p "$JSON_DIR"
-        rm -f "$JSON_DIR"/*
     else
-        # Clear the primary directory if it's usable
-        rm -f "$JSON_DIR"/*
+        # Cleanup the test file if successful
+        rm "$JSON_DIR/write_test"
     fi
+    # Ensure the chosen directory is clean
+    rm -f "$JSON_DIR"/*
     echo "Using '$JSON_DIR' for readsb output."
 
-    # Launch readsb, showing its output
-    echo "--- STARTING READSB ---"
+    # 3. Launch readsb
+    echo "--- Starting readsb ---"
     $READSB_PATH --net --net-api-port 8080 --write-json "$JSON_DIR" --no-interactive --device-type rtlsdr --gain auto &
     READSB_PID=$!
     
-    # Wait for readsb to initialize
-    echo "Waiting for decoder to start (PID: $READSB_PID)..."
-    sleep 5
+    # 4. Verify readsb is running and writing data
+    echo "Verifying readsb operation (PID: $READSB_PID)..."
+    sleep 3 # Give it time to start
     
     if ! kill -0 $READSB_PID 2>/dev/null; then
-        echo "ERROR: Decoder process failed to start. Check output above."
-        sleep 5
+        echo "ERROR: readsb process failed to start or exited immediately."
+        sleep 3
         return
     fi
-    
-    if [ ! -f "$JSON_DIR/aircraft.json" ]; then
-        echo "WARNING: aircraft.json was not created in $JSON_DIR."
-        echo "Decoder is running, but is not writing data. Check permissions or readsb output."
-    else
-        echo "Decoder started successfully and is writing to $JSON_DIR/aircraft.json."
+
+    echo "Waiting for aircraft.json to be created..."
+    for i in {1..7}; do
+        if [ -s "$JSON_DIR/aircraft.json" ]; then
+            echo "SUCCESS: aircraft.json found and is not empty."
+            break
+        fi
+        echo -n "."
+        sleep 1
+    done
+
+    if ! [ -s "$JSON_DIR/aircraft.json" ]; then
+        echo "ERROR: readsb is running, but aircraft.json is missing or empty."
+        echo "Please check SDR connection and antenna."
+        sleep 3
+        kill $READSB_PID 2>/dev/null
+        return
     fi
 
-    echo "Launching Radar Display..."
-    # Pass the correct JSON file path to the radar
+    # 5. Launch the display
+    echo "--- Launching Radar Display ---"
     "$SCRIPT_DIR/adsb_radar.py" --file "$JSON_DIR/aircraft.json"
     
-    echo "Stopping ADS-B Decoder..."
+    # 6. Cleanup
+    echo "--- Cleaning up ---"
     kill $READSB_PID 2>/dev/null
     stop_adsb_services
-    echo "Done."
+    echo "Session ended."
     sleep 1
 }
 
@@ -96,48 +108,22 @@ while true; do
         cmd=$1
         shift
         case "$cmd" in
-            spectrum|rtl_scanner)
-                python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py" "$@"
-                exit 0
-                ;;
-            radio|scanner)
-                python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py" "$@"
-                exit 0
-                ;;
-            radar|adsb_radar)
-                "$SCRIPT_DIR/adsb_radar.py" "$@"
-                exit 0
-                ;;
-            adsb_full)
-                launch_adsb_with_decoder
-                exit 0
-                ;;
-            adsb_service)
-                python3 "$SCRIPT_DIR/plugins/adsb_tool/adsb_service.py" "$@"
-                exit 0
-                ;;
-            main)
-                python3 "$SCRIPT_DIR/main.py" "$@"
-                exit 0
-                ;;
-            *)
-                echo "Unknown command: $cmd"
-                echo "Usage: $0 [spectrum|radio|radar|adsb_full|adsb_service|main] [args]"
-                exit 1
-                ;;
+            spectrum|rtl_scanner) python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py" "$@" ; exit 0 ;;
+            radio|scanner) python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py" "$@" ; exit 0 ;;
+            radar|adsb_radar) "$SCRIPT_DIR/adsb_radar.py" "$@" ; exit 0 ;;
+            adsb_full) launch_adsb_with_decoder ; exit 0 ;;
+            adsb_service) python3 "$SCRIPT_DIR/plugins/adsb_tool/adsb_service.py" "$@" ; exit 0 ;;
+            main) python3 "$SCRIPT_DIR/main.py" "$@" ; exit 0 ;;
+            *) echo "Unknown command: $cmd"; exit 1 ;;
         esac
     fi
 
     # Whiptail Menu
-    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" --menu "Select a tool to launch:" 18 65 10 
+    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" --menu "Select a tool:" 18 65 10 
         "1" "RTL-SDR Spectrum Listener" 
         "2" "Traditional Radio Scanner" 
-        "3" "ADS-B Radar (Full: readsb + display)" 
-        "4" "ADS-B Service Only (readsb)" 
-        "5" "WiFi Tool" 
-        "6" "Bluetooth Tool" 
-        "7" "System Tools" 
-        "8" "Launch Original main.py (Legacy)" 
+        "3" "ADS-B Radar (Full Session)" 
+        "4" "ADS-B Service Only" 
         "q" "Quit" 3>&1 1>&2 2>&3)
 
     case "$CHOICE" in
@@ -145,10 +131,6 @@ while true; do
         2) python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py" ;;
         3) launch_adsb_with_decoder ;;
         4) python3 "$SCRIPT_DIR/plugins/adsb_tool/adsb_service.py" ;;
-        5) python3 "$SCRIPT_DIR/wifi_tool/wifi_selector.py" ;;
-        6) python3 "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py" ;;
-        7) python3 "$SCRIPT_DIR/plugins/system_tools/system_menu.py" ;;
-        8) python3 "$SCRIPT_DIR/main.py" ;;
         q|"") echo "Goodbye!"; exit 0 ;;
         *) exit 0 ;;
     esac
