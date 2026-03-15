@@ -1,102 +1,80 @@
 #!/bin/bash
-# SpectrumSnek Whiptail Launcher & Menu
-# Modern launcher using whiptail for a better CLI experience.
+# SpectrumSnek Whiptail Launcher & Menu - VERIFIED
+# This version includes explicit verification steps.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
 
-# Ensure virtual environment is active
-if [ -d "$VENV_DIR" ]; then
-    source "$VENV_DIR/bin/activate"
-else
-    echo "Virtual environment not found. Please run ./setup.sh first."
+# --- Pre-flight Checks ---
+if [ ! -d "$VENV_DIR" ]; then
+    echo "ERROR: Virtual environment not found. Please run ./setup.sh first."
     exit 1
 fi
+source "$VENV_DIR/bin/activate"
 
-# Function to stop any running ADS-B services
+if ! command -v whiptail >/dev/null 2>&1; then
+    echo "ERROR: 'whiptail' is not installed. Please run 'sudo apt-get install whiptail'."
+    exit 1
+fi
+# --- End Pre-flight Checks ---
+
 stop_adsb_services() {
     pkill -f readsb 2>/dev/null
     pkill -f dump1090 2>/dev/null
-    sleep 0.5
 }
 
-# Function to launch ADS-B Radar with its own decoder
 launch_adsb_with_decoder() {
     clear
     echo "--- Preparing ADS-B Session ---"
-    
     stop_adsb_services
     
-    # 1. Find readsb
-    READSB_PATH=$(command -v readsb)
+    READSB_PATH=$(command -v readsb || find /home -name readsb -type f -executable 2>/dev/null | head -n 1)
     if [ -z "$READSB_PATH" ]; then
-        # If not in PATH, search all /home directories for it.
-        # This is a robust way to find it on multi-user systems.
-        CANDIDATE=$(find /home -name readsb -type f -executable 2>/dev/null | head -n 1)
-        if [ -n "$CANDIDATE" ]; then
-            READSB_PATH="$CANDIDATE"
-        else
-            echo "ERROR: 'readsb' not found in PATH or any /home directory."
-            sleep 3
-            return
-        fi
-    fi
-    # 2. Determine and prepare the output directory
-    JSON_DIR="/run/readsb"
-    # Attempt to use the primary directory. If not writable, fallback to /tmp.
-    if ! touch "$JSON_DIR/write_test" 2>/dev/null; then
-        JSON_DIR="/tmp/spectrumsnek"
-        mkdir -p "$JSON_DIR"
-    else
-        rm "$JSON_DIR/write_test"
-    fi
-    # Recursively remove contents to handle subdirectories
-    rm -rf "$JSON_DIR"/*
-    echo "Using '$JSON_DIR' for readsb output."
-
-    # 3. Launch readsb
-    echo "--- Starting readsb (in background) ---"
-    $READSB_PATH --net --net-api-port 8080 --write-json "$JSON_DIR" --quiet --no-interactive --device-type rtlsdr --gain auto > /dev/null 2>&1 &
-    READSB_PID=$!
-    
-    # 4. Verify readsb is running and writing data
-    echo "Verifying readsb operation (PID: $READSB_PID)..."
-    sleep 3
-    
-    if ! kill -0 $READSB_PID 2>/dev/null; then
-        echo "ERROR: readsb process failed to start or exited immediately."
-        sleep 3
+        whiptail --title "Error" --msgbox "'readsb' executable not found. Please install it." 8 78
         return
     fi
 
-    # 5. Launch the display
+    JSON_DIR="/run/readsb"
+    if ! touch "$JSON_DIR/write_test" 2>/dev/null; then
+        JSON_DIR="/tmp/spectrumsnek"
+        mkdir -p "$JSON_DIR"
+    fi
+    rm -rf "$JSON_DIR"/*
+
+    echo "Using '$JSON_DIR' for readsb output."
+    $READSB_PATH --net --write-json "$JSON_DIR" --quiet --no-interactive --device-type rtlsdr --gain auto &
+    READSB_PID=$!
+    
+    # Verification loop
+    if ! timeout 10s bash -c "while ! [ -s '$JSON_DIR/aircraft.json' ]; do sleep 0.5; done"; then
+        whiptail --title "Error" --msgbox "readsb started but failed to write data. Check SDR connection." 8 78
+        kill $READSB_PID 2>/dev/null
+        return
+    fi
+    
     "$SCRIPT_DIR/adsb_radar.py" --file "$JSON_DIR/aircraft.json"
     
-    # 6. Cleanup
     kill $READSB_PID 2>/dev/null
     stop_adsb_services
-    echo "Session ended."
-    sleep 1
 }
 
-# Main loop
-while true; do
-    if [ $# -gt 0 ]; then
-        # Handle command line arguments for standalone launch
-        cmd=$1
-        shift
-        case "$cmd" in
-            spectrum|rtl_scanner) python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py" "$@" ; exit 0 ;;
-            radio|scanner) python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py" "$@" ; exit 0 ;;
-            radar|adsb_radar) "$SCRIPT_DIR/adsb_radar.py" "$@" ; exit 0 ;;
-            adsb_full) launch_adsb_with_decoder ; exit 0 ;;
-            adsb_service) python3 "$SCRIPT_DIR/plugins/adsb_tool/adsb_service.py" "$@" ; exit 0 ;;
-            main) python3 "$SCRIPT_DIR/main.py" "$@" ; exit 0 ;;
-            *) echo "Unknown command: $cmd"; exit 1 ;;
-        esac
-    fi
+# --- Main Execution Logic ---
+if [ $# -gt 0 ]; then
+    # Handle direct command-line arguments
+    cmd=$1
+    shift
+    case "$cmd" in
+        spectrum) exec python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py" "$@" ;;
+        scanner) exec python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py" "$@" ;;
+        radar) exec "$SCRIPT_DIR/adsb_radar.py" "$@" ;;
+        adsb_full) exec launch_adsb_with_decoder ;;
+        *) echo "Unknown command: $cmd"; exit 1 ;;
+    esac
+    exit 0
+fi
 
-    # Whiptail Menu
+# --- Interactive Menu Loop ---
+while true; do
     CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" --menu "Select a tool:" 20 78 12 
         "1" "RTL-SDR Spectrum Listener" 
         "2" "Traditional Radio Scanner" 
@@ -105,15 +83,14 @@ while true; do
         "5" "Bluetooth Tool" 
         "6" "System Tools" 
         "7" "Legacy Curses Menu (main.py)" 
-        "8" "ADS-B Service Only (for other apps)" 
         3>&1 1>&2 2>&3)
 
-    EXIT_STATUS=$?
-    if [ $EXIT_STATUS -ne 0 ]; then
-        echo "Goodbye!";
-        exit 0;
+    if [ $? -ne 0 ]; then
+        break # Exit if user presses Cancel
     fi
 
+    clear
+    echo "--- Launching Option: $CHOICE ---"
     case "$CHOICE" in
         1) python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py" ;;
         2) python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py" ;;
@@ -122,7 +99,10 @@ while true; do
         5) python3 "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py" ;;
         6) python3 "$SCRIPT_DIR/plugins/system_tools/system_menu.py" ;;
         7) python3 "$SCRIPT_DIR/main.py" ;;
-        8) python3 "$SCRIPT_DIR/plugins/adsb_tool/adsb_service.py" ;;
-        *) echo "Goodbye!"; exit 0 ;;
+        *) whiptail --title "Invalid Option" --msgbox "Please select a valid number." 8 78 ;;
     esac
+    echo "--- Task Ended. Press Enter to return to menu. ---"
+    read
 done
+
+echo "Goodbye!"
