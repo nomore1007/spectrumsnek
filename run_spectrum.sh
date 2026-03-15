@@ -30,20 +30,13 @@ launch_adsb_with_decoder() {
     # 1. Find readsb
     READSB_PATH=$(command -v readsb)
     if [ -z "$READSB_PATH" ]; then
-        # If not in PATH, check the home dir of the user who invoked sudo
-        if [ -n "$SUDO_USER" ]; then
-            USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+        # If not in PATH, search all /home directories for it.
+        # This is a robust way to find it on multi-user systems.
+        CANDIDATE=$(find /home -name readsb -type f -executable 2>/dev/null | head -n 1)
+        if [ -n "$CANDIDATE" ]; then
+            READSB_PATH="$CANDIDATE"
         else
-            # Fallback for direct root login: find the primary non-root user (usually UID 1000)
-            USER_HOME=$(getent passwd 1000 | cut -d: -f6)
-        fi
-        
-        if [ -x "$USER_HOME/readsb" ]; then
-            READSB_PATH="$USER_HOME/readsb"
-        elif [ -x "$USER_HOME/readsb/readsb" ]; then
-            READSB_PATH="$USER_HOME/readsb/readsb"
-        else
-            echo "ERROR: 'readsb' not found in PATH or in '$USER_HOME'."
+            echo "ERROR: 'readsb' not found in PATH or any /home directory."
             sleep 3
             return
         fi
