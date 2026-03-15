@@ -1,19 +1,19 @@
 #!/bin/bash
-# SpectrumSnek Whiptail Launcher & Menu - VERIFIED
-# This version includes explicit verification steps.
+# SpectrumSnek Whiptail Launcher & Menu - FINAL VERIFIED
+# This version corrects the menu logic and restores all options.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
 
 # --- Pre-flight Checks ---
 if [ ! -d "$VENV_DIR" ]; then
-    echo "ERROR: Virtual environment not found. Please run ./setup.sh first."
+    echo "ERROR: Virtual environment not found. Please run ./setup.sh first." >&2
     exit 1
 fi
 source "$VENV_DIR/bin/activate"
 
 if ! command -v whiptail >/dev/null 2>&1; then
-    echo "ERROR: 'whiptail' is not installed. Please run 'sudo apt-get install whiptail'."
+    echo "ERROR: 'whiptail' is not installed. Please run 'sudo apt-get install whiptail'." >&2
     exit 1
 fi
 # --- End Pre-flight Checks ---
@@ -45,9 +45,8 @@ launch_adsb_with_decoder() {
     $READSB_PATH --net --write-json "$JSON_DIR" --quiet --no-interactive --device-type rtlsdr --gain auto &
     READSB_PID=$!
     
-    # Verification loop
     if ! timeout 10s bash -c "while ! [ -s '$JSON_DIR/aircraft.json' ]; do sleep 0.5; done"; then
-        whiptail --title "Error" --msgbox "readsb started but failed to write data. Check SDR connection." 8 78
+        whiptail --title "Error" --msgbox "readsb started but failed to write data. Check SDR." 8 78
         kill $READSB_PID 2>/dev/null
         return
     fi
@@ -60,7 +59,6 @@ launch_adsb_with_decoder() {
 
 # --- Main Execution Logic ---
 if [ $# -gt 0 ]; then
-    # Handle direct command-line arguments
     cmd=$1
     shift
     case "$cmd" in
@@ -83,26 +81,56 @@ while true; do
         "5" "Bluetooth Tool" 
         "6" "System Tools" 
         "7" "Legacy Curses Menu (main.py)" 
+        "8" "ADS-B Service Only (for other apps)" 
         3>&1 1>&2 2>&3)
 
+    # Exit if user presses Cancel or Esc
     if [ $? -ne 0 ]; then
-        break # Exit if user presses Cancel
+        break
     fi
 
     clear
-    echo "--- Launching Option: $CHOICE ---"
     case "$CHOICE" in
-        1) python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py" ;;
-        2) python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py" ;;
-        3) launch_adsb_with_decoder ;;
-        4) python3 "$SCRIPT_DIR/wifi_tool/wifi_selector.py" ;;
-        5) python3 "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py" ;;
-        6) python3 "$SCRIPT_DIR/plugins/system_tools/system_menu.py" ;;
-        7) python3 "$SCRIPT_DIR/main.py" ;;
-        *) whiptail --title "Invalid Option" --msgbox "Please select a valid number." 8 78 ;;
+        "1")
+            echo "Launching RTL-SDR Spectrum Listener..."
+            python3 "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
+            ;;
+        "2")
+            echo "Launching Traditional Radio Scanner..."
+            python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
+            ;;
+        "3")
+            echo "Launching Full ADS-B Session..."
+            launch_adsb_with_decoder
+            ;;
+        "4")
+            echo "Launching WiFi Tool..."
+            python3 "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
+            ;;
+        "5")
+            echo "Launching Bluetooth Tool..."
+            python3 "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py"
+            ;;
+        "6")
+            echo "Launching System Tools..."
+            python3 "$SCRIPT_DIR/plugins/system_tools/system_menu.py"
+            ;;
+        "7")
+            echo "Launching Legacy Curses Menu..."
+            python3 "$SCRIPT_DIR/main.py"
+            ;;
+        "8")
+            echo "Launching ADS-B Service Only..."
+            python3 "$SCRIPT_DIR/plugins/adsb_tool/adsb_service.py"
+            ;;
+        *)
+            # This case should not be reached with a properly constructed menu
+            whiptail --title "Error" --msgbox "An unexpected error occurred." 8 78
+            ;;
     esac
+    echo
     echo "--- Task Ended. Press Enter to return to menu. ---"
-    read
+    read -r
 done
 
 echo "Goodbye!"
