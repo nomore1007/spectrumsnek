@@ -30,13 +30,16 @@ launch_adsb_with_decoder() {
     # 1. Find readsb
     READSB_PATH=$(command -v readsb)
     if [ -z "$READSB_PATH" ]; then
-        # If not found in PATH, try user's home directory
-        if [ -x "$HOME/readsb" ]; then
-            READSB_PATH="$HOME/readsb"
-        elif [ -x "$HOME/readsb/readsb" ]; then # Some users compile into a subdir
-            READSB_PATH="$HOME/readsb/readsb"
+        # If not found in PATH, try the logged-in user's home directory
+        LOGGED_IN_USER=$(logname)
+        USER_HOME=$(getent passwd "$LOGGED_IN_USER" | cut -d: -f6)
+        
+        if [ -x "$USER_HOME/readsb" ]; then
+            READSB_PATH="$USER_HOME/readsb"
+        elif [ -x "$USER_HOME/readsb/readsb" ]; then # Some users compile into a subdir
+            READSB_PATH="$USER_HOME/readsb/readsb"
         else
-            echo "ERROR: 'readsb' command not found in PATH or your home directory."
+            echo "ERROR: 'readsb' command not found in standard PATH or in '$USER_HOME'."
             sleep 3
             return
         fi
