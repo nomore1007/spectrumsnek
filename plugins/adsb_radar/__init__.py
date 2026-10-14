@@ -29,10 +29,13 @@ def run(stdscr=None, *args, **kwargs):
         "SPECTRUMSNEK_AIRCRAFT_JSON",
         os.path.join(manager.json_dir, "aircraft.json"),
     )
+    owns_decoder = os.environ.get("SPECTRUMSNEK_EXTERNAL_READSB") != "1"
     try:
-        # Only start a decoder when this plugin owns the receiver. The manager
-        # refuses to kill or take over a decoder started by another application.
-        json_path = manager.start_readsb()
+        # An externally managed readsb can be reused by setting
+        # SPECTRUMSNEK_EXTERNAL_READSB=1 and optionally SPECTRUMSNEK_AIRCRAFT_JSON.
+        # In that mode the plugin never acquires or releases the SDR lock.
+        if owns_decoder:
+            json_path = manager.start_readsb()
         radar_args = argparse.Namespace(
             file=json_path,
             interval=max(100, int(os.environ.get('SPECTRUMSNEK_RADAR_INTERVAL', '1000'))),
@@ -42,7 +45,8 @@ def run(stdscr=None, *args, **kwargs):
         else:
             radar.main(stdscr, radar_args)
     finally:
-        manager.stop_readsb()
+        if owns_decoder:
+            manager.stop_readsb()
 
 
 if __name__ == "__main__":
