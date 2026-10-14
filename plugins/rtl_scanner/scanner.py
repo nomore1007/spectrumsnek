@@ -43,6 +43,7 @@ class InteractiveRTLScanner:
         self.gain = gain
         self.sdr = None
         self.sdr_lease = None
+        self.sdr_manager = None
         self.is_running = True
         self.show_menu = False
 
@@ -161,9 +162,10 @@ class InteractiveRTLScanner:
                 pass
             finally:
                 self.sdr = None
-        if self.sdr_lease is not None:
-            SDRManager().release_device()
+        if self.sdr_lease is not None and self.sdr_manager is not None:
+            self.sdr_manager.release_device()
             self.sdr_lease = None
+            self.sdr_manager = None
 
     def __del__(self):
         """Ensure SDR is closed on object destruction."""
@@ -194,8 +196,8 @@ class InteractiveRTLScanner:
         """Initialize RTL-SDR only while holding SpectrumSnek's shared device lock."""
         with self.sdr_lock:
             try:
-                manager = SDRManager()
-                self.sdr_lease = manager.acquire_device("rtl_scanner")
+                self.sdr_manager = SDRManager()
+                self.sdr_lease = self.sdr_manager.acquire_device("rtl_scanner")
                 self.sdr = RtlSdr()  # type: ignore
                 if self.sdr is None:
                     raise RuntimeError("Failed to create RTL-SDR instance")
@@ -208,8 +210,9 @@ class InteractiveRTLScanner:
                 logger.error(f"Failed to initialize SDR: {e}")
                 self.sdr = None
                 if self.sdr_lease is not None:
-                    manager.release_device()
+                    self.sdr_manager.release_device()
                     self.sdr_lease = None
+                    self.sdr_manager = None
                 raise
 
 
