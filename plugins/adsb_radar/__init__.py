@@ -33,7 +33,10 @@ def run(stdscr=None, *args, **kwargs):
         # Only start a decoder when this plugin owns the receiver. The manager
         # refuses to kill or take over a decoder started by another application.
         json_path = manager.start_readsb()
-        radar_args = argparse.Namespace(file=json_path, interval=1000)
+        radar_args = argparse.Namespace(
+            file=json_path,
+            interval=max(100, int(os.environ.get('SPECTRUMSNEK_RADAR_INTERVAL', '1000'))),
+        )
         if stdscr is None:
             curses.wrapper(radar.main, radar_args)
         else:
