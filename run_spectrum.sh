@@ -46,7 +46,7 @@ while true; do
             python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
             ;;
         "3")
-            python -m plugins.adsb_radar
+            PYTHONPATH="$SCRIPT_DIR" python -m plugins.adsb_radar
             ;;
         "4")
             python3 "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
