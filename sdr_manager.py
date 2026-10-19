@@ -105,18 +105,22 @@ class SDRManager:
             ]
             self._process = subprocess.Popen(
                 command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL, start_new_session=True
+                stderr=subprocess.PIPE, text=True, start_new_session=True
             )
 
             deadline = time.monotonic() + startup_timeout
             while time.monotonic() < deadline:
                 if self._process.poll() is not None:
                     code = self._process.returncode
+                    _, stderr_text = self._process.communicate()
                     self._process = None
-                    raise RuntimeError(
-                        f"readsb exited during startup (exit code {code}); "
-                        "check decoder arguments, device permissions, and SDR availability."
-                    )
+                    detail = (stderr_text or "").strip()
+                    message = f"readsb exited during startup (exit code {code})."
+                    if detail:
+                        message += f" readsb said: {detail}"
+                    else:
+                        message += " readsb produced no stderr; check device permissions and SDR availability."
+                    raise RuntimeError(message)
                 time.sleep(0.1)
             return os.path.join(self.json_dir, "aircraft.json")
         except Exception:
