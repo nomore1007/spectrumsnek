@@ -119,10 +119,18 @@ class SDRManager:
                     _, stderr_text = self._process.communicate()
                     self._process = None
                     detail = (stderr_text or "").strip()
-                    if "no supported devices found" in detail.lower():
+                    lower_detail = detail.lower()
+                    if "no supported devices found" in lower_detail:
                         raise SDRUnavailableError(
                             "No RTL-SDR dongle detected. Check the Pi's USB data/OTG "
                             "port, adapter, and dongle connection."
+                        )
+                    if ("unknown device type:rtlsdr" in lower_detail
+                            or "sdr type 'rtlsdr' not recognized" in lower_detail):
+                        raise SDRUnavailableError(
+                            "The selected readsb binary was built without RTL-SDR support. "
+                            "Build readsb with RTLSDR=yes and set READSB_BIN to that binary's "
+                            "full path, or install an RTL-SDR-enabled build."
                         )
                     message = f"readsb exited during startup (exit code {code})."
                     if detail:
