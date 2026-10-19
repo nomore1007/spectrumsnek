@@ -19,6 +19,10 @@ class SDRBusyError(RuntimeError):
     """Raised when another SpectrumSnek component owns the SDR."""
 
 
+class SDRUnavailableError(RuntimeError):
+    """Raised when the RTL-SDR hardware is not available."""
+
+
 class SDRManager:
     def __init__(self, lock_path: Optional[str] = None, json_dir: Optional[str] = None,
                  readsb_bin: Optional[str] = None):
@@ -51,7 +55,7 @@ class SDRManager:
             raise SDRBusyError(f"RTL-SDR is already in use{detail}") from exc
 
         os.ftruncate(fd, 0)
-        os.write(fd, f"{owner} pid={os.getpid()} since={int(time.time())}\n".encode())
+        os.write(fd, f"{owner} pid={os.getpid()} since={int(time.time())}\\n".encode())
         os.fsync(fd)
         self._lease_fd = fd
         return fd
@@ -115,6 +119,11 @@ class SDRManager:
                     _, stderr_text = self._process.communicate()
                     self._process = None
                     detail = (stderr_text or "").strip()
+                    if "no supported devices found" in detail.lower():
+                        raise SDRUnavailableError(
+                            "No RTL-SDR dongle detected. Check the Pi's USB data/OTG "
+                            "port, adapter, and dongle connection."
+                        )
                     message = f"readsb exited during startup (exit code {code})."
                     if detail:
                         message += f" readsb said: {detail}"
