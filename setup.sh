@@ -66,7 +66,7 @@ safe_apt_update
 
 # Install system dependencies
 echo "Installing system dependencies..."
-SYSTEM_PACKAGES="git build-essential python3-dev python3-venv python3-pip rtl-sdr libusb-1.0-0-dev pkg-config libncurses5-dev libportaudio2 libasound2-dev"
+SYSTEM_PACKAGES="git build-essential python3-dev python3-venv python3-pip rtl-sdr librtlsdr-dev libusb-1.0-0-dev zlib1g-dev pkg-config libncurses-dev libportaudio2 libasound2-dev"
 if safe_apt_install $SYSTEM_PACKAGES; then
     echo "✓ System dependencies installed"
 else
@@ -76,6 +76,7 @@ fi
 # Setup Python virtual environment
 echo "Setting up Python virtual environment..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 VENV_DIR="$SCRIPT_DIR/venv"
 
 if [ ! -d "$VENV_DIR" ]; then
@@ -108,19 +109,52 @@ else
     echo "⚠ requirements.txt not found"
 fi
 
-# Install the one supported ADS-B decoder: readsb.
-# Decoder choice and lifecycle are centralized in sdr_manager.py.
-echo "Checking for readsb..."
-if ! command -v readsb >/dev/null 2>&1; then
-    if safe_apt_install readsb; then
-        echo "✓ readsb installed"
-    else
-        echo "⚠ readsb could not be installed automatically."
-        echo "  Install readsb manually or set READSB_BIN to its executable path."
+# Build readsb ourselves with RTL-SDR support. The distro's /usr/bin/readsb
+# may be compiled without RTL-SDR, so SpectrumSnek uses this project-local copy.
+echo "Building readsb with RTL-SDR support..."
+READSB_SOURCE_DIR="$SCRIPT_DIR/.local/src/readsb"
+READSB_INSTALL_DIR="$SCRIPT_DIR/.local/bin"
+READSB_BIN="$READSB_INSTALL_DIR/readsb"
+
+mkdir -p "$READSB_INSTALL_DIR" "$(dirname "$READSB_SOURCE_DIR")" || exit 1
+
+if [ ! -d "$READSB_SOURCE_DIR/.git" ]; then
+    if ! git clone https://github.com/wiedehopf/readsb.git "$READSB_SOURCE_DIR"; then
+        echo "❌ Failed to clone the readsb source repository"
+        exit 1
     fi
 else
-    echo "✓ readsb already available"
+    echo "Updating existing readsb source..."
+    if ! git -C "$READSB_SOURCE_DIR" pull --ff-only; then
+        echo "❌ Could not fast-forward the existing readsb source checkout."
+        echo "   Resolve that checkout in $READSB_SOURCE_DIR and rerun setup."
+        exit 1
+    fi
 fi
+
+if ! make -C "$READSB_SOURCE_DIR" clean; then
+    echo "❌ Failed to clean the readsb build"
+    exit 1
+fi
+
+# Pi Zero 2 W has four CPU cores but limited RAM; keep parallelism conservative.
+if ! make -C "$READSB_SOURCE_DIR" -j2 RTLSDR=yes; then
+    echo "❌ readsb compilation failed. Check setup.log for compiler output."
+    exit 1
+fi
+
+if [ ! -x "$READSB_SOURCE_DIR/readsb" ]; then
+    echo "❌ Compilation finished but the readsb executable was not created"
+    exit 1
+fi
+
+if ! install -m 0755 "$READSB_SOURCE_DIR/readsb" "$READSB_BIN"; then
+    echo "❌ Could not install the compiled readsb binary to $READSB_BIN"
+    exit 1
+fi
+
+echo "✓ RTL-SDR-enabled readsb installed at: $READSB_BIN"
+echo "  SpectrumSnek will prefer this binary over /usr/bin/readsb."
 
 echo "SpectrumSnek setup complete!"
 echo ""
