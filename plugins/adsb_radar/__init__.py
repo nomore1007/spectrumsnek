@@ -2,8 +2,9 @@
 import argparse
 import curses
 import os
+import sys
 
-from sdr_manager import SDRManager, SDRBusyError
+from sdr_manager import SDRManager, SDRBusyError, SDRUnavailableError
 from . import radar
 
 
@@ -35,10 +36,14 @@ def run(stdscr=None, *args, **kwargs):
         # SPECTRUMSNEK_EXTERNAL_READSB=1 and optionally SPECTRUMSNEK_AIRCRAFT_JSON.
         # In that mode the plugin never acquires or releases the SDR lock.
         if owns_decoder:
-            json_path = manager.start_readsb()
+            try:
+                json_path = manager.start_readsb()
+            except SDRUnavailableError as exc:
+                print(f"WARNING: ADS-B radar unavailable: {exc}", file=sys.stderr)
+                return
         radar_args = argparse.Namespace(
             file=json_path,
-            interval=max(100, int(os.environ.get('SPECTRUMSNEK_RADAR_INTERVAL', '1000'))),
+            interval=max(100, int(os.environ.get("SPECTRUMSNEK_RADAR_INTERVAL", "1000"))),
         )
         if stdscr is None:
             curses.wrapper(radar.main, radar_args)
