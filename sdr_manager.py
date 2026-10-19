@@ -32,7 +32,17 @@ class SDRManager:
         self.json_dir = json_dir or os.environ.get(
             "SPECTRUMSNEK_READSB_DIR", "/tmp/spectrumsnek/readsb"
         )
-        self.readsb_bin = readsb_bin or os.environ.get("READSB_BIN", "readsb")
+        # Prefer SpectrumSnek's own RTL-SDR-enabled build. The distro package may
+        # be compiled without RTL-SDR support, so do not silently select it when
+        # setup.sh has installed the project-local binary.
+        project_readsb = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), ".local", "bin", "readsb"
+        )
+        self.readsb_bin = (
+            readsb_bin
+            or os.environ.get("READSB_BIN")
+            or (project_readsb if os.path.isfile(project_readsb) else "readsb")
+        )
         self._lease_fd: Optional[int] = None
         self._process: Optional[subprocess.Popen] = None
 
