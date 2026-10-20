@@ -109,6 +109,15 @@ else
     echo "⚠ requirements.txt not found"
 fi
 
+# Install the ADS-B plugin from its independent repository. Its directory is
+# ignored by the core repository so core updates do not overwrite plugin files.
+echo "Installing the ADS-B Radar plugin..."
+if bash "$SCRIPT_DIR/plugin_manager.sh" install adsb_radar; then
+    echo "✓ ADS-B Radar plugin installed"
+else
+    echo "⚠ ADS-B Radar plugin installation failed. You can retry from Utilities > Installed Plugins."
+fi
+
 # Build readsb ourselves with RTL-SDR support. The distro's /usr/bin/readsb
 # may be compiled without RTL-SDR, so SpectrumSnek uses this project-local copy.
 echo "Building readsb with RTL-SDR support..."
