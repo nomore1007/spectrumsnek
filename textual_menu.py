@@ -153,7 +153,8 @@ class PluginScreen(Screen):
         with VerticalScroll(id="content"):
             with Horizontal(classes="tool-row"):
                 yield Button("ADS-B Radar", id="plugin-adsb", variant="primary")
-                yield Button("OUI-Spy", id="plugin-oui", variant="primary")\n                yield Button("LoRa Monitor", id="plugin-lora", variant="primary")
+                yield Button("OUI-Spy", id="plugin-oui", variant="primary")
+                yield Button("LoRa Monitor", id="plugin-lora", variant="primary")
             yield Static("Installed add-ons", classes="menu-title")
             yield Static("Loading add-on status...", id="plugin-status")
             with Horizontal(classes="tool-row"):
