@@ -465,7 +465,11 @@ class SpectrumSnekApp(App):
         yield Static("SpectrumSnek", id="banner")
         yield Static(id="devices")
         with VerticalScroll(id="content"):
-            buttons = [(tool["id"], f"launch-{tool['id']}", "primary") for tool in tool_catalog()]
+            buttons = [
+                (tool.get("name") or tool["id"].replace("_", " ").title(),
+                 f"launch-{tool['id']}", "primary")
+                for tool in tool_catalog()
+            ]
             buttons.append(("utilities", "open-utilities", "default"))
             for index in range(0, len(buttons), 2):
                 with Horizontal(classes="tool-row"):
