@@ -1,6 +1,6 @@
 import unittest
 
-from plugins.oui_spy.scanner import match_company_ids, match_mac, normalize_mac
+from plugins.oui_spy.scanner import match_company_ids, match_mac, normalize_mac, parse_nmcli_line
 
 
 class SignatureMatchingTests(unittest.TestCase):
@@ -19,6 +19,17 @@ class SignatureMatchingTests(unittest.TestCase):
         key, details = match_company_ids({0x09C8: b"\x01\x02"}, signatures)
         self.assertEqual(key, "0x09C8")
         self.assertEqual(details["label"], "research indicator")
+
+
+    def test_nmcli_parser_preserves_bssid_and_colon_in_ssid(self):
+        row = r"AA\:BB\:CC\:DD\:EE\:FF:Lobby\:Guest:78:11:WPA2"
+        self.assertEqual(
+            parse_nmcli_line(row),
+            ["AA:BB:CC:DD:EE:FF", "Lobby:Guest", "78", "11", "WPA2"],
+        )
+
+    def test_nmcli_parser_ignores_malformed_row(self):
+        self.assertIsNone(parse_nmcli_line("not:a:complete:row"))
 
     def test_unmatched_company_id(self):
         key, details = match_company_ids({0xFFFF: b"x"}, {"ble_company_ids": {}})
