@@ -119,26 +119,9 @@ def discover_plugins() -> list[dict[str, Any]]:
 
 def tool_catalog() -> list[dict[str, Any]]:
     """Describe the built-in tools and discovered third-party plugins."""
-    tools = [
-        {
-            "id": "rtl_scanner",
-            "name": "RTL-SDR Scanner",
-            "description": "Inspect radio spectrum and listen to supported signals.",
-            "command": [sys.executable, str(ROOT / "plugins/rtl_scanner/scanner.py")],
-        },
-        {
-            "id": "radio_scanner",
-            "name": "Traditional Radio Scanner",
-            "description": "Scan configured radio frequency banks.",
-            "command": [sys.executable, str(ROOT / "plugins/radio_scanner/scanner.py")],
-        },
-        {
-            "id": "system_tools",
-            "name": "System Tools",
-            "description": "Wi-Fi, Bluetooth, audio, and system utilities.",
-            "command": [sys.executable, str(ROOT / "plugins/system_tools/system_menu.py")],
-        },
-    ]
+    # Legacy built-in tools remain in the repository but are intentionally
+    # omitted from the current menu. Only installed add-on plugins are listed.
+    tools = []
     for plugin in discover_plugins():
         tools.append({
             **plugin,
