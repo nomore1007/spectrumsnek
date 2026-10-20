@@ -201,6 +201,7 @@ while true; do
     RESULT=$?
     if [ "$RESULT" -ne 0 ]; then
         printf '\nTool exited with status %s.\n' "$RESULT"
+        printf '[%s] [launcher] Selected tool exited with status %s.\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$RESULT" | tee -a "$SCRIPT_DIR/error.log"
     fi
 done
 
