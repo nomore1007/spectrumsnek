@@ -96,8 +96,8 @@ installed_plugins_menu() {
     [ "$status" -eq 0 ] || return
 
     for id in adsb_radar oui_spy; do
-        if printf '%s\\n' "$selected" | grep -Fxq "$id"; then
-            if ! bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
+        if printf '%s\n' "$selected" | grep -Fxq "$id"; then
+            if ! bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 whiptail --title "Installed Plugins" --infobox "Installing $id..." 8 42
                 if bash "$SCRIPT_DIR/plugin_manager.sh" install "$id" >/dev/null 2>&1; then
                     whiptail --title "Installed Plugins" --msgbox "$id installed successfully." 8 48
@@ -106,7 +106,7 @@ installed_plugins_menu() {
                 fi
             fi
         else
-            if bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
+            if bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 if whiptail --title "Remove Plugin" --yesno "Remove $id from SpectrumSnek? Its plugin directory will be deleted. This does not remove shared core files." 10 68; then
                     if bash "$SCRIPT_DIR/plugin_manager.sh" remove "$id" >/dev/null 2>&1; then
                         whiptail --title "Installed Plugins" --msgbox "$id removed." 8 42
