@@ -78,7 +78,7 @@ install_from_url() {
             return 1
         fi
         if [ -n "$branch" ]; then
-            git -C "$target" fetch origin "$branch" || return 1
+            git -C "$target" fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || return 1
             if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
                 git -C "$target" switch "$branch" || return 1
             else
@@ -139,7 +139,7 @@ change_plugin_branch() {
         echo "Refusing to change branch: origin is $current_remote, expected $expected_remote." >&2
         return 1
     fi
-    git -C "$target" fetch origin "$branch" || return 1
+    git -C "$target" fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || return 1
     if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
         git -C "$target" switch "$branch" || return 1
     else
