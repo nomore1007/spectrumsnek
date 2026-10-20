@@ -1,8 +1,11 @@
 #!/bin/bash
-# SpectrumSnek Setup Script - Complete Installation
+# SpectrumSnek setup script.
 
-# Enable logging
-exec > >(tee setup.log) 2>&1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Keep normal setup output in setup.log. Record timestamped stderr separately.
+exec > >(tee -a "$SCRIPT_DIR/setup.log") 2> >(while IFS= read -r error_line; do
+    printf '[%s] [setup] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$error_line" | tee -a "$SCRIPT_DIR/error.log" >&2
+done)
 
 echo "SpectrumSnek Setup"
 echo "=================="
@@ -75,7 +78,6 @@ fi
 
 # Setup Python virtual environment
 echo "Setting up Python virtual environment..."
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 VENV_DIR="$SCRIPT_DIR/venv"
 
