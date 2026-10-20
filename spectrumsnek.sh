@@ -5,10 +5,12 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Keep stderr visible while recording timestamped diagnostics for later review.
-exec 2> >(while IFS= read -r error_line; do
-    printf '[%s] [launcher] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$error_line" | tee -a "$SCRIPT_DIR/error.log" >&2
-done)
+# Log stderr from launched tools without redirecting Whiptail's terminal UI.
+run_logged() {
+    "$@" 2> >(while IFS= read -r error_line; do
+        printf '[%s] [launcher] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$error_line" | tee -a "$SCRIPT_DIR/error.log" >&2
+    done)
+}
 VENV_DIR="$SCRIPT_DIR/venv"
 PYTHON="python3"
 
@@ -44,7 +46,7 @@ update_spectrumsnek() {
     fi
 
     whiptail --title "Update SpectrumSnek" --infobox "Checking GitHub for updates..." 8 48
-    if ! git -C "$SCRIPT_DIR" fetch origin master; then
+    if ! run_logged git -C "$SCRIPT_DIR" fetch origin master; then
         whiptail --title "Update SpectrumSnek" --msgbox "Could not contact GitHub or fetch master. Check your network and Git remote. No local files were changed." 10 72
         return
     fi
@@ -59,11 +61,11 @@ update_spectrumsnek() {
         if ! whiptail --title "Update SpectrumSnek" --yesno "GitHub has $behind new commit(s), but local changes or untracked files were found.\n\nOverwrite local changes and install the update?\n\nWARNING: This permanently discards changes to tracked files and deletes untracked, non-ignored files. Ignored files and plugin directories remain untouched. Back up anything you want to keep.\n\nChoose No to cancel without changing local files." 18 78; then
             return
         fi
-        if ! git -C "$SCRIPT_DIR" reset --hard origin/master; then
+        if ! run_logged git -C "$SCRIPT_DIR" reset --hard origin/master; then
             whiptail --title "Update SpectrumSnek" --msgbox "Could not reset the checkout to origin/master. Inspect Git status before retrying." 10 72
             return
         fi
-        if ! git -C "$SCRIPT_DIR" clean -fd; then
+        if ! run_logged git -C "$SCRIPT_DIR" clean -fd; then
             whiptail --title "Update SpectrumSnek" --msgbox "The tracked files were updated, but some untracked files could not be removed. Inspect Git status." 10 72
             return
         fi
@@ -72,7 +74,7 @@ update_spectrumsnek() {
     fi
 
     if whiptail --title "Update SpectrumSnek" --yesno "GitHub has $behind new commit(s). Install the update now?" 10 64; then
-        if git -C "$SCRIPT_DIR" pull --ff-only origin master; then
+        if run_logged git -C "$SCRIPT_DIR" pull --ff-only origin master; then
             whiptail --title "Update SpectrumSnek" --msgbox "Update installed successfully. Restart SpectrumSnek to use the newest launcher." 10 72
         else
             whiptail --title "Update SpectrumSnek" --msgbox "Update failed. The local branch was not fast-forwarded. Check the Git status before retrying." 10 72
@@ -103,7 +105,7 @@ installed_plugins_menu() {
         if printf '%s\n' "$selected" | grep -Fxq "$id"; then
             if ! bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 whiptail --title "Installed Plugins" --infobox "Installing $id..." 8 42
-                if bash "$SCRIPT_DIR/plugin_manager.sh" install "$id" >/dev/null; then
+                if run_logged bash "$SCRIPT_DIR/plugin_manager.sh" install "$id" >/dev/null; then
                     whiptail --title "Installed Plugins" --msgbox "$id installed successfully." 8 48
                 else
                     whiptail --title "Installed Plugins" --msgbox "Could not install $id. Check the network, Git, and Python dependency errors, then retry." 10 68
@@ -112,7 +114,7 @@ installed_plugins_menu() {
         else
             if bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 if whiptail --title "Remove Plugin" --yesno "Remove $id from SpectrumSnek? Its plugin directory will be deleted. This does not remove shared core files." 10 68; then
-                    if bash "$SCRIPT_DIR/plugin_manager.sh" remove "$id" >/dev/null; then
+                    if run_logged bash "$SCRIPT_DIR/plugin_manager.sh" remove "$id" >/dev/null; then
                         whiptail --title "Installed Plugins" --msgbox "$id removed." 8 42
                     else
                         whiptail --title "Installed Plugins" --msgbox "Could not remove $id." 8 42
@@ -170,26 +172,26 @@ while true; do
 
     case "$CHOICE" in
         "builtin:rtl_scanner")
-            "$PYTHON" "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
+            run_logged "$PYTHON" "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
             ;;
         "builtin:radio_scanner")
-            "$PYTHON" "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
+            run_logged "$PYTHON" "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
             ;;
         "builtin:wifi")
-            "$PYTHON" "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
+            run_logged "$PYTHON" "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
             ;;
         "builtin:bluetooth")
-            "$PYTHON" "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py"
+            run_logged "$PYTHON" "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py"
             ;;
         "builtin:system_tools")
-            "$PYTHON" "$SCRIPT_DIR/plugins/system_tools/system_menu.py"
+            run_logged "$PYTHON" "$SCRIPT_DIR/plugins/system_tools/system_menu.py"
             ;;
         "builtin:utilities")
             utilities_menu
             ;;
         plugin:*)
             PLUGIN_ID="${CHOICE#plugin:}"
-            "$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --run "$PLUGIN_ID"
+            run_logged "$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --run "$PLUGIN_ID"
             ;;
         *)
             continue
