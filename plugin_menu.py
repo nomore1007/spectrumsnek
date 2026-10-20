@@ -13,12 +13,12 @@ BUILTIN_PLUGINS = {"rtl_scanner", "radio_scanner", "system_tools", "__pycache__"
 
 
 def _clean(value):
-    """Keep plugin metadata on one line so it is safe in the menu protocol."""
+    """Keep plugin names on one line for the tab-separated menu protocol."""
     return " ".join(str(value).replace("\t", " ").replace("\r", " ").replace("\n", " ").split())
 
 
 def discover_plugins():
-    """Return every installed plugin that implements the SpectrumSnek plugin API."""
+    """Return installed plugins that implement the SpectrumSnek plugin API."""
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
 
@@ -47,8 +47,7 @@ def discover_plugins():
                 continue
 
             name = _clean(info.get("name") or path.name.replace("_", " ").title())
-            description = _clean(info.get("description") or f"Run {name}")
-            plugins.append((path.name, name, description))
+            plugins.append((path.name, name))
         except Exception as exc:
             print(f"Skipping plugin {path.name}: {exc}", file=sys.stderr)
 
@@ -63,11 +62,11 @@ def main():
     args = parser.parse_args()
 
     if args.list:
-        for plugin_id, name, description in discover_plugins():
-            print(f"{plugin_id}\t{name}\t{description}")
+        for plugin_id, name in discover_plugins():
+            print(f"{plugin_id}\t{name}")
         return 0
 
-    available = {plugin_id for plugin_id, _, _ in discover_plugins()}
+    available = {plugin_id for plugin_id, _ in discover_plugins()}
     plugin_id = args.run
     if (
         not plugin_id
