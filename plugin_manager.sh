@@ -67,7 +67,7 @@ install_plugin() {
 }
 
 install_from_url() {
-    local url="$1" id="$2" target current_remote
+    local url="$1" id="$2" target current_remote cloned=0
     target="$PLUGINS_DIR/$id"
     mkdir -p "$PLUGINS_DIR" || return 1
 
@@ -93,11 +93,14 @@ install_from_url() {
             echo "Failed to clone plugin repository." >&2
             return 1
         fi
+        cloned=1
     fi
 
     if [ ! -f "$target/__init__.py" ]; then
         echo "Plugin repository must provide __init__.py at its root: $target" >&2
-        rm -rf -- "$target"
+        if [ "$cloned" -eq 1 ]; then
+            rm -rf -- "$target"
+        fi
         return 1
     fi
     install_requirements "$target" || return 1
