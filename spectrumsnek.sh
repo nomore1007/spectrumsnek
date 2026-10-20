@@ -28,6 +28,12 @@ if [ -x "$VENV_DIR/bin/python" ]; then
     PYTHON="$VENV_DIR/bin/python"
 fi
 
+# Textual is the default menu. Set SPECTRUMSNEK_LEGACY_MENU=1 to use the
+# previous Whiptail menu temporarily if you need a fallback.
+if [ "${SPECTRUMSNEK_LEGACY_MENU:-0}" != "1" ]; then
+    exec "$PYTHON" "$SCRIPT_DIR/textual_menu.py"
+fi
+
 if ! command -v whiptail >/dev/null 2>&1; then
     log_error "'whiptail' is not installed."
     echo "Install it with: sudo apt install whiptail"
