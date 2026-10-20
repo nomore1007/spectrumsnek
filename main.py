@@ -488,8 +488,8 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="SpectrumSnek")
-    parser.add_argument('--service-url', default='http://127.0.0.1:5000',
-                       help='URL of the SpectrumSnek service (default: http://127.0.0.1:5000)')
+    parser.add_argument('--service-url', default=None,
+                       help='Optional SpectrumSnek service URL; local plugin discovery is the default')
 
     args, unknown = parser.parse_known_args()
 
