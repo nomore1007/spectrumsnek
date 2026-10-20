@@ -79,11 +79,7 @@ install_from_url() {
         fi
         if [ -n "$branch" ]; then
             fetch_plugin_branch_ref "$target" "$branch" || return 1
-            if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
-                git -C "$target" switch "$branch" || return 1
-            else
-                git -C "$target" switch --track -c "$branch" "refs/remotes/origin/$branch" || return 1
-            fi
+            checkout_plugin_branch "$target" "$branch" || return 1
             git -C "$target" pull --ff-only origin "$branch" || return 1
         else
             echo "Updating $(plugin_label "$id")..."
@@ -138,6 +134,19 @@ fetch_plugin_branch_ref() {
     }
 }
 
+checkout_plugin_branch() {
+    local target="$1" branch="$2"
+    if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
+        git -C "$target" switch "$branch" || return 1
+    else
+        # Create the local branch from the fetched commit first, then configure
+        # upstream separately. This avoids coupling branch creation to Git's
+        # automatic tracking inference for a fully qualified start-point.
+        git -C "$target" switch --no-track -c "$branch" "refs/remotes/origin/$branch" || return 1
+        git -C "$target" branch --set-upstream-to="origin/$branch" "$branch" || return 1
+    fi
+}
+
 change_plugin_branch() {
     local id="$1" branch="$2" target current_remote expected_remote
     [[ "$branch" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || { echo "Invalid branch name: $branch" >&2; return 2; }
@@ -150,11 +159,7 @@ change_plugin_branch() {
         return 1
     fi
     fetch_plugin_branch_ref "$target" "$branch" || return 1
-    if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
-        git -C "$target" switch "$branch" || return 1
-    else
-        git -C "$target" switch --track -c "$branch" "refs/remotes/origin/$branch" || return 1
-    fi
+    checkout_plugin_branch "$target" "$branch" || return 1
     git -C "$target" pull --ff-only origin "$branch" || return 1
     install_requirements "$target" || return 1
     echo "$id now uses branch $branch."
