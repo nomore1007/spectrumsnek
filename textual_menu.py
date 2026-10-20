@@ -145,7 +145,7 @@ class SpectrumSnekApp(App):
     #content { height: 1fr; padding: 0 1; }
     #tool-grid { height: auto; }
     .tool-row { height: 3; width: 100%; }
-    Button { width: 100%; min-width: 1; min-height: 3; height: 3; margin: 0; padding: 0 1; }
+    Button { width: 1fr; min-width: 1; min-height: 3; height: 3; margin: 0; padding: 0 1; }
     #footer-note { height: 1; padding: 0 1; color: #a9bac6; }
     .menu-title { height: 1; padding: 0 1; background: #172a3a; }
     """
