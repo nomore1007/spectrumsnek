@@ -10,7 +10,7 @@ BUILTIN_PLUGINS=" rtl_scanner radio_scanner system_tools "
 plugin_repo() {
     case "$1" in
         adsb_radar) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-adsb.git" ;;
-        oui_spy) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-oui-spy.git" ;;
+        oui_spy) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-oui-spy.git" ;;\n        lora_monitor) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-lora.git" ;;
         *) return 1 ;;
     esac
 }
@@ -18,7 +18,7 @@ plugin_repo() {
 plugin_label() {
     case "$1" in
         adsb_radar) printf '%s\n' "ADS-B Radar" ;;
-        oui_spy) printf '%s\n' "OUI-Spy" ;;
+        oui_spy) printf '%s\n' "OUI-Spy" ;;\n        lora_monitor) printf '%s\n' "LoRa Monitor" ;;
         *) printf '%s\n' "$1" ;;
     esac
 }
@@ -49,7 +49,7 @@ plugin_id_from_url() {
     repo="${repo%.git}"
     case "$path" in
         nomore1007/spectrumsnek-adsb) printf '%s\n' adsb_radar; return 0 ;;
-        nomore1007/spectrumsnek-oui-spy) printf '%s\n' oui_spy; return 0 ;;
+        nomore1007/spectrumsnek-oui-spy) printf '%s\n' oui_spy; return 0 ;;\n        nomore1007/spectrumsnek-lora) printf '%s\n' lora_monitor; return 0 ;;
     esac
     repo="${repo//-/_}"
     [[ "$repo" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || return 1
@@ -212,7 +212,7 @@ remove_plugin() {
 case "${1:-list}" in
     list)
         # Stable TSV protocol retained for the existing Whiptail checklist.
-        for id in adsb_radar oui_spy; do
+        for id in adsb_radar oui_spy lora_monitor; do
             if plugin_is_installed "$id"; then state=ON; else state=OFF; fi
             printf '%s\t%s\t%s\n' "$id" "$(plugin_label "$id")" "$state"
         done
@@ -227,7 +227,7 @@ case "${1:-list}" in
         list_branches "$repo"
         ;;
     install)
-        [ "$#" -ge 2 ] && [ "$#" -le 3 ] || { echo "Usage: $0 install <adsb_radar|oui_spy> [branch]" >&2; exit 2; }
+        [ "$#" -ge 2 ] && [ "$#" -le 3 ] || { echo "Usage: $0 install <adsb_radar|oui_spy|lora_monitor> [branch]" >&2; exit 2; }
         repo="$(plugin_repo "$2")" || { echo "Unknown known plugin: $2" >&2; exit 2; }
         install_from_url "$repo" "$2" "${3:-}"
         ;;
