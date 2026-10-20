@@ -58,7 +58,7 @@ class SpectrumSnekApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.refresh_status()
+        self.action_refresh_status()
 
     def action_refresh_status(self) -> None:
         status = device_status()
@@ -96,7 +96,7 @@ class SpectrumSnekApp(App):
                 self.notify(f"{tool['name']} exited with status {result.returncode}", severity="warning")
         except OSError as exc:
             self.notify(f"Could not launch {tool['name']}: {exc}", severity="error")
-        self.refresh_status()
+        self.action_refresh_status()
 
     def action_quit(self) -> None:
         self.exit()
