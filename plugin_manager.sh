@@ -10,7 +10,8 @@ BUILTIN_PLUGINS=" rtl_scanner radio_scanner system_tools "
 plugin_repo() {
     case "$1" in
         adsb_radar) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-adsb.git" ;;
-        oui_spy) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-oui-spy.git" ;;\n        lora_monitor) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-lora.git" ;;
+        oui_spy) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-oui-spy.git" ;;
+        lora_monitor) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-lora.git" ;;
         *) return 1 ;;
     esac
 }
@@ -18,7 +19,8 @@ plugin_repo() {
 plugin_label() {
     case "$1" in
         adsb_radar) printf '%s\n' "ADS-B Radar" ;;
-        oui_spy) printf '%s\n' "OUI-Spy" ;;\n        lora_monitor) printf '%s\n' "LoRa Monitor" ;;
+        oui_spy) printf '%s\n' "OUI-Spy" ;;
+        lora_monitor) printf '%s\n' "LoRa Monitor" ;;
         *) printf '%s\n' "$1" ;;
     esac
 }
@@ -49,7 +51,8 @@ plugin_id_from_url() {
     repo="${repo%.git}"
     case "$path" in
         nomore1007/spectrumsnek-adsb) printf '%s\n' adsb_radar; return 0 ;;
-        nomore1007/spectrumsnek-oui-spy) printf '%s\n' oui_spy; return 0 ;;\n        nomore1007/spectrumsnek-lora) printf '%s\n' lora_monitor; return 0 ;;
+        nomore1007/spectrumsnek-oui-spy) printf '%s\n' oui_spy; return 0 ;;
+        nomore1007/spectrumsnek-lora) printf '%s\n' lora_monitor; return 0 ;;
     esac
     repo="${repo//-/_}"
     [[ "$repo" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || return 1
