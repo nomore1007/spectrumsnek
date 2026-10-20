@@ -152,12 +152,51 @@ bluetooth_detected() {
     command -v bluetoothctl >/dev/null 2>&1 && bluetoothctl list 2>/dev/null | grep -q 'Controller '
 }
 
+configure_service_menu() {
+    while true; do
+        service_choice=$(whiptail --title "Configure Web Service" --notags \
+            --menu "Manage the SpectrumSnek web service:" 17 74 7 \
+            "setup" "Install and enable service at boot" \
+            "start" "Start service now" \
+            "stop" "Stop service" \
+            "restart" "Restart service" \
+            "status" "Show service status" \
+            "logs" "View recent service logs" \
+            "back" "Return to Utilities" \
+            3>&1 1>&2 2>&3)
+        service_status=$?
+        [ "$service_status" -eq 0 ] || return
+        case "$service_choice" in
+            setup)
+                if run_logged bash "$SCRIPT_DIR/setup_service.sh"; then
+                    whiptail --title "Configure Web Service" --msgbox "The web service has been installed, enabled at boot, and started." 9 68
+                else
+                    whiptail --title "Configure Web Service" --msgbox "Service setup failed. Review error.log and setup output." 9 68
+                fi
+                ;;
+            start|stop|restart|status|logs)
+                service_output=$(bash "$SCRIPT_DIR/service_manager.sh" "$service_choice" 2>&1)
+                service_result=$?
+                if [ "$service_choice" = "logs" ] || [ "$service_choice" = "status" ]; then
+                    whiptail --title "Web Service: $service_choice" --scrolltext --msgbox "$service_output" 22 78
+                elif [ "$service_result" -eq 0 ]; then
+                    whiptail --title "Configure Web Service" --msgbox "$service_output" 10 70
+                else
+                    whiptail --title "Configure Web Service" --msgbox "The service command failed:\n\n$service_output" 12 72
+                fi
+                ;;
+            back) return ;;
+        esac
+    done
+}
+
 utilities_menu() {
     while true; do
         utility_choice=$(whiptail --title "SpectrumSnek Utilities" --notags \
-            --menu "Select a utility:" 14 72 5 \
+            --menu "Select a utility:" 15 74 6 \
             "update" "Check for and install updates" \
             "plugins" "Installed Plugins" \
+            "configure" "Configure web service" \
             "back" "Return to main menu" \
             3>&1 1>&2 2>&3)
         utility_status=$?
@@ -165,6 +204,7 @@ utilities_menu() {
         case "$utility_choice" in
             update) update_spectrumsnek ;;
             plugins) installed_plugins_menu ;;
+            configure) configure_service_menu ;;
             back) return ;;
         esac
     done
