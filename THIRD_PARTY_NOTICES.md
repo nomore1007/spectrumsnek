@@ -60,3 +60,8 @@ These are source references, not a claim that their data or code has been copied
 3. Do not treat attribution by itself as a substitute for a license. Where a repository does not specify reuse terms, seek permission or implement the behavior independently from documented facts and appropriately licensed/public registry data.
 4. Label detection signatures as research indicators, not proof that a particular device or organization is present. Document uncertainty and likely false positives.
 5. Update this file before merging any new upstream-derived code or data.
+
+
+## SpectrumSnek OUI-Spy implementation status
+
+The initial Linux/Python plugin under `plugins/oui_spy/` was implemented independently for SpectrumSnek. It does not include copied upstream source files or curated OUI datasets. Its small starter signature for BLE company ID `0x09C8` is explicitly labeled a low-confidence research indicator and links back to the upstream credit above. The generic signature-matching code is project-authored; any future imported signature must record its exact source, revision, license/terms, and attribution here before inclusion.
