@@ -80,72 +80,7 @@ installed_plugins_menu() {
     local selected status adsb_state oui_state id label state
     adsb_state=OFF
     oui_state=OFF
-    while IFS=
-
-while true; do
-    MENU_ITEMS=(
-        "builtin:rtl_scanner" "RTL-SDR Spectrum Listener (Scanner)"
-        "builtin:radio_scanner" "Traditional Radio Scanner (Audio)"
-        "builtin:wifi" "WiFi Tool"
-        "builtin:bluetooth" "Bluetooth Tool"
-        "builtin:system_tools" "System Tools"
-        "builtin:utilities" "Utilities"
-    )
-
-    # Keep internal plugin IDs as hidden tags; show only friendly names.
-    while IFS=$'\t' read -r plugin_id plugin_name; do
-        [ -n "${plugin_id:-}" ] || continue
-        MENU_ITEMS+=("plugin:$plugin_id" "$plugin_name")
-    done < <("$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --list)
-
-    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" \
-        --notags \
-        --menu "Use arrows to navigate and Enter to select:" 22 90 12 \
-        "${MENU_ITEMS[@]}" \
-        3>&1 1>&2 2>&3)
-    STATUS=$?
-
-    if [ "$STATUS" -ne 0 ]; then
-        break
-    fi
-
-    case "$CHOICE" in
-        "builtin:rtl_scanner")
-            "$PYTHON" "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
-            ;;
-        "builtin:radio_scanner")
-            "$PYTHON" "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
-            ;;
-        "builtin:wifi")
-            "$PYTHON" "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
-            ;;
-        "builtin:bluetooth")
-            "$PYTHON" "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py"
-            ;;
-        "builtin:system_tools")
-            "$PYTHON" "$SCRIPT_DIR/plugins/system_tools/system_menu.py"
-            ;;
-        "builtin:utilities")
-            utilities_menu
-            ;;
-        plugin:*)
-            PLUGIN_ID="${CHOICE#plugin:}"
-            "$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --run "$PLUGIN_ID"
-            ;;
-        *)
-            continue
-            ;;
-    esac
-
-    RESULT=$?
-    if [ "$RESULT" -ne 0 ]; then
-        printf '\nTool exited with status %s.\n' "$RESULT"
-    fi
-done
-
-clear
-echo "Goodbye!"
-\t' read -r id label state; do
+    while IFS=$'\t' read -r id label state; do
         case "$id" in
             adsb_radar) adsb_state="$state" ;;
             oui_spy) oui_state="$state" ;;
@@ -161,8 +96,8 @@ echo "Goodbye!"
     [ "$status" -eq 0 ] || return
 
     for id in adsb_radar oui_spy; do
-        if printf '%s\n' "$selected" | grep -Fxq "$id"; then
-            if ! bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
+        if printf '%s\\n' "$selected" | grep -Fxq "$id"; then
+            if ! bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 whiptail --title "Installed Plugins" --infobox "Installing $id..." 8 42
                 if bash "$SCRIPT_DIR/plugin_manager.sh" install "$id" >/dev/null 2>&1; then
                     whiptail --title "Installed Plugins" --msgbox "$id installed successfully." 8 48
@@ -171,7 +106,7 @@ echo "Goodbye!"
                 fi
             fi
         else
-            if bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
+            if bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 if whiptail --title "Remove Plugin" --yesno "Remove $id from SpectrumSnek? Its plugin directory will be deleted. This does not remove shared core files." 10 68; then
                     if bash "$SCRIPT_DIR/plugin_manager.sh" remove "$id" >/dev/null 2>&1; then
                         whiptail --title "Installed Plugins" --msgbox "$id removed." 8 42
