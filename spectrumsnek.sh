@@ -63,10 +63,10 @@ update_spectrumsnek() {
 
 utilities_menu() {
     while true; do
-        utility_choice=$(whiptail --title "SpectrumSnek Utilities" --notags \\
-            --menu "Select a utility:" 14 72 5 \\
-            "update" "Check for and install updates" \\
-            "back" "Return to main menu" \\
+        utility_choice=$(whiptail --title "SpectrumSnek Utilities" --notags \
+            --menu "Select a utility:" 14 72 5 \
+            "update" "Check for and install updates" \
+            "back" "Return to main menu" \
             3>&1 1>&2 2>&3)
         utility_status=$?
         [ "$utility_status" -eq 0 ] || return
