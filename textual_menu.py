@@ -108,7 +108,7 @@ class AppUpdateScreen(Screen):
             self.app.notify("Select a branch first.", severity="warning")
             return
         fetch = subprocess.run(
-            ["git", "-C", str(ROOT), "fetch", "origin", branch],
+            ["git", "-C", str(ROOT), "fetch", "origin", f"refs/heads/{branch}:refs/remotes/origin/{branch}"],
             cwd=ROOT, capture_output=True, text=True, check=False,
         )
         output = [(fetch.stdout + fetch.stderr).strip()]
