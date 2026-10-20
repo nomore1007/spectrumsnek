@@ -91,7 +91,7 @@ def scan_wifi_once(signatures: Dict[str, Any]) -> list[Finding]:
         # nmcli terse output escapes literal colons and backslashes with backslashes.
         # Split only on unescaped delimiters so the BSSID stays a single field.
         fields = re.split(r"(?<!\\\\):", line)
-        fields = [field.replace(r"\\:", ":").replace(r"\\\\", "\\\\") for field in fields]
+        fields = [field.replace("\\:", ":").replace("\\\\", "\\") for field in fields]
         if len(fields) < 5:
             continue
         bssid, ssid, signal, channel, security = fields[:5]
