@@ -74,7 +74,7 @@ case "$1" in
         echo "  logs     - Show recent service logs"
         echo ""
         echo "Manual control:"
-        echo "  ./run_spectrum.sh --service  # Start manually"
+        echo "  ./spectrumsnek.sh --service  # Start manually"
         echo "  pkill -f spectrum_service    # Kill running instances"
         exit 1
         ;;

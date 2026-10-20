@@ -158,7 +158,7 @@ echo "  SpectrumSnek will prefer this binary over /usr/bin/readsb."
 
 echo "SpectrumSnek setup complete!"
 echo ""
-echo "To start: ./run_spectrum.sh"
+echo "To start: ./spectrumsnek.sh"
 echo ""
 echo "Available tools:"
 echo "  • RTL-SDR Spectrum Analyzer"

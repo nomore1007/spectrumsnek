@@ -251,11 +251,11 @@ sudo systemctl disable spectrum-service spectrum-console
 ### After Installation
 
 **Primary Launcher:**
-SpectrumSnek uses `./run_spectrum.sh` as the main program launcher. It automatically activates the virtual environment and runs the interactive menu system.
+SpectrumSnek uses `./spectrumsnek.sh` as the main program launcher. It automatically activates the virtual environment and runs the interactive menu system.
 
 ```bash
 # Main launcher (recommended for all modes)
-./run_spectrum.sh
+./spectrumsnek.sh
 ```
 
 **Console Mode:**
@@ -263,7 +263,7 @@ SpectrumSnek uses `./run_spectrum.sh` as the main program launcher. It automatic
 # Reboot - menu appears automatically on HDMI
 # SSH: ssh user@pi
 # Then run: ~/spectrum_ssh.sh (recommended)
-# Or: ./run_spectrum.sh (main program)
+# Or: ./spectrumsnek.sh (main program)
 ```
 
 **Headless Mode:**
@@ -288,7 +288,7 @@ ssh user@pi  # Automatically starts tmux with SpectrumSnek
 # SSH manual access:
 ssh user@pi
 ~/spectrum_ssh.sh  # Auto-detects running service, shows web interface
-./run_spectrum.sh  # Main program launcher (if service not running)
+./spectrumsnek.sh  # Main program launcher (if service not running)
 ```
 
 ### Service Management
@@ -331,7 +331,7 @@ ssh user@pi
 #### Direct Launcher
 ```bash
 ssh user@pi
-./run_spectrum.sh
+./spectrumsnek.sh
 ```
 - ✅ Activates virtual environment
 - ✅ Runs main interface directly
@@ -348,10 +348,10 @@ python main.py  # ❌ Missing dependencies error
 ```bash
 # Start service in background (binds to 0.0.0.0:5000)
 ssh user@pi
-./run_spectrum.sh --service &
+./spectrumsnek.sh --service &
 
 # Or specify custom settings:
-./run_spectrum.sh --service --host 127.0.0.1 --port 5001
+./spectrumsnek.sh --service --host 127.0.0.1 --port 5001
 
 # Access web interface at http://pi-ip:5000 (firewall auto-configured)
 # Or use SSH client: ./ssh_client.py --host pi-ip --port 5000
@@ -382,7 +382,7 @@ For advanced users running tools directly:
 
 ```bash
 # Use the launcher (recommended)
-./run_spectrum.sh  # Activates venv and runs main.py
+./spectrumsnek.sh  # Activates venv and runs main.py
 
 # Or manually:
 source venv/bin/activate
@@ -605,11 +605,11 @@ python main.py
 # ❌ Don't run python directly!
 
 # Solution: Use the provided launchers
-./run_spectrum.sh          # ✅ Direct launcher
+./spectrumsnek.sh          # ✅ Direct launcher
 ~/spectrum_ssh.sh          # ✅ Full diagnostic interface
 
 # If dependencies are missing, reinstall:
-./run_spectrum.sh --reinstall-deps
+./spectrumsnek.sh --reinstall-deps
 
 # Manual activation (if needed):
 source venv/bin/activate
@@ -631,7 +631,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Or use the launcher to reinstall:
-./run_spectrum.sh --reinstall-deps
+./spectrumsnek.sh --reinstall-deps
 ```
 
 **Service Not Starting on Boot**
@@ -695,7 +695,7 @@ pip install -r requirements.txt
 # The console launcher uses the classic curses menu and discovers plugins
 # automatically from importable packages under plugins/.
 # Run inside a real terminal (HDMI console or an interactive SSH session).
-./run_spectrum.sh
+./spectrumsnek.sh
 
 # If connecting over SSH, confirm the session has a TTY:
 tty
