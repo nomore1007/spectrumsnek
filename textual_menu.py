@@ -15,10 +15,9 @@ from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Static
+from textual.widgets import Button, Footer, Header, Input, Static
 
 from spectrum_core import ROOT, device_status, tool_catalog
-
 
 
 class UtilitiesScreen(Screen):
@@ -41,12 +40,7 @@ class UtilitiesScreen(Screen):
         if button_id == "utility-back":
             self.app.pop_screen()
         elif button_id == "utility-plugins":
-            result = subprocess.run(
-                ["bash", str(ROOT / "plugin_manager.sh"), "list"],
-                cwd=ROOT, capture_output=True, text=True, check=False
-            )
-            output = result.stdout.strip() or result.stderr.strip() or "No plugin status returned."
-            self.app.push_screen(MessageScreen("Installed Plugins", output))
+            self.app.push_screen(PluginScreen())
         elif button_id == "utility-configure":
             self.app.push_screen(ServiceScreen())
         elif button_id == "utility-update":
@@ -68,6 +62,175 @@ class UtilitiesScreen(Screen):
                             severity="warning" if result.returncode else "information")
         except OSError as exc:
             self.app.notify(f"{label} failed: {exc}", severity="error")
+
+    def action_go_back(self) -> None:
+        self.app.pop_screen()
+
+
+class PluginScreen(Screen):
+    """Install, update, and remove plugins from the Textual menu."""
+
+    BINDINGS = [("escape", "go_back", "Back")]
+
+    def compose(self) -> ComposeResult:
+        yield Static("Plugin Manager", classes="menu-title")
+        with VerticalScroll(id="content"):
+            yield Static("Known plugins", classes="menu-title")
+            with Horizontal(classes="tool-row"):
+                yield Button("Install / update ADS-B", id="plugin-install-adsb", variant="primary")
+                yield Button("Remove ADS-B", id="plugin-remove-adsb", variant="default")
+            with Horizontal(classes="tool-row"):
+                yield Button("Install / update OUI-Spy", id="plugin-install-oui", variant="primary")
+                yield Button("Remove OUI-Spy", id="plugin-remove-oui", variant="default")
+            yield Static("Installed plugins", classes="menu-title")
+            yield Static("Loading plugin status...", id="plugin-status")
+            with Horizontal(classes="tool-row"):
+                yield Button("Update all plugins", id="plugin-update-all", variant="primary")
+                yield Button("Add from GitHub URL", id="plugin-add-github", variant="primary")
+            with Horizontal(classes="tool-row"):
+                yield Button("Back", id="plugin-back", variant="default")
+
+    def on_mount(self) -> None:
+        self.refresh_status()
+
+    def refresh_status(self) -> None:
+        manager = subprocess.run(
+            ["bash", str(ROOT / "plugin_manager.sh"), "list"],
+            cwd=ROOT, capture_output=True, text=True, check=False
+        )
+        known_lines = []
+        if manager.returncode == 0:
+            for line in manager.stdout.splitlines():
+                fields = line.split("\t")
+                if len(fields) >= 3:
+                    known_lines.append(f"{fields[1]}: {'installed' if fields[2] == 'ON' else 'not installed'}")
+
+        discovered = subprocess.run(
+            [sys.executable, str(ROOT / "plugin_menu.py"), "--list"],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+            env={**os.environ, "PYTHONPATH": str(ROOT)}
+        )
+        custom_lines = []
+        if discovered.returncode == 0:
+            for line in discovered.stdout.splitlines():
+                fields = line.split("\t", 1)
+                if len(fields) == 2 and fields[0] not in {"adsb_radar", "oui_spy"}:
+                    custom_lines.append(f"{fields[1]} ({fields[0]})")
+        lines = known_lines + [f"Other: {item}" for item in custom_lines]
+        if not lines:
+            lines = ["No plugins are currently installed."]
+        self.query_one("#plugin-status", Static).update("\n".join(lines))
+
+    def run_manager(self, args: list[str], label: str) -> None:
+        try:
+            result = subprocess.run(
+                ["bash", str(ROOT / "plugin_manager.sh"), *args],
+                cwd=ROOT, capture_output=True, text=True, check=False,
+                env={**os.environ, "PYTHONPATH": str(ROOT)}
+            )
+            output = (result.stdout + ("\n" if result.stdout and result.stderr else "") + result.stderr).strip()
+            if not output:
+                output = f"{label} finished with exit status {result.returncode}."
+            self.refresh_status()
+            self.app.push_screen(MessageScreen(
+                f"{label}: {'success' if result.returncode == 0 else 'failed'}",
+                output
+            ))
+        except OSError as exc:
+            self.app.push_screen(MessageScreen(f"{label}: failed", str(exc)))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id or ""
+        actions = {
+            "plugin-install-adsb": (["install", "adsb_radar"], "Install / update ADS-B"),
+            "plugin-remove-adsb": (["remove", "adsb_radar"], "Remove ADS-B"),
+            "plugin-install-oui": (["install", "oui_spy"], "Install / update OUI-Spy"),
+            "plugin-remove-oui": (["remove", "oui_spy"], "Remove OUI-Spy"),
+            "plugin-update-all": (["update", "all"], "Update all plugins"),
+        }
+        if button_id == "plugin-back":
+            self.app.pop_screen()
+        elif button_id == "plugin-add-github":
+            self.app.push_screen(GitHubPluginScreen())
+        elif button_id in actions:
+            args, label = actions[button_id]
+            if button_id in {"plugin-remove-adsb", "plugin-remove-oui"}:
+                plugin_id = args[1]
+                self.app.push_screen(ConfirmRemoveScreen(plugin_id, label))
+            else:
+                self.run_manager(args, label)
+
+    def action_go_back(self) -> None:
+        self.app.pop_screen()
+
+
+class GitHubPluginScreen(Screen):
+    """Collect a GitHub repository URL and install it as a plugin."""
+
+    BINDINGS = [("escape", "go_back", "Back")]
+
+    def compose(self) -> ComposeResult:
+        yield Static("Add Plugin from GitHub", classes="menu-title")
+        yield Static(
+            "Enter a public GitHub repository URL. The repository must contain "
+            "a plugin __init__.py at its root and implement the SpectrumSnek plugin API."
+        )
+        yield Input(placeholder="https://github.com/owner/repository", id="github-url")
+        with Horizontal(classes="tool-row"):
+            yield Button("Install plugin", id="github-install", variant="primary")
+            yield Button("Cancel", id="github-cancel", variant="default")
+
+    def install_url(self) -> None:
+        url = self.query_one("#github-url", Input).value.strip()
+        if not url:
+            self.app.notify("Enter a GitHub repository URL first.", severity="warning")
+            return
+        self.app.pop_screen()
+        plugin_screen = self.app.screen
+        if isinstance(plugin_screen, PluginScreen):
+            plugin_screen.run_manager(["install-url", url], "Add GitHub plugin")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "github-cancel":
+            self.app.pop_screen()
+        elif event.button.id == "github-install":
+            self.install_url()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "github-url":
+            self.install_url()
+
+    def action_go_back(self) -> None:
+        self.app.pop_screen()
+
+
+class ConfirmRemoveScreen(Screen):
+    """Confirm destructive removal of an installed plugin directory."""
+
+    BINDINGS = [("escape", "go_back", "Cancel")]
+
+    def __init__(self, plugin_id: str, label: str) -> None:
+        super().__init__()
+        self.plugin_id = plugin_id
+        self.label = label
+
+    def compose(self) -> ComposeResult:
+        yield Static("Remove Plugin", classes="menu-title")
+        yield Static(f"Remove {self.plugin_id}? Its plugin directory and local Git checkout will be deleted.")
+        with Horizontal(classes="tool-row"):
+            yield Button("Remove plugin", id="confirm-remove", variant="error")
+            yield Button("Cancel", id="cancel-remove", variant="default")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "cancel-remove":
+            self.app.pop_screen()
+            return
+        if event.button.id == "confirm-remove":
+            plugin_id = self.plugin_id
+            self.app.pop_screen()
+            plugin_screen = self.app.screen
+            if isinstance(plugin_screen, PluginScreen):
+                plugin_screen.run_manager(["remove", plugin_id], self.label)
 
     def action_go_back(self) -> None:
         self.app.pop_screen()
@@ -123,7 +286,8 @@ class MessageScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Static(self.message_title, classes="menu-title")
-        yield Static(self.message)
+        with VerticalScroll(id="message-content"):
+            yield Static(self.message)
         yield Button("back", id="message-back", variant="default")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -143,9 +307,11 @@ class SpectrumSnekApp(App):
     #banner { height: 1; padding: 0 1; background: #172a3a; color: #f4f7f8; }
     #devices { height: 1; padding: 0 1; background: #203746; }
     #content { height: 1fr; padding: 0 1; }
+    #message-content { height: 1fr; padding: 0 1; }
     #tool-grid { height: auto; }
     .tool-row { height: 3; width: 100%; }
     Button { width: 1fr; min-width: 1; min-height: 3; height: 3; margin: 0; padding: 0 1; }
+    Input { width: 100%; }
     #footer-note { height: 1; padding: 0 1; color: #a9bac6; }
     .menu-title { height: 1; padding: 0 1; background: #172a3a; }
     """
@@ -197,8 +363,6 @@ class SpectrumSnekApp(App):
             self.notify(f"Tool not found: {tool_id}", severity="error")
             return
 
-        # Give the child process the terminal while existing tools run. This lets
-        # legacy terminal tools continue to work during the UI transition.
         try:
             with self.suspend():
                 result = subprocess.run(
