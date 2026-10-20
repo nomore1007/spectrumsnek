@@ -150,7 +150,7 @@ echo "Goodbye!"
             adsb_radar) adsb_state="$state" ;;
             oui_spy) oui_state="$state" ;;
         esac
-    done < <("$SCRIPT_DIR/plugin_manager.sh" list)
+    done < <(bash "$SCRIPT_DIR/plugin_manager.sh" list)
 
     selected=$(whiptail --title "Installed Plugins" --separate-output \
         --checklist "Select the plugins you want installed. Deselecting an installed plugin offers to remove it." 16 76 8 \
@@ -162,18 +162,18 @@ echo "Goodbye!"
 
     for id in adsb_radar oui_spy; do
         if printf '%s\n' "$selected" | grep -Fxq "$id"; then
-            if ! "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
+            if ! bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 whiptail --title "Installed Plugins" --infobox "Installing $id..." 8 42
-                if "$SCRIPT_DIR/plugin_manager.sh" install "$id" >/dev/null 2>&1; then
+                if bash "$SCRIPT_DIR/plugin_manager.sh" install "$id" >/dev/null 2>&1; then
                     whiptail --title "Installed Plugins" --msgbox "$id installed successfully." 8 48
                 else
                     whiptail --title "Installed Plugins" --msgbox "Could not install $id. Check the network, Git, and Python dependency errors, then retry." 10 68
                 fi
             fi
         else
-            if "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
+            if bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 if whiptail --title "Remove Plugin" --yesno "Remove $id from SpectrumSnek? Its plugin directory will be deleted. This does not remove shared core files." 10 68; then
-                    if "$SCRIPT_DIR/plugin_manager.sh" remove "$id" >/dev/null 2>&1; then
+                    if bash "$SCRIPT_DIR/plugin_manager.sh" remove "$id" >/dev/null 2>&1; then
                         whiptail --title "Installed Plugins" --msgbox "$id removed." 8 42
                     else
                         whiptail --title "Installed Plugins" --msgbox "Could not remove $id." 8 42
