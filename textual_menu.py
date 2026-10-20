@@ -219,6 +219,8 @@ class PluginScreen(Screen):
             self.app.push_screen(PluginActionsScreen("adsb_radar", "ADS-B Radar"))
         elif button_id == "plugin-oui":
             self.app.push_screen(PluginActionsScreen("oui_spy", "OUI-Spy"))
+        elif button_id == "plugin-lora":
+            self.app.push_screen(PluginActionsScreen("lora_monitor", "LoRa Monitor"))
 
     def action_go_back(self) -> None:
         self.app.pop_screen()
