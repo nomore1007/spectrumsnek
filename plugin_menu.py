@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-"""Discover and launch installed SpectrumSnek plugins for the whiptail menu."""
+"""Discover and launch installed SpectrumSnek plugins for the Whiptail menu."""
 
 import argparse
 import importlib
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent
 PLUGINS_DIR = ROOT / "plugins"
-EXCLUDED_PLUGINS = {"system_tools", "__pycache__"}
+# These plugins already have dedicated entries in run_spectrum.sh.
+BUILTIN_PLUGINS = {"rtl_scanner", "radio_scanner", "system_tools", "__pycache__"}
+
+
+def _clean(value):
+    """Keep plugin metadata on one line so it is safe in the menu protocol."""
+    return " ".join(str(value).replace("\t", " ").replace("\r", " ").replace("\n", " ").split())
 
 
 def discover_plugins():
-    """Return installed plugins that implement the SpectrumSnek plugin contract."""
+    """Return every installed plugin that implements the SpectrumSnek plugin API."""
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
 
@@ -25,7 +30,7 @@ def discover_plugins():
         if (
             not path.is_dir()
             or path.name.startswith("_")
-            or path.name in EXCLUDED_PLUGINS
+            or path.name in BUILTIN_PLUGINS
             or not (path / "__init__.py").is_file()
         ):
             continue
@@ -33,13 +38,17 @@ def discover_plugins():
         try:
             module = importlib.import_module(f"plugins.{path.name}")
             get_info = getattr(module, "get_module_info", None)
-            run = getattr(module, "run", None)
-            if not callable(get_info) or not callable(run):
+            info = get_info() if callable(get_info) else getattr(module, "MODULE_INFO", {})
+            if not isinstance(info, dict):
+                info = {}
+            run_function = getattr(module, "run", None)
+            if not callable(run_function):
+                print(f"Skipping plugin {path.name}: no callable run() entry point", file=sys.stderr)
                 continue
 
-            info = get_info() or {}
-            name = str(info.get("name") or path.name).replace("\\t", " ").replace("\\n", " ")
-            plugins.append((path.name, name))
+            name = _clean(info.get("name") or path.name.replace("_", " ").title())
+            description = _clean(info.get("description") or f"Run {name}")
+            plugins.append((path.name, name, description))
         except Exception as exc:
             print(f"Skipping plugin {path.name}: {exc}", file=sys.stderr)
 
@@ -48,31 +57,37 @@ def discover_plugins():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--list", action="store_true", help="list installed plugins as tab-separated ID and name")
-    parser.add_argument("--run", metavar="PLUGIN_ID", help="run an installed plugin by directory name")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--list", action="store_true", help="list installed plugins for the Whiptail menu")
+    group.add_argument("--run", metavar="PLUGIN_ID", help="run an installed plugin by directory name")
     args = parser.parse_args()
 
     if args.list:
-        for plugin_id, name in discover_plugins():
-            print(f"{plugin_id}\\t{name}")
+        for plugin_id, name, description in discover_plugins():
+            print(f"{plugin_id}\t{name}\t{description}")
         return 0
 
-    if args.run:
-        available = dict((plugin_id, name) for plugin_id, name in discover_plugins())
-        if args.run not in available:
-            print(f"Plugin is not installed or does not implement the plugin API: {args.run}", file=sys.stderr)
-            return 2
-        try:
-            module = importlib.import_module(f"plugins.{args.run}")
-            module.run()
-            return 0
-        except KeyboardInterrupt:
-            return 130
-        except Exception as exc:
-            print(f"Plugin {args.run} failed: {exc}", file=sys.stderr)
-            return 1
+    available = {plugin_id for plugin_id, _, _ in discover_plugins()}
+    plugin_id = args.run
+    if (
+        not plugin_id
+        or plugin_id.startswith("_")
+        or "/" in plugin_id
+        or "\\" in plugin_id
+        or plugin_id not in available
+    ):
+        print(f"Plugin is not installed or does not implement the plugin API: {plugin_id}", file=sys.stderr)
+        return 2
 
-    parser.error("choose --list or --run PLUGIN_ID")
+    try:
+        module = importlib.import_module(f"plugins.{plugin_id}")
+        module.run()
+        return 0
+    except KeyboardInterrupt:
+        return 130
+    except Exception as exc:
+        print(f"Plugin {plugin_id} failed: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
