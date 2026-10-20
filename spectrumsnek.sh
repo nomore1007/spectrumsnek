@@ -5,6 +5,10 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Keep stderr visible while recording timestamped diagnostics for later review.
+exec 2> >(while IFS= read -r error_line; do
+    printf '[%s] [launcher] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$error_line" | tee -a "$SCRIPT_DIR/error.log" >&2
+done)
 VENV_DIR="$SCRIPT_DIR/venv"
 PYTHON="python3"
 
@@ -99,7 +103,7 @@ installed_plugins_menu() {
         if printf '%s\n' "$selected" | grep -Fxq "$id"; then
             if ! bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 whiptail --title "Installed Plugins" --infobox "Installing $id..." 8 42
-                if bash "$SCRIPT_DIR/plugin_manager.sh" install "$id" >/dev/null 2>&1; then
+                if bash "$SCRIPT_DIR/plugin_manager.sh" install "$id" >/dev/null; then
                     whiptail --title "Installed Plugins" --msgbox "$id installed successfully." 8 48
                 else
                     whiptail --title "Installed Plugins" --msgbox "Could not install $id. Check the network, Git, and Python dependency errors, then retry." 10 68
@@ -108,7 +112,7 @@ installed_plugins_menu() {
         else
             if bash "$SCRIPT_DIR/plugin_manager.sh" list | awk -F '\t' -v id="$id" '$1 == id && $3 == "ON" { found=1 } END { exit !found }'; then
                 if whiptail --title "Remove Plugin" --yesno "Remove $id from SpectrumSnek? Its plugin directory will be deleted. This does not remove shared core files." 10 68; then
-                    if bash "$SCRIPT_DIR/plugin_manager.sh" remove "$id" >/dev/null 2>&1; then
+                    if bash "$SCRIPT_DIR/plugin_manager.sh" remove "$id" >/dev/null; then
                         whiptail --title "Installed Plugins" --msgbox "$id removed." 8 42
                     else
                         whiptail --title "Installed Plugins" --msgbox "Could not remove $id." 8 42
