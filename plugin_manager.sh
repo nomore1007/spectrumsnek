@@ -78,12 +78,8 @@ install_from_url() {
             return 1
         fi
         if [ -n "$branch" ]; then
-            git -C "$target" fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || return 1
-            if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
-                git -C "$target" switch "$branch" || return 1
-            else
-                git -C "$target" switch --track -c "$branch" "origin/$branch" || return 1
-            fi
+            fetch_plugin_branch_ref "$target" "$branch" || return 1
+            checkout_plugin_branch "$target" "$branch" || return 1
             git -C "$target" pull --ff-only origin "$branch" || return 1
         else
             echo "Updating $(plugin_label "$id")..."
@@ -128,6 +124,29 @@ list_branches() {
     git ls-remote --heads "$url" 2>/dev/null | sed -E 's#^[^[:space:]]+[[:space:]]+refs/heads/##' | sort -u
 }
 
+fetch_plugin_branch_ref() {
+    local target="$1" branch="$2"
+    # Force-update the exact remote-tracking ref, including slash-containing names.
+    git -C "$target" fetch origin "+refs/heads/$branch:refs/remotes/origin/$branch" || return 1
+    git -C "$target" show-ref --verify --quiet "refs/remotes/origin/$branch" || {
+        echo "Fetched branch but remote-tracking ref is missing: origin/$branch" >&2
+        return 1
+    }
+}
+
+checkout_plugin_branch() {
+    local target="$1" branch="$2"
+    if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
+        git -C "$target" switch "$branch" || return 1
+    else
+        # Create the local branch from the fetched commit first, then configure
+        # upstream separately. This avoids coupling branch creation to Git's
+        # automatic tracking inference for a fully qualified start-point.
+        git -C "$target" switch --no-track -c "$branch" "refs/remotes/origin/$branch" || return 1
+        git -C "$target" branch --set-upstream-to="origin/$branch" "$branch" || return 1
+    fi
+}
+
 change_plugin_branch() {
     local id="$1" branch="$2" target current_remote expected_remote
     [[ "$branch" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || { echo "Invalid branch name: $branch" >&2; return 2; }
@@ -139,12 +158,8 @@ change_plugin_branch() {
         echo "Refusing to change branch: origin is $current_remote, expected $expected_remote." >&2
         return 1
     fi
-    git -C "$target" fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || return 1
-    if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
-        git -C "$target" switch "$branch" || return 1
-    else
-        git -C "$target" switch --track -c "$branch" "origin/$branch" || return 1
-    fi
+    fetch_plugin_branch_ref "$target" "$branch" || return 1
+    checkout_plugin_branch "$target" "$branch" || return 1
     git -C "$target" pull --ff-only origin "$branch" || return 1
     install_requirements "$target" || return 1
     echo "$id now uses branch $branch."
