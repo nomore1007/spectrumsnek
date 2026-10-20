@@ -67,7 +67,7 @@ install_plugin() {
 }
 
 install_from_url() {
-    local url="$1" id="$2" target current_remote cloned=0
+    local url="$1" id="$2" branch="${3:-}" target current_remote cloned=0
     target="$PLUGINS_DIR/$id"
     mkdir -p "$PLUGINS_DIR" || return 1
 
@@ -77,18 +77,34 @@ install_from_url() {
             echo "Refusing to update $target: its origin does not match $url." >&2
             return 1
         fi
-        echo "Updating $(plugin_label "$id")..."
-        git -C "$target" pull --ff-only || {
-            echo "Could not fast-forward $(plugin_label "$id"). Check its Git state and upstream." >&2
-            return 1
-        }
+        if [ -n "$branch" ]; then
+            git -C "$target" fetch origin "$branch" || return 1
+            if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
+                git -C "$target" switch "$branch" || return 1
+            else
+                git -C "$target" switch --track -c "$branch" "origin/$branch" || return 1
+            fi
+            git -C "$target" pull --ff-only origin "$branch" || return 1
+        else
+            echo "Updating $(plugin_label "$id")..."
+            git -C "$target" pull --ff-only || {
+                echo "Could not fast-forward $(plugin_label "$id"). Check its Git state and upstream." >&2
+                return 1
+            }
+        fi
     elif [ -e "$target" ]; then
         echo "Refusing to overwrite existing non-Git plugin directory: $target" >&2
         echo "Back it up or remove it manually, then retry." >&2
         return 1
     else
         echo "Installing $(plugin_label "$id") from $url..."
-        if ! git clone --depth 1 "$url" "$target"; then
+        if [ -n "$branch" ]; then
+            if ! git clone --depth 1 --single-branch --branch "$branch" "$url" "$target"; then
+                rm -rf -- "$target"
+                echo "Failed to clone plugin branch $branch." >&2
+                return 1
+            fi
+        elif ! git clone --depth 1 "$url" "$target"; then
             rm -rf -- "$target"
             echo "Failed to clone plugin repository." >&2
             return 1
@@ -107,8 +123,35 @@ install_from_url() {
     echo "$(plugin_label "$id") is installed at plugins/$id."
 }
 
+list_branches() {
+    local url="$1"
+    git ls-remote --heads "$url" 2>/dev/null | sed -E 's#^[^[:space:]]+[[:space:]]+refs/heads/##' | sort -u
+}
+
+change_plugin_branch() {
+    local id="$1" branch="$2" target current_remote expected_remote
+    [[ "$branch" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || { echo "Invalid branch name: $branch" >&2; return 2; }
+    target="$PLUGINS_DIR/$id"
+    [ -d "$target/.git" ] || { echo "$id is not installed as a Git checkout." >&2; return 1; }
+    expected_remote="$(plugin_repo "$id" 2>/dev/null || true)"
+    current_remote="$(git -C "$target" remote get-url origin 2>/dev/null || true)"
+    if [ -n "$expected_remote" ] && [ "$current_remote" != "$expected_remote" ]; then
+        echo "Refusing to change branch: origin is $current_remote, expected $expected_remote." >&2
+        return 1
+    fi
+    git -C "$target" fetch origin "$branch" || return 1
+    if git -C "$target" show-ref --verify --quiet "refs/heads/$branch"; then
+        git -C "$target" switch "$branch" || return 1
+    else
+        git -C "$target" switch --track -c "$branch" "origin/$branch" || return 1
+    fi
+    git -C "$target" pull --ff-only origin "$branch" || return 1
+    install_requirements "$target" || return 1
+    echo "$id now uses branch $branch."
+}
+
 update_plugin_dir() {
-    local id="$1" target expected_remote current_remote
+    local id="$1" branch="${2:-}" target expected_remote current_remote
     target="$PLUGINS_DIR/$id"
     [ -d "$target/.git" ] || {
         echo "$id is not a Git checkout; cannot pull updates." >&2
@@ -119,6 +162,10 @@ update_plugin_dir() {
     if [ -n "$expected_remote" ] && [ "$current_remote" != "$expected_remote" ]; then
         echo "Refusing to update $id: origin is $current_remote, expected $expected_remote." >&2
         return 1
+    fi
+    if [ -n "$branch" ]; then
+        change_plugin_branch "$id" "$branch"
+        return $?
     fi
     echo "Updating $(plugin_label "$id")..."
     git -C "$target" pull --ff-only || return 1
@@ -155,20 +202,34 @@ case "${1:-list}" in
             printf '%s\t%s\t%s\n' "$id" "$(plugin_label "$id")" "$state"
         done
         ;;
+    branches)
+        [ "$#" -eq 2 ] || { echo "Usage: $0 branches <plugin-id>" >&2; exit 2; }
+        repo="$(plugin_repo "$2" 2>/dev/null || true)"
+        if [ -z "$repo" ]; then
+            repo="$(git -C "$PLUGINS_DIR/$2" remote get-url origin 2>/dev/null || true)"
+        fi
+        [ -n "$repo" ] || { echo "Cannot determine repository for $2." >&2; exit 1; }
+        list_branches "$repo"
+        ;;
     install)
-        [ "$#" -eq 2 ] || { echo "Usage: $0 install <adsb_radar|oui_spy>" >&2; exit 2; }
-        install_plugin "$2"
+        [ "$#" -ge 2 ] && [ "$#" -le 3 ] || { echo "Usage: $0 install <adsb_radar|oui_spy> [branch]" >&2; exit 2; }
+        repo="$(plugin_repo "$2")" || { echo "Unknown known plugin: $2" >&2; exit 2; }
+        install_from_url "$repo" "$2" "${3:-}"
         ;;
     install-url)
-        [ "$#" -eq 2 ] || { echo "Usage: $0 install-url <https://github.com/owner/repo>" >&2; exit 2; }
+        [ "$#" -ge 2 ] && [ "$#" -le 3 ] || { echo "Usage: $0 install-url <https://github.com/owner/repo> [branch]" >&2; exit 2; }
         id="$(plugin_id_from_url "$2")" || {
             echo "Invalid URL. Use https://github.com/owner/repository (GitHub repositories only)." >&2
             exit 2
         }
-        install_from_url "$2" "$id"
+        install_from_url "$2" "$id" "${3:-}"
+        ;;
+    branch)
+        [ "$#" -eq 3 ] || { echo "Usage: $0 branch <plugin-id> <branch>" >&2; exit 2; }
+        change_plugin_branch "$2" "$3"
         ;;
     update)
-        [ "$#" -eq 2 ] || { echo "Usage: $0 update <plugin-id|all>" >&2; exit 2; }
+        [ "$#" -ge 2 ] && [ "$#" -le 3 ] || { echo "Usage: $0 update <plugin-id|all> [branch]" >&2; exit 2; }
         if [ "$2" = all ]; then
             failed=0
             found=0
@@ -182,7 +243,7 @@ case "${1:-list}" in
             [ "$failed" -eq 0 ] || exit 1
         else
             [[ "$2" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "Invalid plugin ID: $2" >&2; exit 2; }
-            update_plugin_dir "$2"
+            update_plugin_dir "$2" "${3:-}"
         fi
         ;;
     remove)
@@ -190,7 +251,7 @@ case "${1:-list}" in
         remove_plugin "$2"
         ;;
     *)
-        echo "Usage: $0 {list|install <known-plugin>|install-url <GitHub-URL>|update <plugin-id|all>|remove <plugin-id>}" >&2
+        echo "Usage: $0 {list|branches <plugin-id>|install <known-plugin> [branch]|install-url <GitHub-URL> [branch]|branch <plugin-id> <branch>|update <plugin-id|all> [branch]|remove <plugin-id>}" >&2
         exit 2
         ;;
 esac
