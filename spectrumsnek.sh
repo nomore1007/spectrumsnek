@@ -5,17 +5,21 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Log stderr from launched tools without redirecting Whiptail's terminal UI.
+# Log errors without redirecting Whiptail's terminal UI.
+log_error() {
+    printf '[%s] [launcher] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$SCRIPT_DIR/error.log" >&2
+}
+
 run_logged() {
     "$@" 2> >(while IFS= read -r error_line; do
-        printf '[%s] [launcher] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$error_line" | tee -a "$SCRIPT_DIR/error.log" >&2
+        log_error "$error_line"
     done)
 }
 VENV_DIR="$SCRIPT_DIR/venv"
 PYTHON="python3"
 
 if [ ! -d "$VENV_DIR" ]; then
-    echo "ERROR: Virtual environment not found at $VENV_DIR"
+    log_error "Virtual environment not found at $VENV_DIR"
     echo "Please run ./setup.sh first."
     exit 1
 fi
@@ -25,7 +29,7 @@ if [ -x "$VENV_DIR/bin/python" ]; then
 fi
 
 if ! command -v whiptail >/dev/null 2>&1; then
-    echo "ERROR: 'whiptail' is not installed."
+    log_error "'whiptail' is not installed."
     echo "Install it with: sudo apt install whiptail"
     exit 1
 fi
