@@ -40,7 +40,7 @@ SUDO_CMD=$(get_sudo)
 
 # Function to safely install apt packages
 safe_apt_install() {
-    if $SUDO_CMD apt install -y "$@" 2>/dev/null; then
+    if $SUDO_CMD apt install -y "$@"; then
         return 0
     else
         return 1
@@ -49,7 +49,7 @@ safe_apt_install() {
 
 # Function to safely run apt update
 safe_apt_update() {
-    if $SUDO_CMD apt update 2>/dev/null; then
+    if $SUDO_CMD apt update; then
         return 0
     else
         return 1
