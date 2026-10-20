@@ -151,7 +151,6 @@ while true; do
     if [ "$RESULT" -ne 0 ]; then
         printf '\nTool exited with status %s.\n' "$RESULT"
     fi
-    read -r -p "Press Enter to return to the menu..." _
 done
 
 clear
