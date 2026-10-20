@@ -220,11 +220,8 @@ utilities_menu() {
 
 while true; do
     MENU_ITEMS=(
-        "builtin:rtl_scanner" "RTL-SDR Spectrum Listener (Scanner)"
-        "builtin:radio_scanner" "Traditional Radio Scanner (Audio)"
         "builtin:wifi" "WiFi Tool"
         "builtin:bluetooth" "Bluetooth Tool"
-        "builtin:system_tools" "System Tools"
         "builtin:utilities" "Utilities"
     )
 
