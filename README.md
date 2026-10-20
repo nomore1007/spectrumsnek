@@ -67,6 +67,7 @@ SpectrumSnek uses a modern client-server architecture for maximum flexibility:
 - **🐍 RTL-SDR Spectrum Analyzer**: Real-time spectrum visualization with demodulation
 - **✈️ ADS-B Aircraft Tracker**: Real-time aircraft surveillance and tracking
 - **📻 Traditional Radio Scanner**: Frequency bank scanning with squelch support
+- **🕵️ OUI-Spy**: Linux BLE advertisement and visible Wi-Fi access-point indicator scanning
 - **🎵 FM Radio Tools**: Recording and playback capabilities
 
 ### System Management 🔧
@@ -689,18 +690,17 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Textual Menu Fails in SSH / "Inappropriate ioctl for device"**
+**Curses Menu Does Not Start**
 ```bash
-# Symptom: Interactive menu shows "Error in interactive menu: (25, 'Inappropriate ioctl for device')"
-# Cause: Textual requires proper terminal capabilities not available in SSH
+# The console launcher uses the classic curses menu and discovers plugins
+# automatically from importable packages under plugins/.
+# Run inside a real terminal (HDMI console or an interactive SSH session).
+./run_spectrum.sh
 
-# Solution: The system automatically falls back to text-based menu
-# Use number input instead of arrow keys
-./run_spectrum.sh  # Shows numbered menu options
-# Enter the number of the tool to launch
-
-# For full curses support, use on Pi console/HDMI
-# SSH works with text menu or web interface
+# If connecting over SSH, confirm the session has a TTY:
+tty
+# If you intentionally want the service-backed tool list, pass its URL explicitly:
+python main.py --service-url http://127.0.0.1:5000
 ```
 
 **RTL-SDR PLL Not Locked Warning**
