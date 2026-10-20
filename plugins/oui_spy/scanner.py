@@ -88,18 +88,13 @@ def scan_wifi_once(signatures: Dict[str, Any]) -> list[Finding]:
         raise RuntimeError(message)
     findings = []
     for line in result.stdout.splitlines():
-        fields = line.split(":")
-        # nmcli terse escapes colons in values as \, so BSSID remains six octets.
-        # Parse the first six colon-delimited fields as BSSID, then rejoin SSID fields
-        # if an SSID contains a literal colon.
-        if len(fields) < 8:
+        # nmcli terse output escapes literal colons and backslashes with backslashes.
+        # Split only on unescaped delimiters so the BSSID stays a single field.
+        fields = re.split(r"(?<!\\\\):", line)
+        fields = [field.replace(r"\\:", ":").replace(r"\\\\", "\\\\") for field in fields]
+        if len(fields) < 5:
             continue
-        bssid = ":".join(fields[:6])
-        remainder = fields[6:]
-        security = remainder[-1]
-        channel = remainder[-2]
-        signal = remainder[-3]
-        ssid = ":".join(remainder[:-3]).replace("\\:", ":").replace("\\\\", "\\")
+        bssid, ssid, signal, channel, security = fields[:5]
         signature = match_mac(bssid, signatures)
         findings.append(Finding(
             timestamp(), "Wi-Fi", bssid, ssid or "<hidden SSID>",
