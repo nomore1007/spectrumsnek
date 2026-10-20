@@ -157,7 +157,7 @@ while true; do
     while IFS=$'\t' read -r plugin_id plugin_name; do
         [ -n "${plugin_id:-}" ] || continue
         MENU_ITEMS+=("plugin:$plugin_id" "$plugin_name")
-    done < <("$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --list)
+    done < <(run_logged "$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --list)
 
     CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" \
         --notags \
