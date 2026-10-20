@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 from textual.app import App, ComposeResult
-from textual.containers import Grid, VerticalScroll
+from textual.containers import Horizontal, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
@@ -28,11 +28,13 @@ class UtilitiesScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Static("Utilities", classes="menu-title")
-        with Grid(id="tool-grid"):
-            yield Button("plugins", id="utility-plugins", variant="primary")
-            yield Button("configure", id="utility-configure", variant="primary")
-            yield Button("update", id="utility-update", variant="primary")
-            yield Button("back", id="utility-back", variant="default")
+        with VerticalScroll(id="content"):
+            with Horizontal(classes="tool-row"):
+                yield Button("plugins", id="utility-plugins", variant="primary")
+                yield Button("configure", id="utility-configure", variant="primary")
+            with Horizontal(classes="tool-row"):
+                yield Button("update", id="utility-update", variant="primary")
+                yield Button("back", id="utility-back", variant="default")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
@@ -78,10 +80,16 @@ class ServiceScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Static("Configure Web Service", classes="menu-title")
-        with Grid(id="tool-grid"):
-            for action in ("setup", "start", "stop", "restart", "status", "logs"):
-                yield Button(action, id=f"service-{action}", variant="primary")
-            yield Button("back", id="service-back", variant="default")
+        with VerticalScroll(id="content"):
+            actions = ("setup", "start", "stop", "restart", "status", "logs", "back")
+            for index in range(0, len(actions), 2):
+                with Horizontal(classes="tool-row"):
+                    for action in actions[index:index + 2]:
+                        yield Button(
+                            action,
+                            id="service-back" if action == "back" else f"service-{action}",
+                            variant="default" if action == "back" else "primary",
+                        )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
@@ -135,7 +143,8 @@ class SpectrumSnekApp(App):
     #banner { height: 1; padding: 0 1; background: #172a3a; color: #f4f7f8; }
     #devices { height: 1; padding: 0 1; background: #203746; }
     #content { height: 1fr; padding: 0 1; }
-    #tool-grid { grid-columns: 1fr 1fr; grid-gutter: 0 1; }
+    #tool-grid { height: auto; }
+    .tool-row { height: 3; width: 100%; }
     Button { width: 100%; min-width: 1; min-height: 3; height: 3; margin: 0; padding: 0 1; }
     #footer-note { height: 1; padding: 0 1; color: #a9bac6; }
     .menu-title { height: 1; padding: 0 1; background: #172a3a; }
@@ -151,10 +160,12 @@ class SpectrumSnekApp(App):
         yield Static("SpectrumSnek", id="banner")
         yield Static(id="devices")
         with VerticalScroll(id="content"):
-            with Grid(id="tool-grid"):
-                for tool in tool_catalog():
-                    yield Button(tool["id"], id=f"launch-{tool['id']}", variant="primary")
-                yield Button("utilities", id="open-utilities", variant="default")
+            buttons = [(tool["id"], f"launch-{tool['id']}", "primary") for tool in tool_catalog()]
+            buttons.append(("utilities", "open-utilities", "default"))
+            for index in range(0, len(buttons), 2):
+                with Horizontal(classes="tool-row"):
+                    for label, button_id, variant in buttons[index:index + 2]:
+                        yield Button(label, id=button_id, variant=variant)
         yield Static("↑↓ navigate  Enter select  q quit  r refresh", id="footer-note")
         yield Footer()
 
