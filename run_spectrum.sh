@@ -33,13 +33,14 @@ while true; do
         "builtin:system_tools" "System Tools"
     )
 
-    # Add installed plugins by their display names, without a second description column.
+    # Keep internal plugin IDs as hidden tags; show only friendly names.
     while IFS=$'\t' read -r plugin_id plugin_name; do
         [ -n "${plugin_id:-}" ] || continue
         MENU_ITEMS+=("plugin:$plugin_id" "$plugin_name")
     done < <("$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --list)
 
     CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" \
+        --notags \
         --menu "Use arrows to navigate and Enter to select:" 22 90 12 \
         "${MENU_ITEMS[@]}" \
         3>&1 1>&2 2>&3)
