@@ -24,15 +24,13 @@ class SpectrumSnekApp(App):
     SUB_TITLE = "Radio and SDR toolkit"
     CSS = """
     Screen { background: #101820; color: #edf2f4; }
-    #banner { height: auto; padding: 1 2; background: #172a3a; color: #f4f7f8; }
-    #devices { height: auto; padding: 1 2; background: #203746; }
-    #content { height: 1fr; padding: 1 2; }
-    .tool-row { height: auto; min-height: 5; margin: 0 0 1 0; padding: 1; border: round #35566b; }
-    .tool-copy { width: 1fr; height: auto; padding: 0 1; }
-    .tool-name { text-style: bold; color: #8bd3e6; }
-    .tool-description { color: #d5e1e8; }
-    Button { min-width: 16; min-height: 3; margin: 0 1; }
-    #footer-note { height: auto; padding: 1 2; color: #a9bac6; }
+    Header { height: 1; }
+    #banner { height: 1; padding: 0 1; background: #172a3a; color: #f4f7f8; }
+    #devices { height: 1; padding: 0 1; background: #203746; }
+    #content { height: 1fr; padding: 0 1; }
+    .tool-row { height: 3; margin: 0; padding: 0; }
+    Button { width: 100%; min-width: 1; min-height: 3; margin: 0; padding: 0 1; }
+    #footer-note { height: 1; padding: 0 1; color: #a9bac6; }
     """
 
     BINDINGS = [
@@ -42,19 +40,15 @@ class SpectrumSnekApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Static("🐍  SpectrumSnek\nChoose a tool. Hardware indicators refresh on demand.", id="banner")
+        yield Static("SpectrumSnek", id="banner")
         yield Static(id="devices")
         with VerticalScroll(id="content"):
             for tool in tool_catalog():
                 with Horizontal(classes="tool-row"):
-                    with Vertical(classes="tool-copy"):
-                        yield Label(tool["name"], classes="tool-name")
-                        yield Label(tool["description"], classes="tool-description")
-                    yield Button("Launch", id=f"launch-{tool['id']}", variant="primary")
-        yield Static(
-            "Enter/Space activates focused controls. Touch input depends on the terminal forwarding mouse events.",
-            id="footer-note",
-        )
+                    # Show the actual tool identifier on the button instead of
+                    # wasting scarce screen space on a generic "Launch" label.
+                    yield Button(tool["id"], id=f"launch-{tool['id']}", variant="primary")
+        yield Static("↑↓ navigate  Enter select  q quit  r refresh", id="footer-note")
         yield Footer()
 
     def on_mount(self) -> None:
