@@ -169,12 +169,19 @@ def main(stdscr, args):
                 try:
                     stdscr.addch(y, x, char, color_plane)
                     
-                    # Enhanced label: Callsign + Alt + Speed
-                    callsign = a.get('flight', a.get('hex', '????')).strip()
+                    # Label aircraft by registration, followed by the ICAO type
+                    # designator broadcast in ADS-B/readsb data (field "t").
+                    registration = (a.get('r') or '').strip()
+                    callsign = (a.get('flight') or '').strip()
+                    type_code = (a.get('t') or '').strip().upper()
+                    identity = registration or callsign or a.get('hex', '????')
+                    if type_code:
+                        identity += f" {type_code}"
+
                     alt = f"{int(a['alt_baro'])}ft" if 'alt_baro' in a else ""
                     speed = f"{int(a['gs'])}kt" if 'gs' in a else ""
-                    
-                    full_label = f"{callsign}"
+
+                    full_label = identity
                     if alt or speed:
                         full_label += f" ({alt} {speed})".replace("  ", " ")
                     
