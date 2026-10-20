@@ -172,7 +172,7 @@ while true; do
 
     MENU_PROMPT="Use arrows to navigate and Enter to select:"
     if rtl_sdr_detected; then
-        MENU_PROMPT="${MENU_PROMPT}\n\n  +----------------------+\n  |   RTL-SDR DETECTED   |\n  +----------------------+"
+        MENU_PROMPT="${MENU_PROMPT}\n\n  +-------------+\n  |   RTL-SDR   |\n  +-------------+"
     fi
 
     CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" \
