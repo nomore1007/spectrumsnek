@@ -129,6 +129,13 @@ installed_plugins_menu() {
     done
 }
 
+rtl_sdr_detected() {
+    # Check common RTL2832U-based dongles without opening the device.
+    # This avoids briefly stealing the SDR from a running scanner.
+    command -v lsusb >/dev/null 2>&1 || return 1
+    lsusb 2>/dev/null | grep -Eiq 'ID (0bda:283[1-8]|0bda:0129|1d19:1101|1f4d:b803|1f4d:c803|0458:001a|185b:0620|0ccd:00a9|0ccd:00b3|0ccd:00d3|0ccd:00e0|0ccd:00e1|0ccd:00e2|0ccd:00e3|0ccd:00e4|0ccd:00e5|0ccd:00e6|0ccd:00e7|0ccd:00e8|0ccd:00e9|0ccd:00ea|0ccd:00eb|0ccd:00ec|0ccd:00ed|0ccd:00ef|0ccd:00f0|0ccd:00f1|0ccd:00f2|0ccd:00f3|0ccd:00f4|0ccd:00f5|0ccd:00f6|0ccd:00f7|0ccd:00f8|0ccd:00f9|0ccd:00fa|0ccd:00fb|0ccd:00fc|0ccd:00fd|0ccd:00fe|0ccd:00ff)'
+}
+
 utilities_menu() {
     while true; do
         utility_choice=$(whiptail --title "SpectrumSnek Utilities" --notags \
@@ -163,9 +170,58 @@ while true; do
         MENU_ITEMS+=("plugin:$plugin_id" "$plugin_name")
     done < <(run_logged "$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --list)
 
+    MENU_PROMPT="Use arrows to navigate and Enter to select:"
+    if rtl_sdr_detected; then
+        MENU_PROMPT+=
+    STATUS=$?
+
+    if [ "$STATUS" -ne 0 ]; then
+        break
+    fi
+
+    case "$CHOICE" in
+        "builtin:rtl_scanner")
+            run_logged "$PYTHON" "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
+            ;;
+        "builtin:radio_scanner")
+            run_logged "$PYTHON" "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
+            ;;
+        "builtin:wifi")
+            run_logged "$PYTHON" "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
+            ;;
+        "builtin:bluetooth")
+            run_logged "$PYTHON" "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py"
+            ;;
+        "builtin:system_tools")
+            run_logged "$PYTHON" "$SCRIPT_DIR/plugins/system_tools/system_menu.py"
+            ;;
+        "builtin:utilities")
+            utilities_menu
+            ;;
+        plugin:*)
+            PLUGIN_ID="${CHOICE#plugin:}"
+            run_logged "$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --run "$PLUGIN_ID"
+            ;;
+        *)
+            continue
+            ;;
+    esac
+
+    RESULT=$?
+    if [ "$RESULT" -ne 0 ]; then
+        printf '\nTool exited with status %s.\n' "$RESULT"
+        printf '[%s] [launcher] Selected tool exited with status %s.\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$RESULT" | tee -a "$SCRIPT_DIR/error.log"
+    fi
+done
+
+clear
+echo "Goodbye!"
+\n\n  +----------------------+\n  |   RTL-SDR DETECTED   |\n  +----------------------+'
+    fi
+
     CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" \
         --notags \
-        --menu "Use arrows to navigate and Enter to select:" 22 90 12 \
+        --menu "$MENU_PROMPT" 22 90 12 \
         "${MENU_ITEMS[@]}" \
         3>&1 1>&2 2>&3)
     STATUS=$?
