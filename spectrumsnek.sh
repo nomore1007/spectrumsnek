@@ -172,7 +172,14 @@ while true; do
 
     MENU_PROMPT="Use arrows to navigate and Enter to select:"
     if rtl_sdr_detected; then
-        MENU_PROMPT+=
+        MENU_PROMPT="${MENU_PROMPT}\n\n  +----------------------+\n  |   RTL-SDR DETECTED   |\n  +----------------------+"
+    fi
+
+    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" \
+        --notags \
+        --menu "$MENU_PROMPT" 22 90 12 \
+        "${MENU_ITEMS[@]}" \
+        3>&1 1>&2 2>&3)
     STATUS=$?
 
     if [ "$STATUS" -ne 0 ]; then
