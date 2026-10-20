@@ -74,6 +74,7 @@ update_spectrumsnek() {
             whiptail --title "Update SpectrumSnek" --msgbox "Update failed. The local branch was not fast-forwarded. Check the Git status before retrying." 10 72
         fi
     fi
+}
 
 utilities_menu() {
     while true; do
