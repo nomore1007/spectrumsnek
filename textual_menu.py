@@ -180,12 +180,7 @@ class GitHubPluginScreen(Screen):
             yield Button("Install plugin", id="github-install", variant="primary")
             yield Button("Cancel", id="github-cancel", variant="default")
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "github-cancel":
-            self.app.pop_screen()
-            return
-        if event.button.id != "github-install":
-            return
+    def install_url(self) -> None:
         url = self.query_one("#github-url", Input).value.strip()
         if not url:
             self.app.notify("Enter a GitHub repository URL first.", severity="warning")
@@ -195,9 +190,15 @@ class GitHubPluginScreen(Screen):
         if isinstance(plugin_screen, PluginScreen):
             plugin_screen.run_manager(["install-url", url], "Add GitHub plugin")
 
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "github-cancel":
+            self.app.pop_screen()
+        elif event.button.id == "github-install":
+            self.install_url()
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "github-url":
-            self.query_one("#github-install", Button).press()
+            self.install_url()
 
     def action_go_back(self) -> None:
         self.app.pop_screen()
