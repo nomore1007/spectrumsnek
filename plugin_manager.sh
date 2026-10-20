@@ -44,6 +44,7 @@ plugin_id_from_url() {
         [[ "$url" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.git$ ]] || return 1
     path="${url#https://github.com/}"
     path="${path%/}"
+    path="${path%.git}"
     repo="${path##*/}"
     repo="${repo%.git}"
     case "$path" in
