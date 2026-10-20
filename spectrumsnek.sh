@@ -196,6 +196,7 @@ utilities_menu() {
             --menu "Select a utility:" 15 74 6 \
             "update" "Check for and install updates" \
             "plugins" "Installed Plugins" \
+            "textual" "Try Textual interface (experimental)" \
             "configure" "Configure web service" \
             "back" "Return to main menu" \
             3>&1 1>&2 2>&3)
@@ -204,6 +205,7 @@ utilities_menu() {
         case "$utility_choice" in
             update) update_spectrumsnek ;;
             plugins) installed_plugins_menu ;;
+            textual) run_logged "$PYTHON" "$SCRIPT_DIR/textual_menu.py" ;;
             configure) configure_service_menu ;;
             back) return ;;
         esac
