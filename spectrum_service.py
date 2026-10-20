@@ -41,52 +41,31 @@ class SpectrumService:
         self.status_thread.start()
 
     def load_tools(self):
-        """Load available tools from plugins and system tools."""
-        # Load plugins
-        plugins_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plugins")
-        if os.path.exists(plugins_dir):
-            for item in os.listdir(plugins_dir):
-                plugin_path = os.path.join(plugins_dir, item)
-                if os.path.isdir(plugin_path) and not item.startswith('__') and item not in ["system_tools", "adsb_tool"]:
-                    try:
-                        plugin_module = __import__(f"{plugins_dir}.{item}", fromlist=[item])
-                        info = plugin_module.get_module_info()
-                        self.tools[item] = {
-                            'info': info,
-                            'module': plugin_module,
-                            'status': 'stopped'
-                        }
-                        print(f"Loaded plugin: {info['name']} ({item})")
-                    except ImportError:
-                        print(f"Failed to load plugin {item}")
-                    except Exception as e:
-                        print(f"Error loading plugin {item}: {e}")
-                elif item == "adsb_tool":
-                    print(f"DEBUG: Skipping adsb_tool plugin (handled by adsb_service)")
-                else:
-                    print(f"DEBUG: Considering plugin {item}...")
+        """Load the same built-in tools and installed plugins as other interfaces."""
+        from spectrum_core import tool_catalog
+        import importlib
 
-        # Add system tools
-        self.add_system_tools()
-
-        # Add ADS-B service
-        # ADS-B radar is discovered like every other plugin.
-
-        # Set local run functions for interactive tools
-        for name, tool in self.tools.items():
+        self.tools.clear()
+        for entry in tool_catalog():
+            name = entry["id"]
+            info = {
+                "name": entry["name"],
+                "description": entry["description"],
+                "version": entry.get("version", "1.0.0"),
+                "author": entry.get("author", "SpectrumSnek"),
+            }
             try:
-                if name in ['rtl_scanner', 'radio_scanner']:
-                    local_module = __import__(f'plugins.{name}', fromlist=['run'])
-                    tool['local_run'] = local_module.run
-                # ADS-B is handled by the dedicated adsb_service, not local_run
-                elif name == 'system_tools':
-                    tool['local_run'] = lambda: os.system('python system_tools_launcher.py')
-                elif name == 'demo_scanner':
-                    from plugins.demo_scanner import run
-                    tool['local_run'] = run
-                # For other tools, keep as is
-            except ImportError:
-                pass
+                module = importlib.import_module(f"plugins.{name}") if name != "system_tools" else None
+            except Exception as exc:
+                print(f"Could not import tool {name}: {exc}")
+                module = None
+            self.tools[name] = {
+                "info": info,
+                "module": module,
+                "status": "stopped",
+                "command": entry["command"],
+            }
+            print(f"Loaded tool: {info['name']} ({name})")
 
     def add_system_tools(self):
         """Add built-in system tools."""
@@ -180,12 +159,8 @@ class SpectrumService:
                     # For interactive tools, start in tmux session or subprocess
                     project_root = os.path.dirname(os.path.abspath(__file__))
                     venv_activate = os.path.join(project_root, 'venv', 'bin', 'activate')
-                    if tool_name == 'system_tools':
-                        command = 'python system_tools_launcher.py'
-                    else:
-                        import_path = f"plugins.{tool_name}"
-                        command = f'env TERM=linux PYTHONPATH={shlex.quote(project_root)} python -c "import curses; from {import_path} import run; curses.wrapper(run)"'
-                    cmd = f'cd {shlex.quote(project_root)} && if [ -f {shlex.quote(venv_activate)} ]; then source {shlex.quote(venv_activate)}; fi && {command}'
+                    command = " ".join(shlex.quote(part) for part in tool_data["command"])
+                    cmd = f'cd {shlex.quote(project_root)} && if [ -f {shlex.quote(venv_activate)} ]; then source {shlex.quote(venv_activate)}; fi && PYTHONPATH={shlex.quote(project_root)} {command}'
 
                     if self._tmux_available():
                         tmux_cmd = [

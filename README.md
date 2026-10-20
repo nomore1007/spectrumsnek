@@ -10,10 +10,10 @@ A modular radio and SDR toolkit for Raspberry Pi and Linux, with a Whiptail laun
 - **OUI-Spy plugin:** BLE advertisement and visible Wi-Fi access-point scanning, as supported by the plugin.
 - **System tools:** Wi-Fi selection, Bluetooth connection, and audio output management.
 - **Plugin manager:** install or remove known plugins without merging their code into the core repository.
-- **Utilities:** update the core from GitHub and manage installed plugins.
+- **Utilities:** update the core, manage installed plugins, and configure the optional web service.
 - **Error log:** runtime errors are appended to `error.log` for later troubleshooting.
 
-The main interface uses **Whiptail**, not curses.
+The stable main interface currently uses **Whiptail**. An experimental Textual interface is available with `./venv/bin/python textual_menu.py`; it shares device detection and plugin discovery with the web-service work and is being evaluated before replacing the default launcher.
 
 ## Requirements
 
@@ -48,6 +48,7 @@ Use the arrow keys and Enter to navigate. Choose **Utilities** for:
 
 - **Check for and install updates:** fetches `origin/master`, checks for newer commits, and asks before applying updates. If local changes or untracked files block the update, you can choose to overwrite them. That option discards tracked-file changes and deletes untracked, non-ignored files.
 - **Installed Plugins:** select ADS-B Radar or OUI-Spy to install it. Deselecting an installed plugin offers to remove it.
+- **Configure → Configure Web Service:** install the systemd service, enable it at boot, and manage start/stop/restart/status/logs. The web service runs `spectrum_service.py` directly; the launcher does not use service-mode flags.
 
 ### Known plugins
 
