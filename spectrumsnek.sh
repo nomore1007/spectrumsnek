@@ -172,7 +172,9 @@ while true; do
 
     MENU_PROMPT="Use arrows to navigate and Enter to select:"
     if rtl_sdr_detected; then
-        MENU_PROMPT="${MENU_PROMPT}\n\n  +-------------+\n  |   RTL-SDR   |\n  +-------------+"
+        # Pad the label so it appears on the right side of the 90-column menu.
+        RTL_SDR_SPACES=$(printf '%74s' '')
+        MENU_PROMPT="${MENU_PROMPT}\n${RTL_SDR_SPACES}RTL-SDR"
     fi
 
     CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" \
