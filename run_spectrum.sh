@@ -1,9 +1,12 @@
 #!/bin/bash
 # SpectrumSnek Whiptail Launcher & Menu
-# Optimized for Raspberry Pi and root environments.
+# Installed plugins are discovered automatically from plugins/*/__init__.py.
+
+set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
+PYTHON="python3"
 
 # --- Environment Setup ---
 if [ ! -d "$VENV_DIR" ]; then
@@ -12,59 +15,74 @@ if [ ! -d "$VENV_DIR" ]; then
     exit 1
 fi
 source "$VENV_DIR/bin/activate"
+if [ -x "$VENV_DIR/bin/python" ]; then
+    PYTHON="$VENV_DIR/bin/python"
+fi
 
-# Ensure whiptail is available
 if ! command -v whiptail >/dev/null 2>&1; then
     echo "ERROR: 'whiptail' is not installed."
+    echo "Install it with: sudo apt install whiptail"
     exit 1
 fi
 
 # --- Main Launcher Loop ---
 while true; do
-    # Capture tag ("1", "2", etc.) from whiptail
-    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" \
-        --menu "Use arrows to navigate and Enter to select:" 20 78 10 \
-        "1" "RTL-SDR Spectrum Listener (Scanner)" \
-        "2" "Traditional Radio Scanner (Audio)" \
-        "3" "ADS-B Radar (Full Session: readsb + UI)" \
-        "4" "WiFi Tool" \
-        "5" "Bluetooth Tool" \
-        "6" "System Tools" \
-        "7" "Legacy Curses Menu (main.py)" \
-        3>&1 1>&2 2>&3)
+    MENU_ITEMS=(
+        "builtin:rtl_scanner" "RTL-SDR Spectrum Listener (Scanner)"
+        "builtin:radio_scanner" "Traditional Radio Scanner (Audio)"
+        "builtin:wifi" "WiFi Tool"
+        "builtin:bluetooth" "Bluetooth Tool"
+        "builtin:system_tools" "System Tools"
+    )
 
-    # Exit if user hits Cancel or Escape
-    if [ $? -ne 0 ]; then
+    # The helper emits plugin ID, display name, and description separated by tabs.
+    # Plugin import failures are reported to stderr and do not break the menu.
+    while IFS=$'\t' read -r plugin_id plugin_name plugin_description; do
+        [ -n "${plugin_id:-}" ] || continue
+        MENU_ITEMS+=("plugin:$plugin_id" "$plugin_name: $plugin_description")
+    done < <("$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --list)
+
+    CHOICE=$(whiptail --title "SpectrumSnek 🐍📻" \
+        --menu "Use arrows to navigate and Enter to select:" 22 90 12 \
+        "${MENU_ITEMS[@]}" \
+        3>&1 1>&2 2>&3)
+    STATUS=$?
+
+    # Cancel or Escape returns to the shell.
+    if [ "$STATUS" -ne 0 ]; then
         break
     fi
 
     case "$CHOICE" in
-        "1")
-            python "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
+        "builtin:rtl_scanner")
+            "$PYTHON" "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
             ;;
-        "2")
-            python3 "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
+        "builtin:radio_scanner")
+            "$PYTHON" "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
             ;;
-        "3")
-            PYTHONPATH="$SCRIPT_DIR" python -m plugins.adsb_radar
+        "builtin:wifi")
+            "$PYTHON" "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
             ;;
-        "4")
-            python3 "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
+        "builtin:bluetooth")
+            "$PYTHON" "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py"
             ;;
-        "5")
-            python3 "$SCRIPT_DIR/bluetooth_tool/bluetooth_connector.py"
+        "builtin:system_tools")
+            "$PYTHON" "$SCRIPT_DIR/plugins/system_tools/system_menu.py"
             ;;
-        "6")
-            python3 "$SCRIPT_DIR/plugins/system_tools/system_menu.py"
-            ;;
-        "7")
-            python3 "$SCRIPT_DIR/main.py"
+        plugin:*)
+            PLUGIN_ID="${CHOICE#plugin:}"
+            "$PYTHON" "$SCRIPT_DIR/plugin_menu.py" --run "$PLUGIN_ID"
             ;;
         *)
-            # Should not happen with whiptail tags
             continue
             ;;
     esac
+
+    RESULT=$?
+    if [ "$RESULT" -ne 0 ]; then
+        printf '\nTool exited with status %s.\n' "$RESULT"
+    fi
+    read -r -p "Press Enter to return to the menu..." _
 done
 
 clear
