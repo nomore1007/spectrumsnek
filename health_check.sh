@@ -87,7 +87,7 @@ fi
 
 if [ "$PROCESS_RUNNING" = false ]; then
     echo "❌ No SpectrumSnek processes running"
-    echo "   → Start service or run manually: ./run_spectrum.sh --service"
+    echo "   → Start service or run manually: ./spectrumsnek.sh --service"
     ISSUES_FOUND=true
 fi
 
