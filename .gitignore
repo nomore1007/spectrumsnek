@@ -44,6 +44,7 @@ Thumbs.db
 
 # Logs
 *.log
+error.log  # Runtime diagnostics; keep local and out of Git
 logs/
 setup.log
 spectrum.log
