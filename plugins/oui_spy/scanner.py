@@ -74,6 +74,15 @@ def timestamp() -> str:
     return time.strftime("%H:%M:%S")
 
 
+def parse_nmcli_line(line: str):
+    """Parse one nmcli terse row while respecting escaped colons."""
+    fields = re.split(r"(?<!\\):", line)
+    fields = [field.replace("\\:", ":").replace("\\\\", "\\") for field in fields]
+    if len(fields) < 5:
+        return None
+    return fields[:5]
+
+
 def scan_wifi_once(signatures: Dict[str, Any]) -> list[Finding]:
     """Read nearby APs using nmcli without changing connection state."""
     if not shutil.which("nmcli"):
@@ -88,13 +97,10 @@ def scan_wifi_once(signatures: Dict[str, Any]) -> list[Finding]:
         raise RuntimeError(message)
     findings = []
     for line in result.stdout.splitlines():
-        # nmcli terse output escapes literal colons and backslashes with backslashes.
-        # Split only on unescaped delimiters so the BSSID stays a single field.
-        fields = re.split(r"(?<!\\\\):", line)
-        fields = [field.replace("\\:", ":").replace("\\\\", "\\") for field in fields]
-        if len(fields) < 5:
+        fields = parse_nmcli_line(line)
+        if fields is None:
             continue
-        bssid, ssid, signal, channel, security = fields[:5]
+        bssid, ssid, signal, channel, security = fields
         signature = match_mac(bssid, signatures)
         findings.append(Finding(
             timestamp(), "Wi-Fi", bssid, ssid or "<hidden SSID>",
