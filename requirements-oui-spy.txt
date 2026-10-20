@@ -1,0 +1,4 @@
+# Optional dependency for the Linux-native OUI-Spy BLE scanner.
+# Install into the same Python environment as SpectrumSnek:
+#   python3 -m pip install -r requirements-oui-spy.txt
+bleak>=0.22,<2
