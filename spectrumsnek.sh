@@ -38,20 +38,35 @@ update_spectrumsnek() {
         whiptail --title "Update SpectrumSnek" --msgbox "Updates are configured for the master branch. Current branch: $branch" 10 72
         return
     fi
-    if [ -n "$(git -C "$SCRIPT_DIR" status --porcelain)" ]; then
-        whiptail --title "Update SpectrumSnek" --msgbox "Local changes or untracked files were found. No update was applied. Commit or back up those files, then try again. Ignored files are left alone." 12 76
-        return
-    fi
+
     whiptail --title "Update SpectrumSnek" --infobox "Checking GitHub for updates..." 8 48
     if ! git -C "$SCRIPT_DIR" fetch origin master; then
-        whiptail --title "Update SpectrumSnek" --msgbox "Could not contact GitHub or fetch master. Check your network and Git remote." 10 72
+        whiptail --title "Update SpectrumSnek" --msgbox "Could not contact GitHub or fetch master. Check your network and Git remote. No local files were changed." 10 72
         return
     fi
+
     behind=$(git -C "$SCRIPT_DIR" rev-list --count HEAD..origin/master 2>/dev/null || echo 0)
     if [ "$behind" -eq 0 ]; then
-        whiptail --title "Update SpectrumSnek" --msgbox "SpectrumSnek is already up to date." 8 52
+        whiptail --title "Update SpectrumSnek" --msgbox "SpectrumSnek is already up to date with origin/master." 8 58
         return
     fi
+
+    if [ -n "$(git -C "$SCRIPT_DIR" status --porcelain)" ]; then
+        if ! whiptail --title "Update SpectrumSnek" --yesno "GitHub has $behind new commit(s), but local changes or untracked files were found.\n\nOverwrite local changes and install the update?\n\nWARNING: This permanently discards changes to tracked files and deletes untracked, non-ignored files. Ignored files and plugin directories remain untouched. Back up anything you want to keep.\n\nChoose No to cancel without changing local files." 18 78; then
+            return
+        fi
+        if ! git -C "$SCRIPT_DIR" reset --hard origin/master; then
+            whiptail --title "Update SpectrumSnek" --msgbox "Could not reset the checkout to origin/master. Inspect Git status before retrying." 10 72
+            return
+        fi
+        if ! git -C "$SCRIPT_DIR" clean -fd; then
+            whiptail --title "Update SpectrumSnek" --msgbox "The tracked files were updated, but some untracked files could not be removed. Inspect Git status." 10 72
+            return
+        fi
+        whiptail --title "Update SpectrumSnek" --msgbox "Update installed successfully. Local tracked changes were overwritten and untracked non-ignored files were removed. Ignored files were preserved. Restart SpectrumSnek to use the newest launcher." 12 76
+        return
+    fi
+
     if whiptail --title "Update SpectrumSnek" --yesno "GitHub has $behind new commit(s). Install the update now?" 10 64; then
         if git -C "$SCRIPT_DIR" pull --ff-only origin master; then
             whiptail --title "Update SpectrumSnek" --msgbox "Update installed successfully. Restart SpectrumSnek to use the newest launcher." 10 72
@@ -59,7 +74,6 @@ update_spectrumsnek() {
             whiptail --title "Update SpectrumSnek" --msgbox "Update failed. The local branch was not fast-forwarded. Check the Git status before retrying." 10 72
         fi
     fi
-}
 
 utilities_menu() {
     while true; do
