@@ -153,7 +153,7 @@ class PluginScreen(Screen):
         with VerticalScroll(id="content"):
             with Horizontal(classes="tool-row"):
                 yield Button("ADS-B Radar", id="plugin-adsb", variant="primary")
-                yield Button("OUI-Spy", id="plugin-oui", variant="primary")
+                yield Button("OUI-Spy", id="plugin-oui", variant="primary")\n                yield Button("LoRa Monitor", id="plugin-lora", variant="primary")
             yield Static("Installed add-ons", classes="menu-title")
             yield Static("Loading add-on status...", id="plugin-status")
             with Horizontal(classes="tool-row"):
@@ -185,7 +185,7 @@ class PluginScreen(Screen):
         if discovered.returncode == 0:
             for line in discovered.stdout.splitlines():
                 fields = line.split("\t", 1)
-                if len(fields) == 2 and fields[0] not in {"adsb_radar", "oui_spy"}:
+                if len(fields) == 2 and fields[0] not in {"adsb_radar", "oui_spy", "lora_monitor"}:
                     lines.append(f"{fields[1]} ({fields[0]}): installed")
         self.query_one("#plugin-status", Static).update("\n".join(lines or ["No add-ons are installed."]))
 
