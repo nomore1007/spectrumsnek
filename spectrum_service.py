@@ -10,6 +10,7 @@ import time
 import threading
 import json
 import subprocess
+import shlex
 from typing import Dict, List, Any, Optional
 from flask import Flask, request, jsonify
 import psutil
@@ -42,7 +43,7 @@ class SpectrumService:
     def load_tools(self):
         """Load available tools from plugins and system tools."""
         # Load plugins
-        plugins_dir = "plugins"
+        plugins_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plugins")
         if os.path.exists(plugins_dir):
             for item in os.listdir(plugins_dir):
                 plugin_path = os.path.join(plugins_dir, item)
@@ -69,7 +70,7 @@ class SpectrumService:
         self.add_system_tools()
 
         # Add ADS-B service
-        self.add_adsb_service()
+        # ADS-B radar is discovered like every other plugin.
 
         # Set local run functions for interactive tools
         for name, tool in self.tools.items():
@@ -86,27 +87,6 @@ class SpectrumService:
                 # For other tools, keep as is
             except ImportError:
                 pass
-
-    def add_adsb_service(self):
-        """Add ADS-B service for aircraft tracking."""
-        try:
-            from plugins.adsb_tool.adsb_service import ADSBService
-            self.adsb_service = ADSBService()
-
-            # Add ADS-B service as a special tool
-            self.tools['adsb_service'] = {
-                'info': {
-                    'name': '📡 ADS-B Service',
-                    'description': 'Real-time aircraft tracking using dump1090-fa',
-                    'version': '1.0.0',
-                    'category': 'radio'
-                },
-                'service': self.adsb_service,
-                'status': 'stopped'
-            }
-            print("Loaded ADS-B service")
-        except ImportError as e:
-            print(f"Failed to load ADS-B service: {e}")
 
     def add_system_tools(self):
         """Add built-in system tools."""
@@ -198,11 +178,14 @@ class SpectrumService:
                     thread.start()
                 else:
                     # For interactive tools, start in tmux session or subprocess
+                    project_root = os.path.dirname(os.path.abspath(__file__))
+                    venv_activate = os.path.join(project_root, 'venv', 'bin', 'activate')
                     if tool_name == 'system_tools':
-                        cmd = f'cd /home/nomore/spectrumsnek && source venv/bin/activate && python system_tools_launcher.py'
+                        command = 'python system_tools_launcher.py'
                     else:
                         import_path = f"plugins.{tool_name}"
-                        cmd = f'cd /home/nomore/spectrumsnek && source venv/bin/activate && env TERM=linux python -c "import curses; from {import_path} import run; curses.wrapper(run)"'
+                        command = f'env TERM=linux PYTHONPATH={shlex.quote(project_root)} python -c "import curses; from {import_path} import run; curses.wrapper(run)"'
+                    cmd = f'cd {shlex.quote(project_root)} && if [ -f {shlex.quote(venv_activate)} ]; then source {shlex.quote(venv_activate)}; fi && {command}'
 
                     if self._tmux_available():
                         tmux_cmd = [
@@ -320,57 +303,31 @@ class SpectrumService:
 
             return jsonify(status_info)
 
+        # Backwards-compatible ADS-B API aliases. The plugin is now managed through
+        # the same lifecycle as every other tool.
         @self.app.route('/api/adsb/start', methods=['POST'])
         def start_adsb_service():
-            """Start the ADS-B service."""
-            try:
-                if hasattr(self, 'adsb_service') and self.adsb_service.start_service():
-                    self.tools['adsb_service']['status'] = 'running'
-                    return jsonify({'status': 'started', 'message': 'ADS-B service started successfully'})
-                else:
-                    return jsonify({'error': 'Failed to start ADS-B service'}), 500
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
+            return start_tool('adsb_radar')
 
         @self.app.route('/api/adsb/stop', methods=['POST'])
         def stop_adsb_service():
-            """Stop the ADS-B service."""
-            try:
-                if hasattr(self, 'adsb_service'):
-                    self.adsb_service.stop_service()
-                    self.tools['adsb_service']['status'] = 'stopped'
-                    return jsonify({'status': 'stopped', 'message': 'ADS-B service stopped'})
-                else:
-                    return jsonify({'error': 'ADS-B service not available'}), 500
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
+            return stop_tool('adsb_radar')
 
         @self.app.route('/api/adsb/status', methods=['GET'])
         def get_adsb_status():
-            """Get ADS-B service status and aircraft data."""
-            try:
-                if hasattr(self, 'adsb_service'):
-                    status = self.adsb_service.get_status()
-                    return jsonify(status)
-                else:
-                    return jsonify({'error': 'ADS-B service not available'}), 500
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
+            return get_tool_status('adsb_radar')
 
         @self.app.route('/api/adsb/aircraft', methods=['GET'])
         def get_adsb_aircraft():
-            """Get current aircraft data."""
+            path = os.environ.get('SPECTRUMSNEK_AIRCRAFT_JSON',
+                                  '/tmp/spectrumsnek/readsb/aircraft.json')
             try:
-                if hasattr(self, 'adsb_service'):
-                    status = self.adsb_service.get_status()
-                    return jsonify({
-                        'aircraft_count': status['aircraft_count'],
-                        'aircraft': status['aircraft']
-                    })
-                else:
-                    return jsonify({'aircraft_count': 0, 'aircraft': []})
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
+                with open(path, 'r', encoding='utf-8') as handle:
+                    data = json.load(handle)
+                aircraft = data.get('aircraft', [])
+                return jsonify({'aircraft_count': len(aircraft), 'aircraft': aircraft})
+            except (OSError, ValueError):
+                return jsonify({'aircraft_count': 0, 'aircraft': []})
 
         @self.app.route('/api/system/status', methods=['GET'])
         def get_system_status():

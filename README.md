@@ -789,3 +789,26 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE.txt) 
 ## Disclaimer
 
 This software is for educational and research purposes only. Users are responsible for complying with local laws and regulations regarding radio frequency monitoring and recording.
+
+
+## ADS-B radar plugin and shared SDR ownership
+
+ADS-B tracking uses **readsb** as the sole decoder. The terminal radar is a regular
+plugin at `plugins/adsb_radar`, discovered and launched through the same plugin
+contract as the other tools. The old `adsb_radar.py` path remains as a compatibility
+entry point.
+
+SpectrumSnek components that access the RTL-SDR must use `sdr_manager.py`.
+It provides a cross-process advisory lock so the built-in spectrum scanner and
+the ADS-B plugin cannot claim the dongle at the same time. The manager only stops
+the `readsb` process it launched; it does not kill unrelated decoder processes.
+If a separately managed `readsb` is already running, the plugin reports that
+conflict rather than taking it over.
+
+Configuration:
+- `READSB_BIN`: readsb executable name or full path (default: `readsb`).
+- `SPECTRUMSNEK_SDR_LOCK`: lock file path (default: `/tmp/spectrumsnek-sdr.lock`).
+- `SPECTRUMSNEK_READSB_DIR`: readsb JSON output directory (default: `/tmp/spectrumsnek/readsb`).
+
+Run the radar from the project root with `python -m plugins.adsb_radar`.
+Run the hardware-independent lock tests with `python -m unittest tests.test_sdr_manager`.

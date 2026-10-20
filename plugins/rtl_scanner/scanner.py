@@ -20,6 +20,12 @@ import logging
 import sys
 import os
 from typing import Optional
+
+# Make the project root importable when this file is launched directly.
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+from sdr_manager import SDRManager
 import atexit
 import signal
 
@@ -36,6 +42,8 @@ class InteractiveRTLScanner:
         self.center_freq = center_freq
         self.gain = gain
         self.sdr = None
+        self.sdr_lease = None
+        self.sdr_manager = None
         self.is_running = True
         self.show_menu = False
 
@@ -146,13 +154,18 @@ class InteractiveRTLScanner:
                 break
 
     def close(self):
-        """Close the SDR device."""
+        """Close the RTL-SDR and release its shared ownership lock."""
         if self.sdr:
             try:
                 self.sdr.close()
-                self.sdr = None
             except Exception:
                 pass
+            finally:
+                self.sdr = None
+        if self.sdr_lease is not None and self.sdr_manager is not None:
+            self.sdr_manager.release_device()
+            self.sdr_lease = None
+            self.sdr_manager = None
 
     def __del__(self):
         """Ensure SDR is closed on object destruction."""
@@ -180,24 +193,26 @@ class InteractiveRTLScanner:
         self.audio_thread = None
 
     def initialize_device(self):
-        """Initialize the RTL-SDR device."""
+        """Initialize RTL-SDR only while holding SpectrumSnek's shared device lock."""
         with self.sdr_lock:
             try:
+                self.sdr_manager = SDRManager()
+                self.sdr_lease = self.sdr_manager.acquire_device("rtl_scanner")
                 self.sdr = RtlSdr()  # type: ignore
                 if self.sdr is None:
                     raise RuntimeError("Failed to create RTL-SDR instance")
 
                 self.sdr.sample_rate = self.sample_rate
                 self.sdr.center_freq = self.center_freq
-                if self.gain == 'auto':
-                    self.sdr.gain = 'auto'
-                else:
-                    self.sdr.gain = self.gain
-
+                self.sdr.gain = 'auto' if self.gain == 'auto' else self.gain
                 logger.info("RTL-SDR initialized for interactive mode")
             except Exception as e:
                 logger.error(f"Failed to initialize SDR: {e}")
                 self.sdr = None
+                if self.sdr_lease is not None:
+                    self.sdr_manager.release_device()
+                    self.sdr_lease = None
+                    self.sdr_manager = None
                 raise
 
 

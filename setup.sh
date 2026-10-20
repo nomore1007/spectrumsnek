@@ -66,7 +66,7 @@ safe_apt_update
 
 # Install system dependencies
 echo "Installing system dependencies..."
-SYSTEM_PACKAGES="git build-essential python3-dev python3-venv python3-pip rtl-sdr libusb-1.0-0-dev pkg-config libncurses5-dev libportaudio2 libasound2-dev"
+SYSTEM_PACKAGES="git build-essential python3-dev python3-venv python3-pip rtl-sdr librtlsdr-dev libusb-1.0-0-dev zlib1g-dev pkg-config libncurses-dev libportaudio2 libasound2-dev"
 if safe_apt_install $SYSTEM_PACKAGES; then
     echo "✓ System dependencies installed"
 else
@@ -76,6 +76,7 @@ fi
 # Setup Python virtual environment
 echo "Setting up Python virtual environment..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 VENV_DIR="$SCRIPT_DIR/venv"
 
 if [ ! -d "$VENV_DIR" ]; then
@@ -108,94 +109,53 @@ else
     echo "⚠ requirements.txt not found"
 fi
 
-# Install ADS-B decoder
-echo "Checking for ADS-B decoder..."
+# Build readsb ourselves with RTL-SDR support. The distro's /usr/bin/readsb
+# may be compiled without RTL-SDR, so SpectrumSnek uses this project-local copy.
+echo "Building readsb with RTL-SDR support..."
+READSB_SOURCE_DIR="$SCRIPT_DIR/.local/src/readsb"
+READSB_INSTALL_DIR="$SCRIPT_DIR/.local/bin"
+READSB_BIN="$READSB_INSTALL_DIR/readsb"
 
-# Detect SDR type
-sdr_type="unknown"
-if command -v rtl_test &> /dev/null; then
-    if timeout 10 rtl_test -t 2>&1 | grep -q "Found [0-9] device"; then
-        sdr_type="rtlsdr"
-        echo "RTL-SDR detected - will install compatible ADS-B decoder"
-    fi
-fi
+mkdir -p "$READSB_INSTALL_DIR" "$(dirname "$READSB_SOURCE_DIR")" || exit 1
 
-if [ "$sdr_type" = "rtlsdr" ]; then
-    # For RTL-SDR, prioritize dump1090-mutability for best compatibility
-    if ! command -v dump1090-mutability &> /dev/null && ! command -v dump1090-fa &> /dev/null; then
-        echo "Installing ADS-B decoder for RTL-SDR compatibility..."
-
-        # Try installing dump1090-mutability first (best RTL-SDR support)
-        if safe_apt_install dump1090-mutability; then
-            echo "✓ ADS-B decoder (dump1090-mutability) installed for RTL-SDR"
-        else
-            echo "dump1090-mutability not available, trying dump1090-fa..."
-            if safe_apt_install dump1090-fa; then
-                echo "✓ ADS-B decoder (dump1090-fa) installed successfully"
-            else
-                # Try building dump1090 from source
-                echo "Package installation failed, building from source..."
-                if command -v git &> /dev/null && command -v make &> /dev/null; then
-                    TEMP_DIR=$(mktemp -d)
-                    cd "$TEMP_DIR"
-                    if git clone https://github.com/antirez/dump1090.git >/dev/null 2>&1; then
-                        cd dump1090
-                        echo "Building dump1090..."
-                        if gcc -I. *.c -o dump1090 -lm -lpthread -lrtlsdr -lusb-1.0 -lncurses >/dev/null 2>&1; then
-                            $SUDO_CMD cp dump1090 /usr/local/bin/ >/dev/null 2>&1
-                            if command -v dump1090 &> /dev/null; then
-                                echo "✓ ADS-B decoder (dump1090) built and installed from source"
-                            else
-                                echo "⚠ Build completed but dump1090 not found in PATH"
-                            fi
-                        else
-                            echo "⚠ Failed to compile dump1090"
-                        fi
-                    else
-                        echo "⚠ Failed to download dump1090 source"
-                    fi
-                    cd /
-                    rm -rf "$TEMP_DIR"
-                else
-                    echo "⚠ git/make not available for source build"
-                fi
-
-                # Final check for successful installation
-                if command -v dump1090-mutability &> /dev/null || command -v dump1090-fa &> /dev/null || command -v dump1090 &> /dev/null; then
-                    echo "✓ ADS-B decoder installation completed successfully"
-                else
-                    echo "⚠ All automatic installation methods failed"
-                    echo "ADS-B functionality will require manual decoder installation"
-                fi
-            fi
-        fi
-    else
-        if command -v dump1090-mutability &> /dev/null; then
-            echo "✓ RTL-SDR compatible ADS-B decoder (dump1090-mutability) already available"
-        elif command -v dump1090-fa &> /dev/null; then
-            echo "✓ RTL-SDR compatible ADS-B decoder (dump1090-fa) already available"
-        else
-            echo "✓ RTL-SDR compatible ADS-B decoder already available"
-        fi
+if [ ! -d "$READSB_SOURCE_DIR/.git" ]; then
+    if ! git clone https://github.com/wiedehopf/readsb.git "$READSB_SOURCE_DIR"; then
+        echo "❌ Failed to clone the readsb source repository"
+        exit 1
     fi
 else
-    # For other SDR types or unknown, install readsb
-    if ! command -v readsb &> /dev/null; then
-        echo "Installing readsb for general ADS-B compatibility..."
-        safe_apt_install readsb
-
-        if command -v readsb &> /dev/null; then
-            echo "✓ ADS-B decoder (readsb) installed"
-            echo "Note: readsb works best with dedicated ADS-B hardware"
-        else
-            echo "⚠ Failed to install ADS-B decoder"
-        fi
-    else
-        echo "✓ ADS-B decoder already available"
+    echo "Updating existing readsb source..."
+    if ! git -C "$READSB_SOURCE_DIR" pull --ff-only; then
+        echo "❌ Could not fast-forward the existing readsb source checkout."
+        echo "   Resolve that checkout in $READSB_SOURCE_DIR and rerun setup."
+        exit 1
     fi
 fi
 
-echo ""
+if ! make -C "$READSB_SOURCE_DIR" clean; then
+    echo "❌ Failed to clean the readsb build"
+    exit 1
+fi
+
+# Pi Zero 2 W has four CPU cores but limited RAM; keep parallelism conservative.
+if ! make -C "$READSB_SOURCE_DIR" -j2 RTLSDR=yes; then
+    echo "❌ readsb compilation failed. Check setup.log for compiler output."
+    exit 1
+fi
+
+if [ ! -x "$READSB_SOURCE_DIR/readsb" ]; then
+    echo "❌ Compilation finished but the readsb executable was not created"
+    exit 1
+fi
+
+if ! install -m 0755 "$READSB_SOURCE_DIR/readsb" "$READSB_BIN"; then
+    echo "❌ Could not install the compiled readsb binary to $READSB_BIN"
+    exit 1
+fi
+
+echo "✓ RTL-SDR-enabled readsb installed at: $READSB_BIN"
+echo "  SpectrumSnek will prefer this binary over /usr/bin/readsb."
+
 echo "SpectrumSnek setup complete!"
 echo ""
 echo "To start: ./run_spectrum.sh"
