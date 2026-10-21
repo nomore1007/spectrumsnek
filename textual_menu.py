@@ -164,11 +164,11 @@ class AppUpdateScreen(Screen):
         )
         output.append((pull.stdout + pull.stderr).strip())
         self.app.pop_screen()
-        message = "\\n".join(x for x in output if x) or f"git pull exited {pull.returncode}"
+        message = "\n".join(x for x in output if x) or f"git pull exited {pull.returncode}"
         if pull.returncode == 0:
             self.app.push_screen(RestartScreen(
                 "Core update installed",
-                message + "\\n\\nRestart SpectrumSnek to load the updated core.",
+                message + "\n\nRestart SpectrumSnek to load the updated core.",
             ))
         else:
             self.app.push_screen(MessageScreen("Update failed", message))
@@ -237,7 +237,7 @@ class PluginScreen(Screen):
             if result.returncode == 0:
                 self.app.push_screen(RestartScreen(
                     f"{label}: success",
-                    output + "\\n\\nRestart the menu to reload plugin discovery and use the changed plugin set.",
+                    output + "\n\nRestart the menu to reload plugin discovery and use the changed plugin set.",
                 ))
             else:
                 self.app.push_screen(MessageScreen(f"{label}: failed", output))
