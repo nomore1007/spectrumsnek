@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 PLUGINS_DIR = ROOT / "plugins"
 # These plugins already have dedicated entries in spectrumsnek.sh.
-BUILTIN_PLUGINS = {"rtl_scanner", "radio_scanner", "system_tools", "__pycache__"}
+BUILTIN_PLUGINS = {"system_tools", "__pycache__"}
 
 
 def _clean(value):

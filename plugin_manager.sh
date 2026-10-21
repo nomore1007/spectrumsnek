@@ -5,7 +5,7 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGINS_DIR="$SCRIPT_DIR/plugins"
 VENV_PIP="$SCRIPT_DIR/venv/bin/pip"
-BUILTIN_PLUGINS=" rtl_scanner radio_scanner system_tools "
+BUILTIN_PLUGINS=" system_tools "
 
 plugin_repo() {
     case "$1" in

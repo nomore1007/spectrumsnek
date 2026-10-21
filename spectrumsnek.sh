@@ -259,12 +259,6 @@ while true; do
     fi
 
     case "$CHOICE" in
-        "builtin:rtl_scanner")
-            run_logged "$PYTHON" "$SCRIPT_DIR/plugins/rtl_scanner/scanner.py"
-            ;;
-        "builtin:radio_scanner")
-            run_logged "$PYTHON" "$SCRIPT_DIR/plugins/radio_scanner/scanner.py"
-            ;;
         "builtin:wifi")
             run_logged "$PYTHON" "$SCRIPT_DIR/wifi_tool/wifi_selector.py"
             ;;
