@@ -42,7 +42,8 @@ class UtilitiesScreen(Screen):
         elif button_id == "utility-plugins":
             self.app.push_screen(PluginScreen())
         elif button_id == "utility-configure":
-            self.app.push_screen(ServiceScreen())
+            from hardware_config import ConfigureScreen
+            self.app.push_screen(ConfigureScreen())
         elif button_id == "utility-update":
             self.app.push_screen(AppUpdateScreen())
 
