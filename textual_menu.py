@@ -69,6 +69,36 @@ def remote_branches(url: str) -> list[str]:
     return sorted(set(branches))
 
 
+class RestartScreen(Screen):
+    """Offer a clean process restart after plugin or core changes."""
+
+    BINDINGS = [("escape", "continue_without_restart", "Continue")]
+
+    def __init__(self, title: str, message: str) -> None:
+        super().__init__()
+        self.message_title = title
+        self.message = message
+
+    def compose(self) -> ComposeResult:
+        yield Static(self.message_title, classes="menu-title")
+        with VerticalScroll(id="message-content"):
+            yield Static(self.message)
+        with Horizontal(classes="tool-row"):
+            yield Button("Restart menu", id="restart-menu", variant="primary")
+            yield Button("Continue without restart", id="continue-menu", variant="default")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "restart-menu":
+            # Replace this process so the updated core and newly installed plugins
+            # are imported from disk by a fresh interpreter.
+            os.execv(sys.executable, [sys.executable, str(ROOT / "textual_menu.py")])
+        elif event.button.id == "continue-menu":
+            self.app.pop_screen()
+
+    def action_continue_without_restart(self) -> None:
+        self.app.pop_screen()
+
+
 class AppUpdateScreen(Screen):
     """Select the branch used to update the main SpectrumSnek checkout."""
 
@@ -134,10 +164,14 @@ class AppUpdateScreen(Screen):
         )
         output.append((pull.stdout + pull.stderr).strip())
         self.app.pop_screen()
-        self.app.push_screen(MessageScreen(
-            f"Update {'complete' if pull.returncode == 0 else 'failed'}",
-            "\n".join(x for x in output if x) or f"git pull exited {pull.returncode}",
-        ))
+        message = "\\n".join(x for x in output if x) or f"git pull exited {pull.returncode}"
+        if pull.returncode == 0:
+            self.app.push_screen(RestartScreen(
+                "Core update installed",
+                message + "\\n\\nRestart SpectrumSnek to load the updated core.",
+            ))
+        else:
+            self.app.push_screen(MessageScreen("Update failed", message))
 
     def action_go_back(self) -> None:
         self.app.pop_screen()
@@ -200,9 +234,13 @@ class PluginScreen(Screen):
             if not output:
                 output = f"{label} finished with exit status {result.returncode}."
             self.refresh_status()
-            self.app.push_screen(MessageScreen(
-                f"{label}: {'success' if result.returncode == 0 else 'failed'}", output
-            ))
+            if result.returncode == 0:
+                self.app.push_screen(RestartScreen(
+                    f"{label}: success",
+                    output + "\\n\\nRestart the menu to reload plugin discovery and use the changed plugin set.",
+                ))
+            else:
+                self.app.push_screen(MessageScreen(f"{label}: failed", output))
         except OSError as exc:
             self.app.push_screen(MessageScreen(f"{label}: failed", str(exc)))
 
