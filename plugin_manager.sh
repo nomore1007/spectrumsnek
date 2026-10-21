@@ -12,6 +12,8 @@ plugin_repo() {
         adsb_radar) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-adsb.git" ;;
         oui_spy) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-oui-spy.git" ;;
         lora_monitor) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-lora.git" ;;
+        analyzer) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-analyzer.git" ;;
+        scanner) printf '%s\n' "https://github.com/nomore1007/spectrumsnek-scanner.git" ;;
         *) return 1 ;;
     esac
 }
@@ -21,6 +23,8 @@ plugin_label() {
         adsb_radar) printf '%s\n' "ADS-B Radar" ;;
         oui_spy) printf '%s\n' "OUI-Spy" ;;
         lora_monitor) printf '%s\n' "LoRa Monitor" ;;
+        analyzer) printf '%s\n' "Analyzer" ;;
+        scanner) printf '%s\n' "Radio Scanner" ;;
         *) printf '%s\n' "$1" ;;
     esac
 }
@@ -53,6 +57,8 @@ plugin_id_from_url() {
         nomore1007/spectrumsnek-adsb) printf '%s\n' adsb_radar; return 0 ;;
         nomore1007/spectrumsnek-oui-spy) printf '%s\n' oui_spy; return 0 ;;
         nomore1007/spectrumsnek-lora) printf '%s\n' lora_monitor; return 0 ;;
+        nomore1007/spectrumsnek-analyzer) printf '%s\n' analyzer; return 0 ;;
+        nomore1007/spectrumsnek-scanner) printf '%s\n' scanner; return 0 ;;
     esac
     repo="${repo//-/_}"
     [[ "$repo" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || return 1
@@ -215,7 +221,7 @@ remove_plugin() {
 case "${1:-list}" in
     list)
         # Stable TSV protocol retained for the existing Whiptail checklist.
-        for id in adsb_radar oui_spy lora_monitor; do
+        for id in adsb_radar oui_spy lora_monitor analyzer scanner; do
             if plugin_is_installed "$id"; then state=ON; else state=OFF; fi
             printf '%s\t%s\t%s\n' "$id" "$(plugin_label "$id")" "$state"
         done
@@ -230,7 +236,7 @@ case "${1:-list}" in
         list_branches "$repo"
         ;;
     install)
-        [ "$#" -ge 2 ] && [ "$#" -le 3 ] || { echo "Usage: $0 install <adsb_radar|oui_spy|lora_monitor> [branch]" >&2; exit 2; }
+        [ "$#" -ge 2 ] && [ "$#" -le 3 ] || { echo "Usage: $0 install <adsb_radar|oui_spy|lora_monitor|analyzer|scanner> [branch]" >&2; exit 2; }
         repo="$(plugin_repo "$2")" || { echo "Unknown known plugin: $2" >&2; exit 2; }
         install_from_url "$repo" "$2" "${3:-}"
         ;;
