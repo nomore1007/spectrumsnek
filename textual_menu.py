@@ -535,6 +535,7 @@ class SpectrumSnekApp(App):
             ("RTL-SDR", status["rtl_sdr"]),
             ("Wi-Fi", status["wifi"]),
             ("Bluetooth", status["bluetooth"]),
+            ("GPS", status["gps"]),
         ]
         display = "  ".join(
             f"{'●' if present else '○'} {name}"
