@@ -25,7 +25,18 @@ def device_status() -> dict[str, bool]:
         "rtl_sdr": _rtl_sdr_detected(),
         "wifi": _wifi_detected(),
         "bluetooth": _bluetooth_detected(),
+        "gps": _gps_detected(),
     }
+
+
+def _gps_detected() -> bool:
+    """Detect likely serial GPS devices or a locally installed gpsd source."""
+    import shutil
+
+    for pattern in ("/dev/ttyUSB*", "/dev/ttyACM*", "/dev/ttyAMA*", "/dev/serial/by-id/*"):
+        if any(path.exists() for path in Path("/").glob(pattern.lstrip("/"))):
+            return True
+    return bool(shutil.which("gpspipe") and shutil.which("gpsd"))
 
 
 def _rtl_sdr_detected() -> bool:
